@@ -9,3 +9,4 @@ preview.log
 vite.log
 dev-runtime.log
 server/piper/models/
+supabase/.temp/
