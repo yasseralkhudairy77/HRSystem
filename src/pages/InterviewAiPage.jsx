@@ -21,6 +21,44 @@ import { createStageHistory } from "@/services/recruitmentWorkflowService";
 
 const stageBadgeClass = "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700";
 
+function normalizeWhatsAppNumber(rawNumber) {
+  const digits = String(rawNumber || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("62")) return digits;
+  if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+  return digits;
+}
+
+function buildWhatsAppLink(rawNumber, message) {
+  const normalizedNumber = normalizeWhatsAppNumber(rawNumber);
+  return normalizedNumber ? `https://wa.me/${normalizedNumber}?text=${encodeURIComponent(message)}` : "";
+}
+
+function buildInterviewAiWhatsAppMessage(candidate, linkUrl, deadlineIso) {
+  const deadlineLabel = formatDateTime(deadlineIso);
+
+  return [
+    `Halo ${candidate.namaLengkap},`,
+    ``,
+    `Anda diundang untuk mengikuti Wawancara AI untuk posisi ${candidate.posisiDilamar}.`,
+    `Deadline pengisian: ${deadlineLabel}.`,
+    ``,
+    `Link wawancara: ${linkUrl}`,
+    ``,
+    `Link ini hanya dapat dipakai satu kali. Mohon langsung buka dan selesaikan sesi wawancara tanpa menutup halaman.`,
+  ].join("\n");
+}
+
+function shouldCreateFreshInterviewInvitation(candidate) {
+  const interviewPackage = candidate?.interviewAiPackage;
+
+  if (!interviewPackage?.id || !candidate?.interviewAiLink) {
+    return true;
+  }
+
+  return ["opened", "in_progress", "completed", "reviewed"].includes(interviewPackage.status);
+}
+
 function formatDateTime(dateString) {
   if (!dateString) return "-";
 
@@ -252,8 +290,23 @@ export default function InterviewAiPage() {
     }
   }
 
-  async function handleCreateSession(candidate) {
-    if (!sessionDeadline) {
+  function sendInterviewAiInvitationViaWhatsApp(candidate, linkUrl, deadlineIso) {
+    const whatsappMessage = buildInterviewAiWhatsAppMessage(candidate, linkUrl, deadlineIso);
+    const whatsappUrl = buildWhatsAppLink(candidate.noWhatsapp, whatsappMessage);
+
+    if (!whatsappUrl) {
+      return false;
+    }
+
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    return true;
+  }
+
+  async function handleCreateSession(candidate, options = {}) {
+    const deadlineValue = options.deadlineValue || sessionDeadline;
+    const recruiterNote = options.recruiterNote ?? reviewNote.trim();
+
+    if (!deadlineValue) {
       setFeedback({ type: "error", message: "Deadline sesi wajib diisi." });
       return;
     }
@@ -264,11 +317,13 @@ export default function InterviewAiPage() {
     try {
       const token = generateInterviewAiToken(candidate.id);
       const linkUrl = buildInterviewAiLink(window.location.origin, token);
+      const deadlineIso = new Date(deadlineValue).toISOString();
+      const deadlineLabel = formatDateTime(deadlineIso);
       const createdPackage = await createInterviewAiPackage({
         pelamarId: candidate.id,
-        deadlineAt: new Date(sessionDeadline).toISOString(),
+        deadlineAt: deadlineIso,
         createdBy: "Recruiter",
-        catatanRecruiter: reviewNote.trim() || null,
+        catatanRecruiter: recruiterNote || null,
         linkToken: token,
         linkUrl,
       });
@@ -278,19 +333,44 @@ export default function InterviewAiPage() {
         status_tindak_lanjut: "Sudah dikirim",
         catatan_recruiter: appendRecruiterNote(
           candidate.catatanRecruiter === "Belum ada catatan recruiter." ? "" : candidate.catatanRecruiter,
-          `Link Wawancara AI dikirim dengan deadline ${formatDateTime(new Date(sessionDeadline).toISOString())}.`,
+          `Undangan Wawancara AI dikirim dengan deadline ${deadlineLabel}.`,
         ),
       });
 
       const nextCandidate = mapPelamarToInterviewAi(updatedPelamar || candidate, createdPackage);
       syncSelectedCandidate(nextCandidate);
-      setFeedback({ type: "success", message: `Sesi Wawancara AI untuk ${candidate.namaLengkap} berhasil dibuat.` });
+
+      if (sendInterviewAiInvitationViaWhatsApp(candidate, linkUrl, deadlineIso)) {
+        setFeedback({ type: "success", message: `Undangan Wawancara AI untuk ${candidate.namaLengkap} berhasil disiapkan dan WhatsApp kandidat dibuka otomatis.` });
+      } else {
+        setFeedback({
+          type: "error",
+          message: `Undangan Wawancara AI untuk ${candidate.namaLengkap} sudah dibuat, tetapi nomor WhatsApp kandidat belum valid. Silakan periksa nomor lalu kirim manual.`,
+        });
+      }
     } catch (error) {
       console.error("Buat sesi Wawancara AI gagal:", error);
       setFeedback({ type: "error", message: error instanceof Error ? error.message : "Sesi Wawancara AI belum berhasil dibuat." });
     } finally {
       setIsBusy(false);
     }
+  }
+
+  function handleSendExistingInvitation(candidate) {
+    if (shouldCreateFreshInterviewInvitation(candidate)) {
+      void handleCreateSession(candidate, { deadlineValue: candidate.interviewAiDeadline || buildDefaultDeadlineValue(), recruiterNote: candidate.interviewAiPackageNote || "" });
+      return;
+    }
+
+    if (sendInterviewAiInvitationViaWhatsApp(candidate, candidate.interviewAiLink, candidate.interviewAiDeadline)) {
+      setFeedback({ type: "success", message: `WhatsApp undangan untuk ${candidate.namaLengkap} berhasil dibuka.` });
+      return;
+    }
+
+    setFeedback({
+      type: "error",
+      message: `Nomor WhatsApp ${candidate.namaLengkap} belum valid. Silakan periksa nomor kandidat terlebih dahulu.`,
+    });
   }
 
   async function handleSaveReview(candidate) {
@@ -622,6 +702,31 @@ export default function InterviewAiPage() {
                             <div className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(candidate.interviewAiUpdatedAt)}</div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {!candidate.interviewAiLink ? (
+                              <Button
+                                size="sm"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleCreateSession(candidate, { deadlineValue: buildDefaultDeadlineValue(), recruiterNote: "" });
+                                }}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? "Memproses..." : "Kirim WA"}
+                              </Button>
+                            ) : null}
+                            {candidate.interviewAiLink ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleSendExistingInvitation(candidate);
+                                }}
+                              >
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                {shouldCreateFreshInterviewInvitation(candidate) ? "Link baru WA" : "WhatsApp"}
+                              </Button>
+                            ) : null}
                             {candidate.interviewAiLink ? (
                               <Button
                                 size="sm"
@@ -697,9 +802,9 @@ export default function InterviewAiPage() {
 
               {!selectedCandidate.interviewAiPackage ? (
                 <section className="space-y-4 rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[var(--surface-0)] px-5 py-5">
-                  <div className="text-lg font-semibold text-[var(--text-main)]">Buat sesi kandidat</div>
+                  <div className="text-lg font-semibold text-[var(--text-main)]">Kirim undangan Wawancara AI</div>
                   <p className="text-sm leading-6 text-[var(--text-muted)]">
-                    Recruiter membuat link khusus kandidat dari sini. Setelah link aktif, kandidat bisa membuka halaman Wawancara AI dan mengisi jawaban satu per satu.
+                    Setelah recruiter klik tombol kirim, sistem membuat link khusus kandidat lalu langsung membuka WhatsApp dengan pesan undangan siap kirim.
                   </p>
                   <div className="grid gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
                     <div>
@@ -708,12 +813,12 @@ export default function InterviewAiPage() {
                     </div>
                     <div>
                       <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Catatan recruiter sebelum kirim</div>
-                      <TextAreaField value={reviewNote} onChange={setReviewNote} placeholder="Contoh: Kandidat diminta menjawab dengan ringkas dan fokus pada pengalaman kerja terakhir." rows={4} />
+                      <TextAreaField value={reviewNote} onChange={setReviewNote} placeholder="Contoh: Kandidat diminta langsung membuka link dan menyelesaikan sesi tanpa menutup halaman." rows={4} />
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button onClick={() => void handleCreateSession(selectedCandidate)} disabled={isBusy}>
-                      {isBusy ? "Memproses..." : "Buat link kandidat"}
+                      {isBusy ? "Memproses..." : "Kirim undangan Wawancara AI"}
                     </Button>
                   </div>
                 </section>
@@ -729,6 +834,10 @@ export default function InterviewAiPage() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" onClick={() => handleSendExistingInvitation(selectedCandidate)}>
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          {shouldCreateFreshInterviewInvitation(selectedCandidate) ? "Buat link baru & kirim WA" : "Kirim ulang WhatsApp"}
+                        </Button>
                         <Button variant="outline" onClick={() => void copyText(selectedCandidate.interviewAiLink, "link kandidat")}>
                           <Clipboard className="mr-2 h-4 w-4" />
                           Salin link
@@ -748,6 +857,8 @@ export default function InterviewAiPage() {
                         const answerText = String(item.result_json?.answer_text || "").trim();
                         const questionText = item.result_json?.question_text || item.test_name_snapshot;
                         const promptAudioUrl = item.result_json?.prompt_audio_url || "";
+                        const answerAudioUrl = item.result_json?.answer_audio_url || "";
+                        const answerAudioDurationSeconds = Number(item.result_json?.answer_audio_duration_seconds || 0);
 
                         return (
                           <div key={item.id} className="rounded-2xl border border-[var(--border-soft)] bg-white px-4 py-4">
@@ -766,9 +877,21 @@ export default function InterviewAiPage() {
                             ) : null}
                             <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-4 py-4">
                               <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">Jawaban kandidat</div>
-                              <div className="mt-2 whitespace-pre-line text-sm leading-7 text-[var(--text-main)]">
-                                {answerText || "Kandidat belum mengirim jawaban untuk pertanyaan ini."}
-                              </div>
+                              {answerAudioUrl ? (
+                                <div className="mt-3 space-y-3">
+                                  <audio controls preload="none" src={answerAudioUrl} className="w-full">
+                                    Browser Anda tidak mendukung audio player.
+                                  </audio>
+                                  <div className="text-sm leading-6 text-[var(--text-muted)]">
+                                    Jawaban dikirim dalam bentuk audio
+                                    {answerAudioDurationSeconds > 0 ? ` dengan durasi sekitar ${answerAudioDurationSeconds} detik.` : "."}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-2 whitespace-pre-line text-sm leading-7 text-[var(--text-main)]">
+                                  {answerText || "Kandidat belum mengirim jawaban untuk pertanyaan ini."}
+                                </div>
+                              )}
                               <div className="mt-3 text-xs text-[var(--text-muted)]">
                                 {item.result_json?.answered_at ? `Disimpan pada ${formatDateTime(item.result_json.answered_at)}` : "Belum ada timestamp jawaban."}
                               </div>

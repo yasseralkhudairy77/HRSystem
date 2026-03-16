@@ -7,6 +7,12 @@ export interface InterviewAiPackageItem extends CandidateTestPackageItem {
     hint?: string;
     prompt_audio_url?: string;
     answer_text?: string;
+    answer_mode?: string;
+    answer_audio_bucket?: string;
+    answer_audio_path?: string;
+    answer_audio_url?: string;
+    answer_audio_duration_seconds?: number;
+    answer_audio_mime_type?: string;
     answered_at?: string | null;
     [key: string]: unknown;
   } | null;

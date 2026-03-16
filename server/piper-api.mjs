@@ -123,11 +123,20 @@ async function generatePromptAudio(questions) {
   const config = getConfig();
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "piper-api-"));
   const questionFile = path.join(tempDir, "questions.json");
-  const piperWrapperFile = path.join(tempDir, "piper-wrapper.cmd");
+  const isWindows = process.platform === "win32";
+  const piperWrapperFile = path.join(tempDir, isWindows ? "piper-wrapper.cmd" : "piper-wrapper.sh");
 
   await fs.promises.mkdir(config.outputDir, { recursive: true });
   await fs.promises.writeFile(questionFile, JSON.stringify(questions, null, 2), "utf8");
-  await fs.promises.writeFile(piperWrapperFile, `@echo off\r\n"${config.pythonCmd}" -m piper %*\r\n`, "utf8");
+  await fs.promises.writeFile(
+    piperWrapperFile,
+    isWindows ? `@echo off\r\n"${config.pythonCmd}" -m piper %*\r\n` : `#!/usr/bin/env sh\n"${config.pythonCmd}" -m piper "$@"\n`,
+    "utf8",
+  );
+
+  if (!isWindows) {
+    await fs.promises.chmod(piperWrapperFile, 0o755);
+  }
 
   const args = [
     config.scriptPath,

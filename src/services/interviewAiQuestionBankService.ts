@@ -1,6 +1,9 @@
 import { interviewAiQuestionBank } from "@/data/interviewAiQuestions";
+import { supabase } from "@/lib/supabase";
 
 const STORAGE_KEY = "hireumkm.interview_ai.question_bank.v1";
+const QUESTION_BANK_TABLE = "interview_ai_question_bank_configs";
+const DEFAULT_CONFIG_KEY = "default";
 
 function cloneQuestion(question: Record<string, unknown>, index: number) {
   const key = String(question.key || `q${index + 1}`).trim() || `q${index + 1}`;
@@ -11,8 +14,19 @@ function cloneQuestion(question: Record<string, unknown>, index: number) {
     questionText: String(question.questionText || "").trim(),
     hint: String(question.hint || "").trim(),
     promptAudioUrl: String(question.promptAudioUrl || `/interview-ai/audio/questions/${key}.mp3`).trim() || `/interview-ai/audio/questions/${key}.mp3`,
+    audioSourceText: String(question.audioSourceText || question.questionText || "").trim(),
     isActive: question.isActive !== false,
   };
+}
+
+function writeQuestionBankToLocal(questionBank: unknown) {
+  const normalized = normalizeInterviewAiQuestionBank(questionBank);
+
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  }
+
+  return normalized;
 }
 
 export function getDefaultInterviewAiQuestionBank() {
@@ -49,24 +63,56 @@ export function getInterviewAiQuestionBank() {
   }
 }
 
-export function saveInterviewAiQuestionBank(questionBank: unknown) {
-  const normalized = normalizeInterviewAiQuestionBank(questionBank);
+export async function loadInterviewAiQuestionBank() {
+  try {
+    const { data, error } = await supabase
+      .from(QUESTION_BANK_TABLE)
+      .select("question_bank")
+      .eq("config_key", DEFAULT_CONFIG_KEY)
+      .maybeSingle();
 
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    if (error) {
+      throw error;
+    }
+
+    if (data?.question_bank) {
+      return writeQuestionBankToLocal(data.question_bank);
+    }
+  } catch (error) {
+    console.warn("Question bank Wawancara AI belum berhasil dimuat dari Supabase, sistem memakai salinan lokal.", error);
+  }
+
+  return getInterviewAiQuestionBank();
+}
+
+export function saveInterviewAiQuestionBank(questionBank: unknown) {
+  return writeQuestionBankToLocal(questionBank);
+}
+
+export async function saveInterviewAiQuestionBankToSupabase(questionBank: unknown, options?: { updatedBy?: string | null }) {
+  const normalized = writeQuestionBankToLocal(questionBank);
+
+  const payload = {
+    config_key: DEFAULT_CONFIG_KEY,
+    question_bank: normalized,
+    updated_by: options?.updatedBy ?? null,
+  };
+
+  const { error } = await supabase.from(QUESTION_BANK_TABLE).upsert(payload, {
+    onConflict: "config_key",
+  });
+
+  if (error) {
+    console.error("Question bank Wawancara AI gagal disimpan ke Supabase:", error);
+    throw new Error("Pertanyaan tersimpan di browser ini, tetapi belum berhasil disimpan ke server. Coba lagi sebentar.");
   }
 
   return normalized;
 }
 
-export function resetInterviewAiQuestionBank() {
+export async function resetInterviewAiQuestionBank() {
   const defaultQuestions = getDefaultInterviewAiQuestionBank();
-
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultQuestions));
-  }
-
-  return defaultQuestions;
+  return saveInterviewAiQuestionBankToSupabase(defaultQuestions, { updatedBy: "Recruiter" });
 }
 
 export function buildInterviewAiPiperExport(questionBank: unknown) {

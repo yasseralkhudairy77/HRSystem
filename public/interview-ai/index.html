@@ -50,20 +50,20 @@
       font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap;
     }
     .body{padding:24px}
-    .layout{display:grid;grid-template-columns:1fr 300px;gap:16px}
+    .layout{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
     @media (max-width:920px){.layout{grid-template-columns:1fr}}
     .panel{
       border:1px solid var(--line);
-      border-radius:20px;
+      border-radius:22px;
       background:var(--soft);
-      padding:18px;
+      padding:18px 16px 16px;
     }
-    .panel h2{margin:0 0 10px;font-size:16px}
-    .meta{display:grid;gap:12px}
-    .meta-item{border-top:1px solid var(--line);padding-top:12px}
+    .panel h2{margin:0 0 12px;font-size:16px;letter-spacing:-.01em}
+    .meta{display:grid;gap:14px}
+    .meta-item{border-top:1px solid var(--line);padding-top:14px}
     .meta-item:first-child{border-top:0;padding-top:0}
-    .meta-label{font-size:12px;color:var(--muted)}
-    .meta-value{margin-top:4px;font-size:14px;font-weight:600;line-height:1.6}
+    .meta-label{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted)}
+    .meta-value{margin-top:6px;font-size:14px;font-weight:700;line-height:1.55;color:var(--text)}
     .message{
       border:1px solid var(--line);border-radius:16px;background:#fff;padding:14px 16px;
       font-size:14px;line-height:1.7;color:var(--muted);
@@ -73,6 +73,144 @@
     }
     .progress > div{height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--ok));transition:width .2s ease}
     .progress-text{margin-top:10px;font-size:12px;color:var(--muted)}
+    .onboarding-card{
+      margin-top:16px;
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+      padding:20px 20px 18px;
+      box-shadow:0 10px 24px rgba(16,35,63,.04);
+    }
+    .onboarding-header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .onboarding-title{
+      margin:8px 0 0;
+      font-size:24px;
+      font-weight:800;
+      letter-spacing:-.03em;
+      color:var(--text);
+    }
+    .onboarding-copy{
+      margin-top:10px;
+      font-size:14px;
+      line-height:1.8;
+      color:var(--muted);
+      max-width:640px;
+    }
+    .onboarding-grid{
+      display:grid;
+      gap:12px;
+      margin-top:18px;
+    }
+    .onboarding-step{
+      border:1px solid #d9e4f1;
+      border-radius:18px;
+      background:#fff;
+      padding:14px 16px;
+      display:grid;
+      grid-template-columns:34px minmax(0,1fr);
+      gap:12px;
+      align-items:start;
+    }
+    .onboarding-step-index{
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#edf4ff;
+      color:var(--brand);
+      font-size:13px;
+      font-weight:800;
+    }
+    .onboarding-step-title{
+      font-size:14px;
+      font-weight:800;
+      color:var(--text);
+    }
+    .onboarding-step-copy{
+      margin-top:4px;
+      font-size:13px;
+      line-height:1.75;
+      color:var(--muted);
+    }
+    .consent-row{
+      margin-top:16px;
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      padding:14px 16px;
+      border-radius:18px;
+      border:1px solid #d8e6f6;
+      background:#f7fbff;
+    }
+    .consent-row input{
+      margin-top:3px;
+      width:16px;
+      height:16px;
+      accent-color:var(--brand);
+      flex-shrink:0;
+    }
+    .consent-text{
+      font-size:13px;
+      line-height:1.75;
+      color:var(--text);
+    }
+    .mic-test-card{
+      margin-top:16px;
+      border:1px solid #d8e6f6;
+      border-radius:18px;
+      background:#fff;
+      padding:16px;
+    }
+    .mic-test-top{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .mic-test-status{
+      font-size:12px;
+      line-height:1.7;
+      color:var(--muted);
+    }
+    .mic-meter{
+      margin-top:14px;
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#eef3fa;
+      border:1px solid #d8e0ec;
+    }
+    .mic-meter > div{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#5da8ff 0%,#2f9d6a 100%);
+      transition:width .12s linear;
+    }
+    .onboarding-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+    .onboarding-note{
+      margin-top:14px;
+      border-radius:16px;
+      border:1px solid #dbe7f4;
+      background:#fcfdff;
+      padding:12px 14px;
+      font-size:12px;
+      line-height:1.75;
+      color:var(--muted);
+    }
     .question-card{
       margin-top:16px;border:1px solid var(--line);border-radius:20px;background:#fff;padding:18px;
     }
@@ -90,11 +228,70 @@
     audio{width:100%}
     .field{margin-top:18px}
     .field label{display:block;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--text)}
-    textarea{
-      width:100%;min-height:180px;resize:vertical;border:1px solid var(--line);border-radius:16px;
-      padding:14px 16px;font:inherit;color:var(--text);background:#fff;outline:none;
+    .recorder-panel{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:linear-gradient(180deg,#fff 0%,#f9fbff 100%);
+      padding:16px;
     }
-    textarea:focus{border-color:#aac8ed;box-shadow:0 0 0 3px rgba(31,95,174,.10)}
+    .recorder-toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+    .recorder-meta{
+      margin-top:12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 12px;
+      align-items:center;
+    }
+    .recording-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid #d8e6f6;
+      background:#f7fbff;
+      color:#335a88;
+      font-size:12px;
+      font-weight:700;
+    }
+    .recording-pill.recording{
+      border-color:#f1c0c0;
+      background:#fff4f4;
+      color:#b24444;
+    }
+    .record-dot{
+      width:9px;
+      height:9px;
+      border-radius:999px;
+      background:currentColor;
+      box-shadow:0 0 0 0 rgba(178,68,68,.35);
+      animation:pulse 1.4s infinite;
+    }
+    .recording-pill:not(.recording) .record-dot{display:none}
+    @keyframes pulse{
+      0%{box-shadow:0 0 0 0 rgba(178,68,68,.35)}
+      70%{box-shadow:0 0 0 8px rgba(178,68,68,0)}
+      100%{box-shadow:0 0 0 0 rgba(178,68,68,0)}
+    }
+    .recorder-preview{
+      margin-top:14px;
+      display:grid;
+      gap:10px;
+    }
+    .recorder-note{
+      border-radius:14px;
+      background:#f5f8fc;
+      padding:11px 12px;
+      font-size:12px;
+      line-height:1.7;
+      color:var(--muted);
+    }
     .helper{margin-top:8px;font-size:12px;line-height:1.6;color:var(--muted)}
     .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
     button{
@@ -104,19 +301,36 @@
     button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
     button.primary:hover{background:var(--brand-strong)}
     button:disabled{opacity:.55;cursor:not-allowed}
-    .stepper{display:grid;gap:10px;margin-top:18px}
+    .stepper{display:grid;gap:12px;margin-top:18px}
     .step{
-      display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:16px;background:#fff;padding:12px 14px;
+      display:grid;grid-template-columns:34px minmax(0,1fr);column-gap:12px;align-items:center;
+      min-height:72px;border:1px solid #d7e2ee;border-radius:18px;background:rgba(255,255,255,.94);padding:14px 16px;
+      box-shadow:0 1px 0 rgba(16,35,63,.02);
+      transition:border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .18s ease;
     }
+    .step:hover{border-color:#c6d8ef;background:#fff}
     .step-index{
       width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;
-      font-size:12px;font-weight:800;background:#edf3fa;color:var(--muted);flex-shrink:0;
+      font-size:12px;font-weight:800;background:#edf3fa;color:#587495;flex-shrink:0;
+      justify-self:center;
     }
-    .step.done .step-index{background:#d9f0e3;color:var(--ok)}
-    .step.active{border-color:#bfd5f4;background:#f8fbff}
+    .step-body{min-width:0;display:flex;flex-direction:column;justify-content:center}
+    .step.done .step-index{background:#dff2e7;color:var(--ok)}
+    .step.done{border-color:#c7e7d5;background:#fbfffd}
+    .step.active{
+      border-color:#a9c8ef;
+      background:linear-gradient(180deg,#ffffff 0%,#f6faff 100%);
+      box-shadow:0 0 0 1px rgba(31,95,174,.04), 0 10px 24px rgba(31,95,174,.06);
+    }
     .step.active .step-index{background:#ddebff;color:var(--brand)}
-    .step-title{font-size:13px;font-weight:700;color:var(--text)}
-    .step-sub{margin-top:4px;font-size:12px;line-height:1.6;color:var(--muted)}
+    .step-title{
+      font-size:13px;font-weight:700;line-height:1.35;color:var(--text);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .step-sub{
+      margin-top:4px;font-size:11px;font-weight:600;line-height:1.45;color:var(--muted);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
     .notice{
       margin-top:16px;border-radius:16px;border:1px solid #cfe0f3;background:#f7fbff;padding:14px 16px;font-size:13px;line-height:1.7;color:#335a88;
     }
@@ -136,10 +350,81 @@
       <div class="body">
         <div class="layout">
           <div>
-            <div class="progress"><div id="progress-bar"></div></div>
-            <div class="progress-text" id="progress-text">0 / 0 pertanyaan terjawab</div>
+            <div id="progress-section">
+              <div class="progress"><div id="progress-bar"></div></div>
+              <div class="progress-text" id="progress-text">0 / 0 pertanyaan terjawab</div>
+            </div>
             <div class="message" id="intro-message" style="margin-top:16px;">
-              Jawab setiap pertanyaan dengan jujur, singkat, dan jelas. Anda bisa pindah ke pertanyaan berikutnya setelah jawaban disimpan.
+              Jawab setiap pertanyaan dengan jujur, singkat, dan jelas menggunakan suara Anda. Anda bisa pindah ke pertanyaan berikutnya setelah audio jawaban disimpan.
+            </div>
+
+            <div class="onboarding-card" id="onboarding-card" style="display:none;">
+              <div class="onboarding-header">
+                <div>
+                  <div class="eyebrow">Onboarding Wawancara</div>
+                  <div class="onboarding-title">Persiapan singkat sebelum sesi dimulai</div>
+                  <div class="onboarding-copy">
+                    Sebelum masuk ke sesi wawancara, kami ingin membantu Anda memahami alur tes ini terlebih dahulu. Pada tahap ini, jawaban akan dikirim dalam bentuk rekaman suara agar recruiter dapat menilai isi jawaban sekaligus cara Anda berkomunikasi secara natural.
+                  </div>
+                </div>
+                <div class="status">Wajib diselesaikan</div>
+              </div>
+
+              <div class="onboarding-grid">
+                <div class="onboarding-step">
+                  <div class="onboarding-step-index">1</div>
+                  <div>
+                    <div class="onboarding-step-title">Pahami format sesi</div>
+                    <div class="onboarding-step-copy">
+                      Setiap pertanyaan akan diperdengarkan melalui audio. Mohon jawab dengan suara yang jelas, singkat, dan profesional. Pada sesi ini, jawaban diberikan melalui rekaman suara agar recruiter dapat menilai isi jawaban sekaligus cara Anda berkomunikasi.
+                    </div>
+                  </div>
+                </div>
+                <div class="onboarding-step">
+                  <div class="onboarding-step-index">2</div>
+                  <div>
+                    <div class="onboarding-step-title">Persetujuan rekam suara dan aturan satu kali take</div>
+                    <div class="onboarding-step-copy">
+                      Rekaman suara digunakan khusus untuk proses evaluasi rekrutmen internal. Untuk menjaga keaslian respons dan fairness penilaian, setiap pertanyaan hanya diberikan satu kali kesempatan rekam. Setelah Anda menyelesaikan satu take, tidak tersedia rekam ulang untuk pertanyaan yang sama.
+                    </div>
+                  </div>
+                </div>
+                <div class="onboarding-step">
+                  <div class="onboarding-step-index">3</div>
+                  <div>
+                    <div class="onboarding-step-title">Tes mikrofon sebelum mulai</div>
+                    <div class="onboarding-step-copy">
+                      Lakukan cek mikrofon terlebih dahulu untuk memastikan perangkat Anda dapat menangkap suara dengan baik. Kami menyarankan Anda menyiapkan jawaban secara natural di kepala Anda, lalu langsung menjawab tanpa membuka sumber bantuan lain saat sesi dimulai.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <label class="consent-row">
+                <input id="onboarding-consent" type="checkbox" />
+                <div class="consent-text">
+                  Saya memahami bahwa sesi ini menggunakan rekaman suara sebagai media jawaban, setiap pertanyaan hanya memiliki satu kali kesempatan rekam tanpa pengulangan, dan saya menyetujui penggunaan rekaman tersebut untuk kepentingan evaluasi proses rekrutmen.
+                </div>
+              </label>
+
+              <div class="mic-test-card">
+                <div class="mic-test-top">
+                  <div>
+                    <div class="onboarding-step-title">Tes mikrofon</div>
+                    <div class="mic-test-status" id="onboarding-mic-status">Klik tombol cek mikrofon, lalu ucapkan beberapa kalimat untuk memastikan suara Anda terdeteksi dengan baik sebelum sesi satu-take dimulai.</div>
+                  </div>
+                  <button id="onboarding-mic-btn" type="button">Cek mikrofon</button>
+                </div>
+                <div class="mic-meter"><div id="onboarding-mic-level"></div></div>
+              </div>
+
+              <div class="onboarding-actions">
+                <button id="onboarding-start-btn" type="button" class="primary" disabled>Mulai wawancara</button>
+              </div>
+
+              <div class="onboarding-note">
+                Saran dari tim HR: gunakan headset atau earphone bila tersedia, tutup aplikasi lain yang memakai mikrofon, siapkan lingkungan yang tenang, dan mulai sesi hanya ketika Anda benar-benar siap. Setelah satu pertanyaan direkam, tidak tersedia kesempatan take ulang.
+              </div>
             </div>
 
             <div id="question-card" class="question-card" style="display:none;">
@@ -159,16 +444,29 @@
               </div>
 
               <div class="field">
-                <label for="answer-input">Jawaban kandidat</label>
-                <textarea id="answer-input" placeholder="Tulis jawaban Anda untuk pertanyaan ini..."></textarea>
-                <div class="helper">Jawaban akan disimpan ke sesi recruiter setelah Anda klik simpan. Anda tetap bisa membuka kembali link ini selama sesi belum direview recruiter.</div>
+                <label>Jawaban kandidat</label>
+                <div class="recorder-panel">
+                  <div class="recorder-toolbar">
+                    <button id="record-btn" type="button" class="primary">Mulai rekam</button>
+                    <button id="stop-record-btn" type="button" disabled>Berhenti</button>
+                  </div>
+                  <div class="recorder-meta">
+                    <div class="recording-pill" id="recording-status"><span class="record-dot"></span>Belum ada rekaman jawaban.</div>
+                    <div class="recording-pill" id="recording-timer">Durasi 00:00</div>
+                  </div>
+                  <div class="recorder-preview">
+                    <audio id="answer-audio-preview" controls preload="none" style="display:none;"></audio>
+                    <div class="recorder-note" id="answer-audio-note">Izinkan akses mikrofon, lalu rekam jawaban Anda. Recruiter akan menilai isi jawaban sekaligus gaya bicara Anda dari audio ini.</div>
+                  </div>
+                </div>
+                <div class="helper">Jawaban dikirim dalam bentuk audio. Setiap pertanyaan hanya memiliki satu kali kesempatan rekam, jadi pastikan Anda siap sebelum menekan tombol mulai.</div>
               </div>
 
               <div class="actions">
                 <button id="prev-btn">Sebelumnya</button>
-                <button id="save-btn" class="primary">Simpan jawaban</button>
-                <button id="next-btn">Pertanyaan berikutnya</button>
-                <button id="finish-btn" class="primary" style="display:none;">Kirim semua jawaban</button>
+                <button id="save-btn" class="primary">Simpan audio</button>
+                <button id="next-btn">Simpan & lanjut</button>
+                <button id="finish-btn" class="primary" style="display:none;">Simpan & kirim semua</button>
               </div>
             </div>
 
@@ -212,19 +510,29 @@
       const supabase = supabaseLib.createClient(config.url, config.publishableKey);
       const token = new URLSearchParams(window.location.search).get("token") || "";
       const INTERVIEW_AI_TEMPLATE_KEY = "interview_ai_screening";
+      const CLAIM_STORAGE_PREFIX = "hireumkm.interview_ai.claim.";
+      const ONBOARDING_STORAGE_PREFIX = "hireumkm.interview_ai.onboarding.";
+      const ANSWER_AUDIO_BUCKET = "interview-ai-answer-audio";
 
       const candidateNameEl = document.getElementById("candidate-name");
       const candidateSubtitleEl = document.getElementById("candidate-subtitle");
       const sessionStatusEl = document.getElementById("session-status");
+      const progressSectionEl = document.getElementById("progress-section");
       const progressBarEl = document.getElementById("progress-bar");
       const progressTextEl = document.getElementById("progress-text");
+      const introMessageEl = document.getElementById("intro-message");
+      const onboardingCardEl = document.getElementById("onboarding-card");
+      const onboardingConsentEl = document.getElementById("onboarding-consent");
+      const onboardingMicBtnEl = document.getElementById("onboarding-mic-btn");
+      const onboardingMicStatusEl = document.getElementById("onboarding-mic-status");
+      const onboardingMicLevelEl = document.getElementById("onboarding-mic-level");
+      const onboardingStartBtnEl = document.getElementById("onboarding-start-btn");
       const questionCardEl = document.getElementById("question-card");
       const questionNoEl = document.getElementById("question-no");
       const questionTitleEl = document.getElementById("question-title");
       const questionTextEl = document.getElementById("question-text");
       const questionHintEl = document.getElementById("question-hint");
       const questionBadgeEl = document.getElementById("question-badge");
-      const answerInputEl = document.getElementById("answer-input");
       const stepperEl = document.getElementById("question-stepper");
       const prevBtn = document.getElementById("prev-btn");
       const saveBtn = document.getElementById("save-btn");
@@ -236,10 +544,84 @@
       const metaStatusEl = document.getElementById("meta-status");
       const audioWrapEl = document.getElementById("audio-wrap");
       const promptAudioEl = document.getElementById("prompt-audio");
+      const recordBtn = document.getElementById("record-btn");
+      const stopRecordBtn = document.getElementById("stop-record-btn");
+      const recordingStatusEl = document.getElementById("recording-status");
+      const recordingTimerEl = document.getElementById("recording-timer");
+      const answerAudioPreviewEl = document.getElementById("answer-audio-preview");
+      const answerAudioNoteEl = document.getElementById("answer-audio-note");
 
       let packageRow = null;
       let items = [];
       let activeIndex = 0;
+      let mediaRecorder = null;
+      let mediaStream = null;
+      let recordedChunks = [];
+      let recordingStartedAt = null;
+      let recordingTick = null;
+      let draftAudio = null;
+      let draftAudioItemId = null;
+      let onboardingCompleted = false;
+      let micTestPassed = false;
+      let onboardingMicStream = null;
+      let onboardingAudioContext = null;
+      let onboardingAnalyser = null;
+      let onboardingAnimationFrame = null;
+
+      function getClaimStorageKey() {
+        return `${CLAIM_STORAGE_PREFIX}${token}`;
+      }
+
+      function getOnboardingStorageKey() {
+        return `${ONBOARDING_STORAGE_PREFIX}${token}`;
+      }
+
+      function hasClaimedAccess() {
+        try {
+          return window.sessionStorage.getItem(getClaimStorageKey()) === "1";
+        } catch {
+          return false;
+        }
+      }
+
+      function setClaimedAccess() {
+        try {
+          window.sessionStorage.setItem(getClaimStorageKey(), "1");
+        } catch {
+          // sessionStorage unavailable; kandidat tetap bisa lanjut di tab ini
+        }
+      }
+
+      function hasCompletedOnboarding() {
+        try {
+          return window.sessionStorage.getItem(getOnboardingStorageKey()) === "1";
+        } catch {
+          return false;
+        }
+      }
+
+      function setCompletedOnboarding() {
+        try {
+          window.sessionStorage.setItem(getOnboardingStorageKey(), "1");
+        } catch {
+          // ignore
+        }
+      }
+
+      function renderAccessClosed(title, subtitle, statusText) {
+        candidateNameEl.textContent = title;
+        candidateSubtitleEl.textContent = subtitle;
+        sessionStatusEl.textContent = statusText;
+        metaPositionEl.textContent = "-";
+        metaDeadlineEl.textContent = "-";
+        metaStatusEl.textContent = statusText;
+        progressBarEl.style.width = "0%";
+        progressTextEl.textContent = "Link ini tidak bisa dipakai lagi";
+        questionCardEl.style.display = "none";
+        stepperEl.innerHTML = "";
+        completionNoticeEl.style.display = "block";
+        completionNoticeEl.textContent = subtitle;
+      }
 
       function formatDateTime(value) {
         if (!value) return "-";
@@ -270,6 +652,333 @@
         if (status === "completed") return "Sudah dijawab";
         if (status === "in_progress") return "Sedang diisi";
         return "Belum dijawab";
+      }
+
+      function supportsAudioRecording() {
+        return Boolean(window.MediaRecorder && navigator.mediaDevices?.getUserMedia);
+      }
+
+      function updateOnboardingActionState() {
+        onboardingStartBtnEl.disabled = !onboardingConsentEl.checked || !micTestPassed;
+      }
+
+      function stopOnboardingMicTest() {
+        if (onboardingAnimationFrame) {
+          window.cancelAnimationFrame(onboardingAnimationFrame);
+          onboardingAnimationFrame = null;
+        }
+
+        if (onboardingAudioContext) {
+          onboardingAudioContext.close().catch(() => {});
+          onboardingAudioContext = null;
+        }
+
+        if (onboardingMicStream) {
+          onboardingMicStream.getTracks().forEach((track) => track.stop());
+          onboardingMicStream = null;
+        }
+
+        onboardingAnalyser = null;
+        onboardingMicLevelEl.style.width = "0%";
+      }
+
+      function startOnboardingMicMeter() {
+        if (!onboardingAnalyser) return;
+
+        const dataArray = new Uint8Array(onboardingAnalyser.fftSize);
+        const tick = () => {
+          if (!onboardingAnalyser) return;
+          onboardingAnalyser.getByteTimeDomainData(dataArray);
+
+          let sum = 0;
+          for (let index = 0; index < dataArray.length; index += 1) {
+            const normalized = (dataArray[index] - 128) / 128;
+            sum += normalized * normalized;
+          }
+
+          const rms = Math.sqrt(sum / dataArray.length);
+          const percent = Math.min(100, Math.max(6, Math.round(rms * 260)));
+          onboardingMicLevelEl.style.width = `${percent}%`;
+          onboardingAnimationFrame = window.requestAnimationFrame(tick);
+        };
+
+        tick();
+      }
+
+      async function runOnboardingMicTest() {
+        if (!supportsAudioRecording()) {
+          onboardingMicStatusEl.textContent = "Browser ini belum mendukung akses mikrofon untuk sesi audio. Mohon gunakan Chrome, Edge, atau browser modern lain.";
+          return;
+        }
+
+        try {
+          stopOnboardingMicTest();
+          onboardingMicStatusEl.textContent = "Meminta akses mikrofon. Mohon izinkan akses saat browser menampilkan permintaan.";
+          onboardingMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          micTestPassed = true;
+          const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextCtor) {
+            onboardingAudioContext = new AudioContextCtor();
+            const source = onboardingAudioContext.createMediaStreamSource(onboardingMicStream);
+            onboardingAnalyser = onboardingAudioContext.createAnalyser();
+            onboardingAnalyser.fftSize = 256;
+            source.connect(onboardingAnalyser);
+            startOnboardingMicMeter();
+            onboardingMicStatusEl.textContent = "Mikrofon berhasil terdeteksi. Coba ucapkan beberapa kalimat dan pastikan meter bergerak saat Anda berbicara.";
+          } else {
+            onboardingMicLevelEl.style.width = "100%";
+            onboardingMicStatusEl.textContent = "Mikrofon berhasil terdeteksi. Browser Anda tidak menampilkan meter suara, tetapi akses mikrofon sudah aktif dan siap digunakan.";
+          }
+          onboardingMicBtnEl.textContent = "Tes ulang mikrofon";
+          updateOnboardingActionState();
+        } catch (error) {
+          console.error("Tes mikrofon gagal:", error);
+          micTestPassed = false;
+          onboardingMicStatusEl.textContent = "Akses mikrofon belum berhasil. Mohon izinkan mikrofon dan coba lagi.";
+          updateOnboardingActionState();
+        }
+      }
+
+      function applyOnboardingVisibility() {
+        const shouldShowOnboarding = !onboardingCompleted && packageRow?.status !== "completed" && packageRow?.status !== "reviewed";
+        onboardingCardEl.style.display = shouldShowOnboarding ? "block" : "none";
+        progressSectionEl.style.display = shouldShowOnboarding ? "none" : "block";
+        introMessageEl.style.display = shouldShowOnboarding ? "none" : "block";
+        questionCardEl.style.display = shouldShowOnboarding ? "none" : questionCardEl.style.display;
+      }
+
+      function formatDuration(seconds) {
+        const safeSeconds = Math.max(0, Math.round(Number(seconds) || 0));
+        const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, "0");
+        const remainder = String(safeSeconds % 60).padStart(2, "0");
+        return `${minutes}:${remainder}`;
+      }
+
+      function getPreferredMimeType() {
+        if (!window.MediaRecorder?.isTypeSupported) {
+          return "audio/webm";
+        }
+
+        const candidates = [
+          "audio/webm;codecs=opus",
+          "audio/webm",
+          "audio/mp4",
+          "audio/ogg;codecs=opus",
+        ];
+
+        return candidates.find((candidate) => window.MediaRecorder.isTypeSupported(candidate)) || "";
+      }
+
+      function stopRecordingTick() {
+        if (recordingTick) {
+          window.clearInterval(recordingTick);
+          recordingTick = null;
+        }
+      }
+
+      function stopMediaStream() {
+        if (mediaStream) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          mediaStream = null;
+        }
+      }
+
+      function releaseDraftAudio() {
+        if (draftAudio?.url) {
+          URL.revokeObjectURL(draftAudio.url);
+        }
+      }
+
+      function resetDraftAudio() {
+        releaseDraftAudio();
+        draftAudio = null;
+        draftAudioItemId = null;
+      }
+
+      function hasLockedTakeForItem(item) {
+        if (!item) return false;
+        if (draftAudio && draftAudioItemId === item.id) return true;
+        return Boolean(item.result_json?.answer_audio_url);
+      }
+
+      function setIdleRecordingUi(message, durationLabel) {
+        recordingStatusEl.className = "recording-pill";
+        recordingStatusEl.textContent = message || "Belum merekam";
+        recordingTimerEl.textContent = `Durasi ${durationLabel || "00:00"}`;
+      }
+
+      function renderAnswerAudioState() {
+        const item = currentItem();
+        const savedAudioUrl = item?.result_json?.answer_audio_url || "";
+        const savedDurationSeconds = Number(item?.result_json?.answer_audio_duration_seconds || 0);
+
+        if (draftAudio && draftAudioItemId === item?.id) {
+          answerAudioPreviewEl.style.display = "block";
+          answerAudioPreviewEl.src = draftAudio.url;
+          answerAudioNoteEl.textContent = `Rekaman satu-satunya untuk pertanyaan ini sudah siap disimpan. Durasi ${draftAudio.durationLabel}. Mohon simpan audio ini untuk melanjutkan ke pertanyaan berikutnya.`;
+          setIdleRecordingUi("Rekaman baru siap", draftAudio.durationLabel);
+          recordBtn.disabled = true;
+          stopRecordBtn.disabled = true;
+          return;
+        }
+
+        if (savedAudioUrl) {
+          answerAudioPreviewEl.style.display = "block";
+          answerAudioPreviewEl.src = savedAudioUrl;
+          answerAudioNoteEl.textContent = `Audio jawaban sudah tersimpan${savedDurationSeconds > 0 ? ` (${formatDuration(savedDurationSeconds)})` : ""}. Karena sesi ini menerapkan satu kali take per pertanyaan, rekaman tidak dapat diulang.`;
+          setIdleRecordingUi("Audio tersimpan", savedDurationSeconds > 0 ? formatDuration(savedDurationSeconds) : "00:00");
+          recordBtn.disabled = true;
+          stopRecordBtn.disabled = true;
+          return;
+        }
+
+        answerAudioPreviewEl.pause();
+        answerAudioPreviewEl.removeAttribute("src");
+        answerAudioPreviewEl.load();
+        answerAudioPreviewEl.style.display = "none";
+        answerAudioNoteEl.textContent = "Izinkan akses mikrofon, lalu rekam jawaban Anda. Pertanyaan ini hanya memiliki satu kali kesempatan take, jadi mulai merekam saat Anda benar-benar siap.";
+        setIdleRecordingUi("Belum ada rekaman jawaban.", "00:00");
+        recordBtn.disabled = !supportsAudioRecording();
+        stopRecordBtn.disabled = true;
+      }
+
+      async function startRecording() {
+        if (!supportsAudioRecording()) {
+          window.alert("Browser ini belum mendukung rekam audio. Mohon gunakan Chrome, Edge, atau browser modern lain.");
+          return;
+        }
+
+        if (hasLockedTakeForItem(currentItem())) {
+          window.alert("Pertanyaan ini sudah memiliki satu kali take. Untuk menjaga fairness sesi, rekaman tidak dapat diulang.");
+          return;
+        }
+
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          return;
+        }
+
+        try {
+          stopOnboardingMicTest();
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          recordedChunks = [];
+          recordingStartedAt = Date.now();
+
+          const mimeType = getPreferredMimeType();
+          mediaRecorder = mimeType ? new MediaRecorder(mediaStream, { mimeType }) : new MediaRecorder(mediaStream);
+
+          mediaRecorder.addEventListener("dataavailable", (event) => {
+            if (event.data && event.data.size > 0) {
+              recordedChunks.push(event.data);
+            }
+          });
+
+          mediaRecorder.addEventListener("stop", () => {
+            const safeMimeType = mediaRecorder?.mimeType || mimeType || "audio/webm";
+            const blob = new Blob(recordedChunks, { type: safeMimeType });
+            const durationSeconds = Math.max(1, Math.round((Date.now() - recordingStartedAt) / 1000));
+
+            stopRecordingTick();
+            stopMediaStream();
+            recordBtn.disabled = false;
+            stopRecordBtn.disabled = true;
+
+            if (!blob.size) {
+              renderAnswerAudioState();
+              return;
+            }
+
+            resetDraftAudio();
+            draftAudio = {
+              blob,
+              mimeType: safeMimeType,
+              durationSeconds,
+              durationLabel: formatDuration(durationSeconds),
+              url: URL.createObjectURL(blob),
+            };
+            draftAudioItemId = currentItem()?.id || null;
+            renderAnswerAudioState();
+          }, { once: true });
+
+          mediaRecorder.start();
+          recordingStatusEl.className = "recording-pill recording";
+          recordingStatusEl.innerHTML = '<span class="record-dot"></span>Sedang merekam jawaban';
+          recordingTimerEl.textContent = "Durasi 00:00";
+          answerAudioNoteEl.textContent = "Rekaman sedang berjalan. Jawab dengan jelas lalu tekan Berhenti saat selesai.";
+          recordBtn.disabled = true;
+          stopRecordBtn.disabled = false;
+          stopRecordingTick();
+          recordingTick = window.setInterval(() => {
+            const elapsed = Math.max(0, Math.round((Date.now() - recordingStartedAt) / 1000));
+            recordingTimerEl.textContent = `Durasi ${formatDuration(elapsed)}`;
+          }, 250);
+        } catch (error) {
+          console.error("Gagal memulai rekaman audio:", error);
+          stopRecordingTick();
+          stopMediaStream();
+          recordBtn.disabled = false;
+          stopRecordBtn.disabled = true;
+          renderAnswerAudioState();
+          window.alert("Akses mikrofon ditolak atau tidak tersedia. Mohon izinkan akses mikrofon lalu coba lagi.");
+        }
+      }
+
+      function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+        }
+      }
+
+      async function uploadAnswerAudio(item) {
+        if (!draftAudio || draftAudioItemId !== item.id) {
+          return {
+            audioUrl: item.result_json?.answer_audio_url || "",
+            audioPath: item.result_json?.answer_audio_path || "",
+            audioBucket: item.result_json?.answer_audio_bucket || ANSWER_AUDIO_BUCKET,
+            durationSeconds: Number(item.result_json?.answer_audio_duration_seconds || 0),
+            audioMimeType: item.result_json?.answer_audio_mime_type || "",
+          };
+        }
+
+        const fileExtension = draftAudio.mimeType.includes("mp4") ? "m4a" : draftAudio.mimeType.includes("ogg") ? "ogg" : "webm";
+        const filePath = `package-${packageRow.id}/item-${item.id}/${Date.now()}.${fileExtension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(ANSWER_AUDIO_BUCKET)
+          .upload(filePath, draftAudio.blob, {
+            contentType: draftAudio.mimeType,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error("Gagal upload audio jawaban:", uploadError);
+          throw uploadError;
+        }
+
+        const { data: publicUrlData } = supabase.storage.from(ANSWER_AUDIO_BUCKET).getPublicUrl(filePath);
+
+        return {
+          audioUrl: publicUrlData?.publicUrl || "",
+          audioPath: filePath,
+          audioBucket: ANSWER_AUDIO_BUCKET,
+          durationSeconds: draftAudio.durationSeconds,
+          audioMimeType: draftAudio.mimeType,
+        };
+      }
+
+      function canNavigateAwayFromCurrentQuestion() {
+        const item = currentItem();
+
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          window.alert("Rekaman masih berjalan. Mohon hentikan rekaman terlebih dahulu sebelum pindah pertanyaan.");
+          return false;
+        }
+
+        if (draftAudio && draftAudioItemId === item?.id) {
+          window.alert("Anda sudah mengambil satu kali rekaman untuk pertanyaan ini, tetapi belum menyimpannya. Mohon simpan audio tersebut terlebih dahulu sebelum pindah pertanyaan.");
+          return false;
+        }
+
+        return true;
       }
 
       function completedCount() {
@@ -315,6 +1024,7 @@
 
         packageRow.status = "opened";
         packageRow.opened_at = now;
+        setClaimedAccess();
         await updateCandidateStatus("Sedang dikerjakan");
       }
 
@@ -329,13 +1039,13 @@
               .filter(Boolean)
               .join(" ");
 
-            const answerText = String(item.result_json?.answer_text || "").trim();
+            const audioDurationSeconds = Number(item.result_json?.answer_audio_duration_seconds || 0);
             return `
               <button type="button" class="${classes}" data-index="${index}" style="text-align:left;cursor:pointer;">
                 <div class="step-index">${index + 1}</div>
-                <div>
-                  <div class="step-title">${item.test_name_snapshot}</div>
-                  <div class="step-sub">${answerText ? answerText.slice(0, 76) : itemStatusLabel(item.status)}</div>
+                <div class="step-body">
+                  <div class="step-title">Pertanyaan ${index + 1}</div>
+                  <div class="step-sub">${audioDurationSeconds > 0 ? `Audio ${formatDuration(audioDurationSeconds)}` : itemStatusLabel(item.status)}</div>
                 </div>
               </button>
             `;
@@ -344,6 +1054,9 @@
 
         Array.from(stepperEl.querySelectorAll("[data-index]")).forEach((node) => {
           node.addEventListener("click", () => {
+            if (!canNavigateAwayFromCurrentQuestion()) {
+              return;
+            }
             activeIndex = Number(node.getAttribute("data-index"));
             renderQuestion();
           });
@@ -366,24 +1079,32 @@
           return;
         }
 
+        if (!onboardingCompleted && packageRow?.status !== "completed" && packageRow?.status !== "reviewed") {
+          questionCardEl.style.display = "none";
+          return;
+        }
+
         questionCardEl.style.display = "block";
         questionNoEl.textContent = `Pertanyaan ${activeIndex + 1} dari ${items.length}`;
-        questionTitleEl.textContent = item.test_name_snapshot || `Pertanyaan ${activeIndex + 1}`;
-        questionTextEl.textContent = item.result_json?.question_text || "Pertanyaan belum tersedia.";
-        questionHintEl.textContent = item.result_json?.hint || "Jawab dengan singkat dan jelas.";
+        questionTitleEl.textContent = `Pertanyaan ${activeIndex + 1}`;
         questionBadgeEl.textContent = itemStatusLabel(item.status);
         questionBadgeEl.className = `badge ${item.status === "completed" ? "completed" : "active"}`;
-        answerInputEl.value = item.result_json?.answer_text || "";
 
         const promptAudioUrl = item.result_json?.prompt_audio_url;
         if (promptAudioUrl) {
           audioWrapEl.style.display = "block";
           promptAudioEl.src = promptAudioUrl;
+          questionTextEl.textContent = "Dengarkan audio pertanyaan berikut, lalu jawab dengan suara Anda melalui tombol mikrofon di bawah.";
+          questionHintEl.textContent = "Teks pertanyaan disembunyikan untuk menjaga fairness sesi wawancara.";
         } else {
           audioWrapEl.style.display = "none";
           promptAudioEl.removeAttribute("src");
+          promptAudioEl.load();
+          questionTextEl.textContent = "Pertanyaan ini belum punya audio. Mohon hubungi recruiter jika Anda belum bisa mendengar instruksi pertanyaan.";
+          questionHintEl.textContent = "Jawab dengan suara yang jelas agar recruiter dapat menilai isi jawaban dan gaya bicara Anda.";
         }
 
+        renderAnswerAudioState();
         prevBtn.disabled = activeIndex === 0;
         nextBtn.disabled = activeIndex >= items.length - 1;
         finishBtn.style.display = activeIndex === items.length - 1 ? "inline-flex" : "none";
@@ -413,14 +1134,22 @@
           .single();
 
         if (error || !data || data.template_key !== INTERVIEW_AI_TEMPLATE_KEY) {
-          candidateNameEl.textContent = "Sesi Wawancara AI tidak ditemukan";
-          candidateSubtitleEl.textContent = "Pastikan link yang Anda buka benar atau hubungi recruiter.";
-          sessionStatusEl.textContent = "Tidak tersedia";
+          renderAccessClosed("Sesi Wawancara AI tidak ditemukan", "Pastikan link yang Anda buka benar atau hubungi recruiter.", "Tidak tersedia");
+          return false;
+        }
+
+        if (data.opened_at && !hasClaimedAccess()) {
+          renderAccessClosed(
+            "Link wawancara sudah digunakan",
+            "Untuk alasan keamanan, undangan Wawancara AI ini hanya bisa dibuka satu kali. Silakan hubungi recruiter jika membutuhkan link baru.",
+            "Sudah dipakai",
+          );
           return false;
         }
 
         packageRow = data;
         items = [...(data.candidate_test_package_items || [])].sort((left, right) => left.test_order - right.test_order);
+        onboardingCompleted = hasCompletedOnboarding() || data.status === "completed" || data.status === "reviewed";
 
         candidateNameEl.textContent = data.pelamar?.nama_lengkap || "Kandidat";
         candidateSubtitleEl.textContent = `${data.pelamar?.posisi_dilamar || "-"} / Jawab seluruh pertanyaan sebelum deadline berakhir.`;
@@ -434,6 +1163,7 @@
           completionNoticeEl.style.display = "none";
         }
 
+        applyOnboardingVisibility();
         renderQuestion();
         return true;
       }
@@ -442,20 +1172,66 @@
         const item = currentItem();
         if (!item) return;
 
-        const answerText = answerInputEl.value.trim();
-        if (!answerText) {
-          window.alert("Jawaban masih kosong. Mohon isi jawaban terlebih dahulu.");
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          window.alert("Rekaman masih berjalan. Mohon hentikan rekaman terlebih dahulu sebelum menyimpan.");
+          return;
+        }
+
+        const hasDraftAudio = Boolean(draftAudio && draftAudioItemId === item.id);
+        const hasSavedAudio = Boolean(item.result_json?.answer_audio_url);
+        const isAlreadyCompleted = item.status === "completed";
+
+        if (!hasDraftAudio && !hasSavedAudio) {
+          window.alert("Jawaban audio belum ada. Mohon rekam jawaban Anda terlebih dahulu.");
+          return;
+        }
+
+        if (!hasDraftAudio && hasSavedAudio && isAlreadyCompleted) {
+          if (moveDirection === "next" && activeIndex < items.length - 1) {
+            activeIndex += 1;
+            renderQuestion();
+            return;
+          }
+
+          if (moveDirection === "finish") {
+            await finishInterview();
+            return;
+          }
+
+          window.alert("Audio jawaban untuk pertanyaan ini sudah tersimpan. Karena sesi ini menerapkan satu kali take per pertanyaan, rekaman tidak dapat diulang.");
           return;
         }
 
         saveBtn.disabled = true;
         nextBtn.disabled = true;
         finishBtn.disabled = true;
+        recordBtn.disabled = true;
+        stopRecordBtn.disabled = true;
 
         const now = new Date().toISOString();
+        let uploadResult;
+
+        try {
+          uploadResult = await uploadAnswerAudio(item);
+        } catch (uploadError) {
+          window.alert("Audio belum berhasil diunggah. Coba lagi beberapa saat lagi.");
+          saveBtn.disabled = false;
+          nextBtn.disabled = false;
+          finishBtn.disabled = false;
+          recordBtn.disabled = false;
+          stopRecordBtn.disabled = true;
+          renderAnswerAudioState();
+          return;
+        }
+
         const nextResultJson = {
           ...(item.result_json || {}),
-          answer_text: answerText,
+          answer_mode: "audio",
+          answer_audio_bucket: uploadResult.audioBucket,
+          answer_audio_path: uploadResult.audioPath,
+          answer_audio_url: uploadResult.audioUrl,
+          answer_audio_duration_seconds: uploadResult.durationSeconds,
+          answer_audio_mime_type: uploadResult.audioMimeType,
           answered_at: now,
         };
 
@@ -465,7 +1241,7 @@
             status: "completed",
             started_at: item.started_at || now,
             completed_at: now,
-            summary: answerText.slice(0, 160),
+            summary: `Jawaban audio kandidat${uploadResult.durationSeconds > 0 ? ` (${formatDuration(uploadResult.durationSeconds)})` : ""}`,
             result_json: nextResultJson,
           })
           .eq("id", item.id);
@@ -476,6 +1252,9 @@
           saveBtn.disabled = false;
           nextBtn.disabled = false;
           finishBtn.disabled = false;
+          recordBtn.disabled = false;
+          stopRecordBtn.disabled = true;
+          renderAnswerAudioState();
           return;
         }
 
@@ -490,22 +1269,35 @@
         }
 
         await updateCandidateStatus("Sedang dikerjakan");
+        resetDraftAudio();
         await refreshPackage();
 
         if (moveDirection === "next" && activeIndex < items.length - 1) {
           activeIndex += 1;
         }
 
+        if (moveDirection === "finish") {
+          await finishInterview();
+          saveBtn.disabled = false;
+          nextBtn.disabled = false;
+          finishBtn.disabled = false;
+          renderAnswerAudioState();
+          stopRecordBtn.disabled = true;
+          return;
+        }
+
         renderQuestion();
         saveBtn.disabled = false;
         nextBtn.disabled = false;
         finishBtn.disabled = false;
+        renderAnswerAudioState();
+        stopRecordBtn.disabled = true;
       }
 
       async function finishInterview() {
-        const unanswered = items.filter((item) => String(item.result_json?.answer_text || "").trim().length === 0);
+        const unanswered = items.filter((item) => !item.result_json?.answer_audio_url);
         if (unanswered.length > 0) {
-          window.alert("Masih ada pertanyaan yang belum dijawab. Mohon lengkapi semua jawaban sebelum mengirim.");
+          window.alert("Masih ada pertanyaan yang belum punya jawaban audio. Mohon lengkapi semua rekaman sebelum mengirim.");
           return;
         }
 
@@ -536,6 +1328,9 @@
 
       prevBtn.addEventListener("click", () => {
         if (activeIndex > 0) {
+          if (!canNavigateAwayFromCurrentQuestion()) {
+            return;
+          }
           activeIndex -= 1;
           renderQuestion();
         }
@@ -549,8 +1344,32 @@
         void saveCurrentAnswer();
       });
 
+      recordBtn.addEventListener("click", () => {
+        void startRecording();
+      });
+
+      stopRecordBtn.addEventListener("click", () => {
+        stopRecording();
+      });
+
       finishBtn.addEventListener("click", () => {
-        void finishInterview();
+        void saveCurrentAnswer("finish");
+      });
+
+      onboardingConsentEl.addEventListener("change", () => {
+        updateOnboardingActionState();
+      });
+
+      onboardingMicBtnEl.addEventListener("click", () => {
+        void runOnboardingMicTest();
+      });
+
+      onboardingStartBtnEl.addEventListener("click", () => {
+        onboardingCompleted = true;
+        setCompletedOnboarding();
+        stopOnboardingMicTest();
+        applyOnboardingVisibility();
+        renderQuestion();
       });
 
       if (!token) {
@@ -560,10 +1379,21 @@
         return;
       }
 
+      if (!supportsAudioRecording()) {
+        answerAudioNoteEl.textContent = "Browser ini belum mendukung rekaman audio langsung. Mohon gunakan Chrome, Edge, atau browser modern lain dan izinkan akses mikrofon.";
+        recordBtn.disabled = true;
+        stopRecordBtn.disabled = true;
+        onboardingMicBtnEl.disabled = true;
+        onboardingMicStatusEl.textContent = "Browser ini belum mendukung akses mikrofon untuk sesi audio. Mohon gunakan Chrome, Edge, atau browser modern lain.";
+      }
+
+      updateOnboardingActionState();
+
       refreshPackage().then(async (loaded) => {
         if (!loaded) return;
         await markPackageOpened();
-        await refreshPackage();
+        applyOnboardingVisibility();
+        renderQuestion();
       });
     })();
   </script>

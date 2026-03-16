@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, Download, FileAudio, LoaderCircle, Plus, RotateCcw, Save } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, Download, FileAudio, LoaderCircle, Pause, Play, Plus, RotateCcw, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import {
   buildInterviewAiPiperExport,
   getInterviewAiQuestionBank,
+  loadInterviewAiQuestionBank,
   normalizeInterviewAiQuestionBank,
   resetInterviewAiQuestionBank,
   saveInterviewAiQuestionBank,
+  saveInterviewAiQuestionBankToSupabase,
 } from "@/services/interviewAiQuestionBankService";
 import { generateInterviewAiPromptAudio, getPiperApiHealth } from "@/services/piperAudioService";
 
@@ -45,16 +47,24 @@ function buildEmptyQuestion(index) {
     questionText: "",
     hint: "",
     promptAudioUrl: `/interview-ai/audio/questions/${key}.mp3`,
+    audioSourceText: "",
     isActive: true,
   };
 }
 
 export default function InterviewAiQuestionEditorPanel() {
+  const audioPreviewRef = useRef(null);
+  const autoPlayPreviewRef = useRef(false);
   const [questionBank, setQuestionBank] = useState(() => normalizeInterviewAiQuestionBank(getInterviewAiQuestionBank()));
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [showAdvancedFields, setShowAdvancedFields] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [isSavingQuestionBank, setIsSavingQuestionBank] = useState(false);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [previewMode, setPreviewMode] = useState(null);
+  const [previewQueue, setPreviewQueue] = useState([]);
+  const [previewQueuePosition, setPreviewQueuePosition] = useState(0);
   const [serverStatus, setServerStatus] = useState({
     loading: true,
     ok: false,
@@ -63,12 +73,84 @@ export default function InterviewAiQuestionEditorPanel() {
   });
 
   const selectedQuestion = questionBank[selectedIndex] || null;
+  const selectedAudioOutdated =
+    !!selectedQuestion?.promptAudioUrl &&
+    String(selectedQuestion?.audioSourceText || "").trim() !== String(selectedQuestion?.questionText || "").trim();
   const activeCount = useMemo(() => questionBank.filter((question) => question.isActive !== false).length, [questionBank]);
   const piperExport = useMemo(() => buildInterviewAiPiperExport(questionBank), [questionBank]);
+  const previewableQuestionIndexes = useMemo(
+    () =>
+      questionBank.reduce((indexes, question, index) => {
+        if (question.isActive !== false && question.promptAudioUrl) {
+          indexes.push(index);
+        }
+        return indexes;
+      }, []),
+    [questionBank],
+  );
 
   useEffect(() => {
     void checkServerStatus();
   }, []);
+
+  useEffect(() => {
+    const loadSharedQuestionBank = async () => {
+      try {
+        const sharedQuestionBank = await loadInterviewAiQuestionBank();
+        setQuestionBank(normalizeInterviewAiQuestionBank(sharedQuestionBank));
+        setSelectedIndex((current) => Math.min(current, Math.max(sharedQuestionBank.length - 1, 0)));
+      } catch (error) {
+        console.error("Load bank pertanyaan Wawancara AI gagal:", error);
+      }
+    };
+
+    void loadSharedQuestionBank();
+  }, []);
+
+  useEffect(() => {
+    const previewAudio = audioPreviewRef.current;
+
+    if (!previewAudio) {
+      return;
+    }
+
+    previewAudio.pause();
+    previewAudio.currentTime = 0;
+    if (audioPreviewRef.current) {
+      setIsPreviewPlaying(false);
+    }
+
+    if (autoPlayPreviewRef.current && selectedQuestion?.promptAudioUrl) {
+      autoPlayPreviewRef.current = false;
+      const playPreview = async () => {
+        try {
+          await previewAudio.play();
+          setIsPreviewPlaying(true);
+        } catch (error) {
+          console.error("Lanjut preview audio gagal:", error);
+          setIsPreviewPlaying(false);
+          setPreviewMode(null);
+          setPreviewQueue([]);
+          setPreviewQueuePosition(0);
+        }
+      };
+
+      void playPreview();
+    }
+  }, [selectedQuestion?.promptAudioUrl, selectedIndex]);
+
+  function stopPreviewPlayback() {
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+      audioPreviewRef.current.currentTime = 0;
+    }
+
+    autoPlayPreviewRef.current = false;
+    setIsPreviewPlaying(false);
+    setPreviewMode(null);
+    setPreviewQueue([]);
+    setPreviewQueuePosition(0);
+  }
 
   function updateQuestion(index, patch) {
     setQuestionBank((current) =>
@@ -85,7 +167,7 @@ export default function InterviewAiQuestionEditorPanel() {
     setFeedback({ type: "success", message: "Pertanyaan baru ditambahkan. Isi dulu lalu klik simpan." });
   }
 
-  function handleSave() {
+  async function handleSave() {
     const normalized = normalizeInterviewAiQuestionBank(
       questionBank.map((question, index) => ({
         ...question,
@@ -93,16 +175,45 @@ export default function InterviewAiQuestionEditorPanel() {
       })),
     );
 
-    setQuestionBank(saveInterviewAiQuestionBank(normalized));
-    setSelectedIndex((current) => Math.min(current, normalized.length - 1));
-    setFeedback({ type: "success", message: "Pertanyaan Wawancara AI berhasil disimpan." });
+    setIsSavingQuestionBank(true);
+    setFeedback(null);
+
+    try {
+      const savedQuestionBank = await saveInterviewAiQuestionBankToSupabase(normalized, { updatedBy: "Recruiter" });
+      setQuestionBank(savedQuestionBank);
+      setSelectedIndex((current) => Math.min(current, savedQuestionBank.length - 1));
+      setFeedback({ type: "success", message: "Pertanyaan Wawancara AI berhasil disimpan ke server." });
+    } catch (error) {
+      const localSavedQuestionBank = saveInterviewAiQuestionBank(normalized);
+      setQuestionBank(localSavedQuestionBank);
+      setSelectedIndex((current) => Math.min(current, localSavedQuestionBank.length - 1));
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Pertanyaan hanya tersimpan di browser ini. Coba simpan lagi untuk mengirim ke server.",
+      });
+    } finally {
+      setIsSavingQuestionBank(false);
+    }
   }
 
-  function handleResetDefault() {
-    const resetQuestions = resetInterviewAiQuestionBank();
-    setQuestionBank(resetQuestions);
-    setSelectedIndex(0);
-    setFeedback({ type: "success", message: "Pertanyaan dikembalikan ke versi default." });
+  async function handleResetDefault() {
+    setIsSavingQuestionBank(true);
+    setFeedback(null);
+
+    try {
+      const resetQuestions = await resetInterviewAiQuestionBank();
+      setQuestionBank(resetQuestions);
+      setSelectedIndex(0);
+      setFeedback({ type: "success", message: "Pertanyaan dikembalikan ke versi default dan disimpan ke server." });
+    } catch (error) {
+      console.error("Reset pertanyaan default gagal:", error);
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Reset pertanyaan belum berhasil disimpan ke server.",
+      });
+    } finally {
+      setIsSavingQuestionBank(false);
+    }
   }
 
   function handleApplyAudioTemplate() {
@@ -157,7 +268,7 @@ export default function InterviewAiQuestionEditorPanel() {
         loading: false,
         ok: false,
         configured: false,
-        message: error instanceof Error ? `${error.message} Jalankan 'npm run piper:api' untuk menyalakan server audio.` : "Server audio belum aktif.",
+        message: error instanceof Error ? `${error.message} Server audio online belum merespons.` : "Server audio belum aktif.",
       });
     }
   }
@@ -169,16 +280,19 @@ export default function InterviewAiQuestionEditorPanel() {
     try {
       const result = await generateInterviewAiPromptAudio(questionBank);
       const generatedMap = Object.fromEntries(result.generated.map((item) => [item.id, item.url]));
+      const generatedAt = Date.now();
       const nextQuestionBank = questionBank.map((question, index) => {
         const key = sanitizeQuestionKey(question.key, index);
+        const generatedUrl = generatedMap[key];
         return {
           ...question,
           key,
-          promptAudioUrl: generatedMap[key] || question.promptAudioUrl,
+          promptAudioUrl: generatedUrl ? `${generatedUrl}${generatedUrl.includes("?") ? "&" : "?"}v=${generatedAt}` : question.promptAudioUrl,
+          audioSourceText: generatedUrl ? question.questionText : question.audioSourceText,
         };
       });
 
-      const savedQuestionBank = saveInterviewAiQuestionBank(nextQuestionBank);
+      const savedQuestionBank = await saveInterviewAiQuestionBankToSupabase(nextQuestionBank, { updatedBy: "Recruiter" });
       setQuestionBank(savedQuestionBank);
       setFeedback({ type: "success", message: `Audio otomatis berhasil dibuat untuk ${result.generated.length} pertanyaan aktif.` });
     } catch (error) {
@@ -187,11 +301,79 @@ export default function InterviewAiQuestionEditorPanel() {
         type: "error",
         message:
           error instanceof Error
-            ? `${error.message} Jalankan 'npm run piper:api' di project ini saat server audio belum aktif.`
+            ? `${error.message} Coba cek lagi status server audio online.`
             : "Generate audio otomatis belum berhasil.",
       });
     } finally {
       setIsGeneratingAudio(false);
+    }
+  }
+
+  async function handlePreviewAudio() {
+    if (!selectedQuestion?.promptAudioUrl || !audioPreviewRef.current) {
+      setFeedback({ type: "error", message: "Audio untuk pertanyaan ini belum tersedia. Generate dulu agar bisa dipreview." });
+      return;
+    }
+
+    try {
+      if (isPreviewPlaying && previewMode === "single") {
+        stopPreviewPlayback();
+        return;
+      }
+
+      setPreviewMode("single");
+      setPreviewQueue([selectedIndex]);
+      setPreviewQueuePosition(0);
+      audioPreviewRef.current.currentTime = 0;
+      await audioPreviewRef.current.play();
+      setIsPreviewPlaying(true);
+    } catch (error) {
+      console.error("Preview audio gagal:", error);
+      setIsPreviewPlaying(false);
+      setFeedback({ type: "error", message: "Preview audio belum bisa diputar. Coba generate ulang atau cek file audio-nya." });
+    }
+  }
+
+  async function handlePreviewAllAudio() {
+    if (!previewableQuestionIndexes.length) {
+      setFeedback({ type: "error", message: "Belum ada audio aktif yang bisa dipreview. Generate dulu agar bisa didengarkan." });
+      return;
+    }
+
+    if (isPreviewPlaying && previewMode === "all") {
+      stopPreviewPlayback();
+      return;
+    }
+
+    const selectedQueuePosition = previewableQuestionIndexes.indexOf(selectedIndex);
+    const normalizedQueue =
+      selectedQueuePosition >= 0
+        ? [...previewableQuestionIndexes.slice(selectedQueuePosition), ...previewableQuestionIndexes.slice(0, selectedQueuePosition)]
+        : previewableQuestionIndexes;
+    const firstIndex = normalizedQueue[0];
+
+    setPreviewMode("all");
+    setPreviewQueue(normalizedQueue);
+    setPreviewQueuePosition(0);
+    autoPlayPreviewRef.current = firstIndex !== selectedIndex;
+
+    if (firstIndex !== selectedIndex) {
+      setSelectedIndex(firstIndex);
+      return;
+    }
+
+    try {
+      if (!audioPreviewRef.current) {
+        return;
+      }
+
+      audioPreviewRef.current.currentTime = 0;
+      await audioPreviewRef.current.play();
+      setIsPreviewPlaying(true);
+    } catch (error) {
+      console.error("Preview semua audio gagal:", error);
+      stopPreviewPlayback();
+      setFeedback({ type: "error", message: "Preview semua audio belum bisa diputar. Coba cek audio pertanyaan yang aktif." });
     }
   }
 
@@ -207,17 +389,13 @@ export default function InterviewAiQuestionEditorPanel() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={handleResetDefault}>
+              <Button variant="outline" onClick={() => void handleResetDefault()} disabled={isSavingQuestionBank}>
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Reset default
               </Button>
               <Button variant="outline" onClick={handleApplyAudioTemplate}>
                 <FileAudio className="mr-2 h-4 w-4" />
                 Path audio
-              </Button>
-              <Button onClick={handleSave}>
-                <Save className="mr-2 h-4 w-4" />
-                Simpan
               </Button>
             </div>
           </div>
@@ -336,6 +514,13 @@ export default function InterviewAiQuestionEditorPanel() {
                     placeholder="Tulis pertanyaan yang akan dijawab kandidat."
                     rows={5}
                   />
+                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-[var(--text-muted)]">Setelah selesai edit teks utama, klik simpan di sini.</div>
+                    <Button onClick={() => void handleSave()} disabled={isSavingQuestionBank}>
+                      {isSavingQuestionBank ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                      {isSavingQuestionBank ? "Menyimpan..." : "Simpan pertanyaan"}
+                    </Button>
+                  </div>
                 </div>
 
                 <div>
@@ -373,6 +558,56 @@ export default function InterviewAiQuestionEditorPanel() {
                     </div>
                   </div>
                 ) : null}
+
+                {selectedQuestion.promptAudioUrl ? (
+                  <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-0)] p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-[var(--text-main)]">Preview audio pertanyaan ini</div>
+                        <div className="mt-1 text-sm text-[var(--text-muted)]">Dengarkan dulu suara untuk pertanyaan yang sedang dipilih.</div>
+                      </div>
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" onClick={() => void handlePreviewAudio()}>
+                          {isPreviewPlaying && previewMode === "single" ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                          {isPreviewPlaying && previewMode === "single" ? "Hentikan preview" : selectedAudioOutdated ? "Preview audio lama" : "Preview audio"}
+                        </Button>
+                        <Button variant="outline" onClick={() => void handlePreviewAllAudio()} disabled={!previewableQuestionIndexes.length}>
+                          {isPreviewPlaying && previewMode === "all" ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                          {isPreviewPlaying && previewMode === "all" ? "Hentikan preview semua" : "Preview semua"}
+                        </Button>
+                      </div>
+                    </div>
+                    {selectedAudioOutdated ? (
+                      <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+                        Teks pertanyaan sudah berubah, tetapi audio masih versi lama. Klik <strong>Generate audio otomatis</strong> lagi agar suaranya mengikuti teks terbaru.
+                      </div>
+                    ) : null}
+                    <audio
+                      key={`${selectedQuestion.key}-${selectedQuestion.promptAudioUrl}`}
+                      ref={audioPreviewRef}
+                      controls
+                      preload="none"
+                      className="mt-4 w-full"
+                      src={selectedQuestion.promptAudioUrl}
+                      onPlay={() => setIsPreviewPlaying(true)}
+                      onPause={() => setIsPreviewPlaying(false)}
+                      onEnded={() => {
+                        if (previewMode === "all" && previewQueuePosition < previewQueue.length - 1) {
+                          const nextPosition = previewQueuePosition + 1;
+                          const nextIndex = previewQueue[nextPosition];
+                          autoPlayPreviewRef.current = true;
+                          setPreviewQueuePosition(nextPosition);
+                          setSelectedIndex(nextIndex);
+                          return;
+                        }
+
+                        stopPreviewPlayback();
+                      }}
+                    >
+                      Browser Anda belum mendukung preview audio.
+                    </audio>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
@@ -382,7 +617,7 @@ export default function InterviewAiQuestionEditorPanel() {
               <div>
                 <div className="text-lg font-semibold text-[var(--text-main)]">Audio interviewer</div>
                 <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                  Audio itu opsional. Kalau belum ingin pakai audio, editor ini tetap bisa dipakai normal. Jika nanti ingin generate audio, cukup unduh file pertanyaannya lalu jalankan Piper di sisi teknis.
+                  Audio itu opsional. Kalau belum ingin pakai audio, editor ini tetap bisa dipakai normal. Jika ingin memakai audio, sistem sekarang bisa generate lewat server online.
                 </p>
               </div>
 
@@ -391,9 +626,9 @@ export default function InterviewAiQuestionEditorPanel() {
                 <br />
                 1. Edit pertanyaan dan klik <strong>Simpan</strong>.
                 <br />
-                2. Kalau butuh audio, klik <strong>Unduh file untuk audio</strong>.
+                2. Kalau butuh audio, klik <strong>Generate audio otomatis</strong>.
                 <br />
-                3. Hasil MP3 nanti tinggal diletakkan ke folder audio oleh tim teknis.
+                3. Path audio akan terisi otomatis ke pertanyaan yang aktif.
               </div>
 
               <div className="flex flex-wrap gap-2">

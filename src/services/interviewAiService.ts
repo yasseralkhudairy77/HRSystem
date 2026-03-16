@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { buildInterviewAiPackageItems, INTERVIEW_AI_TEMPLATE_KEY, INTERVIEW_AI_TEMPLATE_NAME } from "@/data/interviewAiQuestions";
-import { getInterviewAiQuestionBank } from "@/services/interviewAiQuestionBankService";
+import { loadInterviewAiQuestionBank } from "@/services/interviewAiQuestionBankService";
 import type { InterviewAiPackage } from "@/types/interviewAi";
 
 const PACKAGE_TABLE = "candidate_test_packages";
@@ -126,7 +126,7 @@ export async function createInterviewAiPackage(payload: {
     throw packageError;
   }
 
-  const questionBank = getInterviewAiQuestionBank();
+  const questionBank = await loadInterviewAiQuestionBank();
   const itemPayload = buildInterviewAiPackageItems(questionBank).map((item) => ({
     package_id: packageRow.id,
     ...item,

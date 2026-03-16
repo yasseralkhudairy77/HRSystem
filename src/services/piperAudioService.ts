@@ -1,5 +1,7 @@
 import { buildInterviewAiPiperExport } from "@/services/interviewAiQuestionBankService";
 
+const DEFAULT_PIPER_API_URL = "https://yasseralkhudairy77-hrsystem-piper-api.hf.space";
+
 function getPiperApiBaseUrl() {
   const configuredBaseUrl = import.meta.env.VITE_PIPER_API_URL;
 
@@ -7,11 +9,7 @@ function getPiperApiBaseUrl() {
     return configuredBaseUrl.replace(/\/$/, "");
   }
 
-  if (typeof window !== "undefined") {
-    return `${window.location.protocol}//${window.location.hostname}:8788`;
-  }
-
-  return "http://localhost:8788";
+  return DEFAULT_PIPER_API_URL;
 }
 
 export async function generateInterviewAiPromptAudio(questionBank: unknown) {
