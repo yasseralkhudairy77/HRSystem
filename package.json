@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "git:auto-commit": "powershell -ExecutionPolicy Bypass -File scripts/git-auto-commit.ps1",
     "piper:api": "node server/piper-api.mjs",
     "seed:recruitment-dummy": "node scripts/seed-hr-recruitment-dummy.mjs",
     "seed:psychotest-dummy": "node scripts/seed-psychotest-dummy.mjs",
