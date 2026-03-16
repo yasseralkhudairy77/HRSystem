@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: hireumkm-piper-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_AUDIO_BUCKET
+        value: interview-ai-audio
+      - key: SUPABASE_AUDIO_FOLDER
+        value: questions

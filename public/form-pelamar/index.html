@@ -1,0 +1,1416 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Form Pelamar - HR Recruitment</title>
+  <style>
+    :root{
+      --bg:#eef3f9;
+      --panel:#ffffff;
+      --card:#ffffff;
+      --card-soft:#f7f9fc;
+      --text:#10233f;
+      --muted:#5e7088;
+      --line:#d6deea;
+      --line-strong:#bfccdc;
+      --primary:#163d70;
+      --primary2:#1e4f8f;
+      --accent:#1e4f8f;
+      --headerStart:#ffffff;
+      --headerMid:#f7f9fc;
+      --headerEnd:#eef3f9;
+      --danger:#b43c3c;
+      --success:#2f7a52;
+
+      --shadow:0 1px 2px rgba(15,23,42,.03), 0 10px 24px rgba(15,23,42,.04);
+      --radius:14px;
+    }
+    *{box-sizing:border-box;font-family:"Segoe UI Variable","Segoe UI","Inter",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
+    body{
+      margin:0;
+      background:
+        radial-gradient(circle at top left, rgba(76,119,178,.12), transparent 26%),
+        linear-gradient(180deg, #f4f7fb 0%, #edf2f8 100%);
+      color:var(--text)
+    }
+    a{color:inherit}
+    .container{width:min(1200px,100%);margin:0 auto;padding:24px}
+    .topband{
+      background: linear-gradient(120deg, var(--headerStart), var(--headerMid) 52%, var(--headerEnd));
+      color:var(--text);
+      border-bottom:1px solid rgba(214,222,234,.9);
+      backdrop-filter:blur(10px);
+      padding:14px 0;
+    }
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+    }
+    .brand{
+      display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.2px;
+    }
+    .brand .logo{
+      width:40px;height:40px;border-radius:12px;
+      background:linear-gradient(135deg,var(--primary2),var(--primary));display:grid;place-items:center;font-weight:900;
+      color:#fff;
+      border:1px solid rgba(22,61,112,.18);
+      box-shadow:var(--shadow);
+    }
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{
+      border:1px solid var(--line);border-radius:12px;padding:11px 15px;font-weight:700;cursor:pointer;
+      background:var(--card);color:var(--text);box-shadow:var(--shadow);
+      transition:.18s ease;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+    .btn.small{padding:8px 10px;font-size:12px}
+    .btn.flat{box-shadow:none;background:var(--card-soft);color:var(--text);border:1px solid var(--line)}
+    .btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+    .btn.success{background:var(--success);color:#fff;border-color:var(--success)}
+    .btn.blue{background:linear-gradient(135deg,var(--primary2),var(--primary));color:#fff;border-color:var(--primary)}
+
+    .page{display:none}
+    .page.active{display:block}
+
+    .card{
+      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .card.pad{padding:22px}
+    .grid{display:grid;gap:12px}
+    .grid.two{grid-template-columns:1fr 1fr}
+    .grid.three{grid-template-columns:repeat(3,1fr)}
+    @media(max-width:860px){.grid.two,.grid.three{grid-template-columns:1fr}}
+
+    .sectionTitle{
+      display:flex;align-items:center;gap:10px;margin:0 0 18px;
+      font-weight:800;font-size:20px;
+    }
+    .badgeNum{
+      width:28px;height:28px;border-radius:999px;display:grid;place-items:center;
+      background:rgba(245,158,11,.15);color:#b45309;border:1px solid rgba(245,158,11,.35);
+      font-size:13px;
+    }
+
+    .field{display:flex;flex-direction:column;gap:6px}
+    label{font-size:12px;color:var(--text);font-weight:700}
+    input,select,textarea{
+      width:100%;padding:13px 12px;border-radius:12px;border:1px solid var(--line);
+      outline:none;background:#fff;color:var(--text);
+    }
+    textarea{min-height:96px;resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(30,79,143,.12)}
+    .helper{font-size:12px;color:var(--muted)}
+    .divider{height:1px;background:var(--line);margin:14px 0}
+    .uploadBox{
+      border:1px solid var(--line); background:var(--card-soft);
+      border-radius:14px;padding:24px;display:flex;align-items:center;justify-content:center;
+      min-height:120px;text-align:center;
+    }
+    .uploadBox strong{display:block}
+    .pill{
+      display:inline-flex;gap:8px;align-items:center;
+      padding:8px 10px;border-radius:999px;border:1px solid var(--line);
+      background:var(--card-soft);color:var(--text);font-weight:800;font-size:12px;
+    }
+
+    .pageApplicantLayout{
+      display:grid;
+      grid-template-columns:minmax(0,1fr);
+      gap:0;
+      align-items:start;
+    }
+    .formSections{
+      display:grid;
+      gap:18px;
+    }
+    .formSections > div[style*="height:12px"]{
+      display:none;
+    }
+    .applicantHero{
+      position:relative;
+      padding:32px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at top right, rgba(30,79,143,.14), transparent 28%),
+        linear-gradient(135deg, rgba(255,255,255,.98), rgba(247,249,252,.96));
+    }
+    .applicantHero > *{
+      position:relative;
+      z-index:1;
+    }
+    .pageApplicant .card{
+      background:rgba(255,255,255,.92);
+    }
+    .pageApplicant .card[data-step]{
+      position:relative;
+      border:1px solid var(--line);
+      padding:24px;
+    }
+    .pageApplicant .card[data-step] > *{
+      position:relative;
+      z-index:1;
+    }
+    .pageApplicant .card[data-step] .sectionTitle::before{
+      content:attr(data-step);
+      display:inline-block;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+      letter-spacing:.8px;
+      margin-right:8px;
+    }
+    .sectionMeta{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:18px;
+      flex-wrap:wrap;
+    }
+    .sectionHint{
+      font-size:12px;
+      color:var(--muted);
+      padding:8px 12px;
+      border:1px solid var(--line);
+      background:var(--card-soft);
+      border-radius:999px;
+    }
+    @media(max-width:980px){
+      .pageApplicantLayout{
+        grid-template-columns:1fr;
+      }
+    }
+
+    /* Admin layout */
+    .adminTop{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+      padding:12px 14px;
+      background: linear-gradient(120deg, var(--primary), var(--primary2) 52%, #3569a8);
+      color:#fff;border-radius:var(--radius);
+      border:1px solid rgba(22,61,112,.15);
+      box-shadow:var(--shadow);
+      margin-top:16px;
+    }
+    .tabs{
+      display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;
+    }
+    .tab{
+      border:1px solid var(--line);background:#fff;border-radius:12px;
+      padding:9px 12px;font-weight:900;color:#111827;cursor:pointer;
+    }
+    .tab.active{border-color:var(--accent);box-shadow:none;background:#edf4ff;color:var(--primary)}
+    .kpiRow{display:grid;gap:12px;grid-template-columns:repeat(4,1fr)}
+    @media(max-width:960px){.kpiRow{grid-template-columns:1fr 1fr}}
+    .kpi{
+      padding:14px;border-radius:14px;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow);
+    }
+    .kpi .label{color:var(--muted);font-weight:900;font-size:12px}
+    .kpi .value{font-size:28px;font-weight:1000;margin-top:6px}
+    .kpi .sub{color:var(--muted);font-size:12px;margin-top:4px}
+
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+    th{color:var(--muted);font-weight:1000;font-size:12px}
+    .rowActions{display:flex;gap:6px;flex-wrap:wrap}
+    .tag{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:6px 9px;border-radius:999px;font-weight:900;font-size:12px;border:1px solid var(--line);
+      background:#f9fafb;
+    }
+    .tag.pending{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35);color:#92400e}
+    .tag.shortlisted{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35);color:#166534}
+    .tag.rejected{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:#991b1b}
+    .tag.scheduled{background:rgba(37,99,235,.12);border-color:rgba(37,99,235,.35);color:#1e40af}
+
+    /* Modal */
+    .modalBackdrop{
+      position:fixed;inset:0;background:rgba(0,0,0,.45);
+      display:none;align-items:center;justify-content:center;padding:18px;z-index:50;
+    }
+    .modalBackdrop.show{display:flex}
+    .modal{
+      width:min(680px,100%);background:#fff;border-radius:18px;border:1px solid var(--line);
+      box-shadow:0 20px 60px rgba(0,0,0,.25);
+    }
+    .modalHeader{
+      padding:12px 14px;border-bottom:1px solid var(--line);
+      display:flex;justify-content:space-between;align-items:center;gap:12px;
+    }
+    .modalHeader h3{margin:0;font-size:14px;font-weight:1000}
+    .modalBody{padding:14px}
+    .modalFooter{
+      padding:12px 14px;border-top:1px solid var(--line);
+      display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;
+    }
+    .successBackdrop{
+      position:fixed;inset:0;z-index:70;
+      display:none;align-items:center;justify-content:center;
+      padding:20px;background:rgba(10,23,44,.46);
+      backdrop-filter:blur(8px);
+    }
+    .successBackdrop.show{display:flex}
+    .successModal{
+      width:min(520px,100%);
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:22px;
+      box-shadow:0 24px 70px rgba(0,0,0,.22);
+      padding:28px 24px;
+      text-align:center;
+    }
+    .successIcon{
+      width:64px;height:64px;border-radius:20px;
+      display:grid;place-items:center;
+      margin:0 auto 16px;
+      background:linear-gradient(135deg, rgba(47,122,82,.15), rgba(30,79,143,.12));
+      color:var(--success);
+      border:1px solid rgba(47,122,82,.18);
+      font-size:30px;font-weight:900;
+    }
+    .successTitle{
+      margin:0;
+      font-size:28px;
+      line-height:1.2;
+      letter-spacing:-.03em;
+      font-weight:1000;
+      color:var(--text);
+    }
+    .successLead{
+      margin:12px auto 0;
+      max-width:420px;
+      font-size:14px;
+      line-height:1.8;
+      color:var(--muted);
+    }
+    .successStatus{
+      margin:18px auto 0;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:var(--card-soft);
+      color:var(--text);
+      font-size:12px;
+      font-weight:800;
+    }
+    .successStatus .dot{
+      width:8px;height:8px;border-radius:999px;background:var(--success);
+      box-shadow:0 0 0 4px rgba(47,122,82,.12);
+    }
+    .successMeta{
+      margin-top:18px;
+      font-size:12px;
+      line-height:1.7;
+      color:var(--muted);
+    }
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAND -->
+  <div class="topband">
+    <div class="container">
+      <div class="topbar">
+        <div class="brand">
+          <div class="logo">HR</div>
+          <div>
+            <div style="font-size:14px;font-weight:1000;">HR Recruitment Workspace</div>
+            <div style="font-size:12px;color:var(--muted);">Form Pelamar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- PAGE: APPLICANT -->
+    <section class="page active" id="pageApplicant">
+      <div class="pageApplicantLayout">
+        <div class="formSections">
+      <div class="card pad applicantHero">
+        <div class="pill" style="margin-bottom:14px;">Database kandidat recruitment</div>
+        <h2 style="margin:0 0 10px;font-weight:1000;font-size:30px;">Form Lamaran Kerja</h2>
+        <div class="helper" style="max-width:760px;font-size:14px;line-height:1.8;">Silakan isi data secara lengkap agar HR bisa langsung memasukkan profil Anda ke database kandidat, melakukan screening awal, dan melanjutkan proses tes atau wawancara tanpa input ulang.</div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <!-- Step 1 -->
+      <div class="card pad" data-step="1">
+        <div class="sectionMeta">
+          <div class="sectionTitle" data-step="01">Informasi Posisi</div>
+          <div class="sectionHint">Bagian awal pelamaran</div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label>Posisi yang dilamar *</label>
+            <input id="posisi" placeholder="Contoh: Staff HR / Admin / Finance"/>
+          </div>
+          <div class="field">
+            <label>Sumber Info Lowongan</label>
+            <select id="sumber">
+              <option value="">Pilih...</option>
+              <option>Instagram</option>
+              <option>Job Portal</option>
+              <option>Referensi Teman</option>
+              <option>Website Perusahaan</option>
+              <option>Lainnya</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="height:12px"></div>
+
+      <!-- Step 2 -->
+      <div class="card pad" data-step="2">
+        <div class="sectionMeta">
+          <div class="sectionTitle" data-step="02">Data Pribadi</div>
+          <div class="sectionHint">Informasi identitas kandidat</div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label>Nama Lengkap *</label>
+            <input id="namaLengkap" placeholder="Nama lengkap sesuai KTP"/>
+          </div>
+          <div class="field">
+            <label>Email *</label>
+            <input id="email" type="email" placeholder="nama@email.com"/>
+          </div>
+          <div class="field">
+            <label>No. HP *</label>
+            <input id="hp" placeholder="08xxxxxxxxxx"/>
+          </div>
+          <div class="field">
+            <label>Tanggal Lahir *</label>
+            <input id="tglLahir" type="date"/>
+          </div>
+          <div class="field">
+            <label>Agama</label>
+            <select id="agama">
+              <option value="">Pilih...</option>
+              <option>Islam</option><option>Kristen</option><option>Katolik</option>
+              <option>Hindu</option><option>Buddha</option><option>Konghucu</option><option>Lainnya</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Status Pernikahan</label>
+            <select id="statusNikah">
+              <option value="">Pilih...</option>
+              <option>Belum Menikah</option><option>Menikah</option><option>Cerai</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Jenis Kelamin *</label>
+            <select id="gender">
+              <option value="">Pilih...</option>
+              <option>Laki-laki</option><option>Perempuan</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Kewarganegaraan</label>
+            <input id="wn" placeholder="Contoh: Indonesia"/>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label>Alamat sesuai KTP *</label>
+            <textarea id="alamatKtp" placeholder="Alamat KTP"></textarea>
+          </div>
+          <div class="field">
+            <label>Alamat Domisili *</label>
+            <textarea id="alamatDom" placeholder="Alamat domisili saat ini"></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="height:12px"></div>
+
+      <!-- Step 3 -->
+      <div class="card pad" data-step="3">
+        <div class="sectionMeta">
+          <div class="sectionTitle" data-step="03">Pendidikan</div>
+          <div class="sectionHint">Riwayat akademik terakhir</div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label>Universitas/Institusi</label>
+            <input id="kampus" placeholder="Nama kampus/sekolah"/>
+          </div>
+          <div class="field">
+            <label>Jenjang</label>
+            <select id="jenjang">
+              <option value="">Pilih...</option>
+              <option>SMA/SMK</option><option>D3</option><option>S1</option><option>S2</option><option>S3</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Jurusan</label>
+            <input id="jurusan" placeholder="Contoh: Akuntansi"/>
+          </div>
+          <div class="field">
+            <label>Tahun Lulus</label>
+            <input id="thnLulus" placeholder="Contoh: 2020"/>
+          </div>
+          <div class="field">
+            <label>IPK/Nilai</label>
+            <input id="ipk" placeholder="Contoh: 3.45 / 4.00"/>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="height:12px"></div>
+
+      <!-- Step 4 -->
+      <div class="card pad" data-step="4">
+        <div class="sectionMeta">
+          <div class="sectionTitle" data-step="04">Pengalaman Kerja</div>
+          <div class="sectionHint">Boleh kosong jika fresh graduate</div>
+        </div>
+
+        <div class="field">
+          <label><input type="checkbox" id="freshGrad" style="width:auto;margin-right:8px"> Saya Fresh Graduate (belum ada pengalaman)</label>
+          <div class="helper">Jika dicentang, data pengalaman boleh dikosongkan.</div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label>Lama Pengalaman (tahun) *</label>
+            <input id="tahunExp" placeholder="Contoh: 3"/>
+          </div>
+          <div class="field">
+            <label>Pengalaman Kerja 1</label>
+            <input id="perusahaan1" placeholder="Nama perusahaan"/>
+          </div>
+          <div class="field">
+            <label>Jabatan 1</label>
+            <input id="jabatan1" placeholder="Contoh: SPV HR"/>
+          </div>
+          <div class="field">
+            <label>Tanggal Masuk 1</label>
+            <input id="tglMasuk1" type="date"/>
+          </div>
+          <div class="field">
+            <label>Tanggal Keluar 1</label>
+            <input id="tglKeluar1" type="date"/>
+          </div>
+          <div class="field">
+            <label><input type="checkbox" id="masihKerja1" style="width:auto;margin-right:8px"> Masih bekerja di sini (1)</label>
+          </div>
+          <div class="field">
+            <label>Deskripsi Pekerjaan 1 (Jelaskan Secara Detail)</label>
+            <textarea id="deskripsi1" placeholder="Jelaskan tugas, tanggung jawab, dan pencapaian utama"></textarea>
+          </div>
+          <div class="field">
+            <label>Alasan Resign 1</label>
+            <textarea id="alasanResign1" placeholder="Contoh: Mencari tantangan baru / kontrak selesai"></textarea>
+          </div>
+          <div class="field">
+            <label>Pengalaman Kerja 2 (Opsional)</label>
+            <input id="perusahaan2" placeholder="Nama perusahaan"/>
+          </div>
+          <div class="field">
+            <label>Jabatan 2</label>
+            <input id="jabatan2" placeholder="Contoh: Staff HR"/>
+          </div>
+          <div class="field">
+            <label>Tanggal Masuk 2</label>
+            <input id="tglMasuk2" type="date"/>
+          </div>
+          <div class="field">
+            <label>Tanggal Keluar 2</label>
+            <input id="tglKeluar2" type="date"/>
+          </div>
+          <div class="field">
+            <label><input type="checkbox" id="masihKerja2" style="width:auto;margin-right:8px"> Masih bekerja di sini (2)</label>
+          </div>
+          <div class="field">
+            <label>Deskripsi Pekerjaan 2 (Jelaskan Secara Detail)</label>
+            <textarea id="deskripsi2" placeholder="Jelaskan tugas, tanggung jawab, dan pencapaian utama"></textarea>
+          </div>
+          <div class="field">
+            <label>Alasan Resign 2</label>
+            <textarea id="alasanResign2" placeholder="Contoh: Ingin berkembang ke posisi yang lebih sesuai"></textarea>
+          </div>
+          <div class="field">
+            <label>Ekspektasi Gaji (Rp)</label>
+            <input id="gaji" placeholder="Contoh: 7000000"/>
+          </div>
+          <div class="field">
+            <label>Masa Notice</label>
+            <select id="notice">
+              <option value="">Pilih...</option>
+              <option>1 Minggu</option><option>2 Minggu</option><option>1 Bulan</option><option>2 Bulan</option>
+              <option>Negosiasi</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="height:12px"></div>
+
+      <!-- Step 5 -->
+      <div class="card pad" data-step="5">
+        <div class="sectionMeta">
+          <div class="sectionTitle" data-step="05">Unggah CV *</div>
+          <div class="sectionHint">Dokumen wajib format PDF</div>
+        </div>
+
+        <div class="uploadBox">
+          <div>
+            <div style="font-size:34px">📄</div>
+            <strong>Klik untuk unggah CV (Wajib)</strong>
+            <div class="helper">Format demo: PDF (maks 5MB) — di demo ini hanya disimpan nama file</div>
+            <div style="height:10px"></div>
+            <input id="cvFile" type="file" accept="application/pdf"/>
+            <div class="helper" id="cvName" style="margin-top:10px;"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+          <button class="btn blue" onclick="submitApplication()">Kirim Lamaran</button>
+        </div>
+
+        <div class="divider"></div>
+      </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: ADMIN -->
+    <section class="page" id="pageAdmin">
+      <div class="adminTop">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div class="brand" style="gap:10px">
+            <div class="logo" style="background:rgba(255,255,255,.18)">👤</div>
+            <div>
+              <div style="font-weight:1000">Candidate Management System</div>
+              <div style="font-size:12px;opacity:.9">Selamat datang, Admin</div>
+            </div>
+          </div>
+          <span class="pill" style="background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.30);color:#fff">
+            CV Bank: <span id="cvBankCount">0</span>
+          </span>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" onclick="exportJSON()">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-admin-tab="dashboard" onclick="switchAdminTab('dashboard')">Dashboard</button>
+        <button class="tab" data-admin-tab="applicants" onclick="switchAdminTab('applicants')">Semua Pelamar</button>
+        <button class="tab" data-admin-tab="shortlist" onclick="switchAdminTab('shortlist')">Shortlisted</button>
+        <button class="tab" data-admin-tab="interviews" onclick="switchAdminTab('interviews')">Interview</button>
+        <button class="tab" data-admin-tab="rejected" onclick="switchAdminTab('rejected')">Rejected</button>
+        <button class="tab" data-admin-tab="settings" onclick="switchAdminTab('settings')">Pengaturan</button>
+      </div>
+
+      <!-- Admin Tab: Dashboard -->
+      <div class="adminPane" id="admin_dashboard">
+        <div class="kpiRow">
+          <div class="kpi">
+            <div class="label">Total Lamaran</div>
+            <div class="value" id="kpiTotal">0</div>
+            <div class="sub">Total data pelamar masuk</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Pending Review</div>
+            <div class="value" id="kpiPending">0</div>
+            <div class="sub">Belum diputuskan</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Shortlisted</div>
+            <div class="value" id="kpiShortlisted">0</div>
+            <div class="sub">Lanjut tahap interview</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Rejected</div>
+            <div class="value" id="kpiRejected">0</div>
+            <div class="sub">Tidak dilanjutkan</div>
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="card pad">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div style="font-weight:1000">Ringkasan</div>
+            <div class="pill">Posisi unik: <span id="kpiUniquePos">0</span></div>
+          </div>
+          <div class="divider"></div>
+          <div class="helper">Ini demo tanpa chart library. Kalau mau, kita bisa tambahkan Chart.js.</div>
+        </div>
+      </div>
+
+      <!-- Admin Tab: Applicants -->
+      <div class="adminPane" id="admin_applicants" style="display:none;">
+        <div class="card pad">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div style="font-weight:1000">Semua Pelamar</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <input id="search" placeholder="Cari nama/email/posisi..." style="min-width:240px"/>
+              <button class="btn flat" onclick="renderTables()">Refresh</button>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div style="overflow:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Posisi</th>
+                  <th>Nama</th>
+                  <th>Email</th>
+                  <th>No. HP</th>
+                  <th>Pengalaman</th>
+                  <th>Status</th>
+                  <th>CV</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tblAll"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Tab: Shortlist -->
+      <div class="adminPane" id="admin_shortlist" style="display:none;">
+        <div class="card pad">
+          <div style="font-weight:1000;margin-bottom:10px">Shortlisted</div>
+          <div style="overflow:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tanggal</th><th>Posisi</th><th>Nama</th><th>Email</th><th>Status</th><th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tblShortlist"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Tab: Interviews -->
+      <div class="adminPane" id="admin_interviews" style="display:none;">
+        <div class="card pad">
+          <div style="font-weight:1000;margin-bottom:10px">Interview Terjadwal</div>
+          <div style="overflow:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nama</th><th>Posisi</th><th>Tanggal & Waktu</th><th>Lokasi/Link</th><th>Pewawancara</th><th>Status</th><th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tblInterviews"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Tab: Rejected -->
+      <div class="adminPane" id="admin_rejected" style="display:none;">
+        <div class="card pad">
+          <div style="font-weight:1000;margin-bottom:10px">Rejected</div>
+          <div style="overflow:auto">
+            <table>
+              <thead>
+                <tr><th>Tanggal</th><th>Posisi</th><th>Nama</th><th>Email</th><th>Status</th></tr>
+              </thead>
+              <tbody id="tblRejected"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Tab: Settings -->
+      <div class="adminPane" id="admin_settings" style="display:none;">
+        <div class="card pad">
+          <div style="font-weight:1000">Template Email</div>
+          <div class="helper">Gunakan placeholder: <b>[Nama]</b>, <b>[Posisi]</b>, <b>[Tanggal]</b>, <b>[Waktu]</b>, <b>[Lokasi]</b>, <b>[Pewawancara]</b></div>
+          <div class="divider"></div>
+
+          <div class="grid">
+            <div class="card pad" style="border-radius:16px">
+              <div style="font-weight:1000;margin-bottom:8px">📩 Email Konfirmasi Lamaran</div>
+              <textarea id="tplConfirm"></textarea>
+            </div>
+            <div class="card pad" style="border-radius:16px">
+              <div style="font-weight:1000;margin-bottom:8px">⭐ Email Shortlist</div>
+              <textarea id="tplShortlist"></textarea>
+            </div>
+            <div class="card pad" style="border-radius:16px">
+              <div style="font-weight:1000;margin-bottom:8px">📅 Email Undangan Interview</div>
+              <textarea id="tplInterview"></textarea>
+            </div>
+            <div class="card pad" style="border-radius:16px">
+              <div style="font-weight:1000;margin-bottom:8px">❌ Email Penolakan</div>
+              <textarea id="tplReject"></textarea>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+          <button class="btn blue" onclick="saveTemplates()">Simpan Template</button>
+          <button class="btn flat" onclick="resetTemplates()">Reset Default</button>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  <!-- MODALS -->
+  <div class="modalBackdrop" id="modalBackdrop">
+    <div class="modal">
+      <div class="modalHeader">
+        <h3 id="modalTitle">Modal</h3>
+        <button class="btn flat small" onclick="closeModal()">Tutup</button>
+      </div>
+      <div class="modalBody" id="modalBody"></div>
+      <div class="modalFooter" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <div class="successBackdrop" id="successBackdrop" aria-live="polite" aria-modal="true" role="dialog">
+    <div class="successModal">
+      <div class="successIcon">✓</div>
+      <h3 class="successTitle" id="successTitle">Terima kasih</h3>
+      <p class="successLead" id="successLead">Lamaran Anda sudah kami terima dengan baik.</p>
+      <div class="successStatus" id="successStatus">
+        <span class="dot"></span>
+        <span id="successStatusText">Menyiapkan penutupan halaman...</span>
+      </div>
+      <div class="successMeta" id="successMeta">Anda dapat menunggu sebentar. Halaman akan ditutup otomatis jika browser mengizinkan.</div>
+      <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px;">
+        <button class="btn blue" id="successCloseNow">Tutup Sekarang</button>
+        <button class="btn flat" id="successStayOpen">Tetap di halaman</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // -------------------- Storage Helpers --------------------
+  const KEY = "ATS_DEMO_APPLICANTS_V1";
+  const TPLKEY = "ATS_DEMO_TEMPLATES_V1";
+
+  function loadApplicants(){
+    try{ return JSON.parse(localStorage.getItem(KEY) || "[]"); }catch{ return []; }
+  }
+  function saveApplicants(list){
+    localStorage.setItem(KEY, JSON.stringify(list));
+  }
+  function uid(){
+    return "A" + Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
+
+  // -------------------- Templates --------------------
+  const DEFAULT_TPL = {
+    confirm:
+`Yth. [Nama],
+
+Terima kasih sudah melamar posisi [Posisi]. Lamaran Anda telah kami terima dan sedang kami review.
+
+Kami akan menghubungi Anda untuk informasi tahap berikutnya.
+
+Hormat kami,
+Tim HR`,
+    shortlist:
+`Yth. [Nama],
+
+Selamat! Anda masuk shortlist untuk posisi [Posisi].
+Tim HR akan menghubungi Anda untuk penjadwalan interview.
+
+Hormat kami,
+Tim HR`,
+    interview:
+`Yth. [Nama],
+
+Berikut detail interview untuk posisi [Posisi]:
+Tanggal: [Tanggal]
+Waktu: [Waktu]
+Lokasi/Link: [Lokasi]
+Pewawancara: [Pewawancara]
+
+Mohon konfirmasi ketersediaan Anda.
+
+Hormat kami,
+Tim HR`,
+    reject:
+`Yth. [Nama],
+
+Terima kasih atas ketertarikan Anda pada posisi [Posisi] dan waktu yang telah Anda berikan.
+
+Setelah pertimbangan, kami memutuskan untuk melanjutkan kandidat lain yang lebih sesuai dengan kebutuhan saat ini.
+Kami akan menyimpan data Anda untuk kesempatan yang relevan di masa depan.
+
+Hormat kami,
+Tim HR`
+  };
+
+  function loadTemplates(){
+    try{
+      const t = JSON.parse(localStorage.getItem(TPLKEY));
+      return t && t.confirm ? t : DEFAULT_TPL;
+    }catch{
+      return DEFAULT_TPL;
+    }
+  }
+  function saveTemplatesToStorage(t){
+    localStorage.setItem(TPLKEY, JSON.stringify(t));
+  }
+
+  // -------------------- Navigation --------------------
+  const pageApplicant = document.getElementById("pageApplicant");
+  const pageAdmin = document.getElementById("pageAdmin");
+  document.getElementById("goApplicant")?.addEventListener("click", () => showPage("applicant"));
+  document.getElementById("goAdmin")?.addEventListener("click", () => { showPage("admin"); renderAll(); });
+  document.getElementById("resetData")?.addEventListener("click", () => {
+    if(confirm("Reset semua data demo?")){
+      localStorage.removeItem(KEY);
+      localStorage.removeItem(TPLKEY);
+      alert("Data direset.");
+      renderAll();
+      showPage("applicant");
+    }
+  });
+
+  function showPage(which){
+    if(which==="admin"){
+      pageApplicant.classList.remove("active");
+      pageAdmin.classList.add("active");
+    }else{
+      pageAdmin.classList.remove("active");
+      pageApplicant.classList.add("active");
+    }
+  }
+
+  const cvFile = document.getElementById("cvFile");
+  const cvName = document.getElementById("cvName");
+  cvFile?.addEventListener("change", () => {
+    const f = cvFile.files?.[0];
+    cvName.textContent = f ? ("File dipilih: " + f.name) : "";
+  });
+
+  function required(v){ return (v ?? "").toString().trim().length > 0; }
+
+  function submitApplication(){
+    // validate minimum
+    const posisi = document.getElementById("posisi").value.trim();
+    const namaLengkap = document.getElementById("namaLengkap").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const hp = document.getElementById("hp").value.trim();
+    const tglLahir = document.getElementById("tglLahir").value;
+    const gender = document.getElementById("gender").value;
+    const alamatKtp = document.getElementById("alamatKtp").value.trim();
+    const alamatDom = document.getElementById("alamatDom").value.trim();
+    const f = cvFile.files?.[0];
+
+    if(!required(posisi)) return alert("Posisi wajib diisi.");
+    if(!required(namaLengkap)) return alert("Nama lengkap wajib diisi.");
+    if(!required(email) || !email.includes("@")) return alert("Email wajib diisi dengan format benar.");
+    if(!required(hp)) return alert("No. HP wajib diisi.");
+    if(!required(tglLahir)) return alert("Tanggal lahir wajib diisi.");
+    if(!required(gender)) return alert("Jenis kelamin wajib dipilih.");
+    if(!required(alamatKtp) || !required(alamatDom)) return alert("Alamat KTP & domisili wajib diisi.");
+    if(!f) return alert("CV wajib diunggah (PDF).");
+
+    const freshGrad = document.getElementById("freshGrad").checked;
+    const pengalaman1 = {
+      perusahaan: document.getElementById("perusahaan1").value.trim(),
+      jabatan: document.getElementById("jabatan1").value.trim(),
+      tglMasuk: document.getElementById("tglMasuk1").value,
+      tglKeluar: document.getElementById("tglKeluar1").value,
+      masihKerja: document.getElementById("masihKerja1").checked,
+      deskripsi: document.getElementById("deskripsi1").value.trim(),
+      alasanResign: document.getElementById("alasanResign1").value.trim(),
+    };
+    const pengalaman2 = {
+      perusahaan: document.getElementById("perusahaan2").value.trim(),
+      jabatan: document.getElementById("jabatan2").value.trim(),
+      tglMasuk: document.getElementById("tglMasuk2").value,
+      tglKeluar: document.getElementById("tglKeluar2").value,
+      masihKerja: document.getElementById("masihKerja2").checked,
+      deskripsi: document.getElementById("deskripsi2").value.trim(),
+      alasanResign: document.getElementById("alasanResign2").value.trim(),
+    };
+    const pengalamanList = [pengalaman1, pengalaman2].filter(x =>
+      required(x.perusahaan) || required(x.jabatan) || required(x.tglMasuk) || required(x.tglKeluar) || x.masihKerja || required(x.deskripsi) || required(x.alasanResign)
+    );
+    if(!freshGrad && pengalamanList.length===0){
+      return alert("Isi minimal 1 pengalaman kerja atau centang Fresh Graduate.");
+    }
+    const pengalamanUtama = pengalamanList[0] || {perusahaan:"",jabatan:"",tglMasuk:"",tglKeluar:"",masihKerja:false,deskripsi:"",alasanResign:""};
+
+    const app = {
+      id: uid(),
+      createdAt: new Date().toISOString(),
+      posisi,
+      sumber: document.getElementById("sumber").value,
+      nama: namaLengkap,
+      email,
+      hp,
+      tglLahir,
+      agama: document.getElementById("agama").value,
+      statusNikah: document.getElementById("statusNikah").value,
+      gender,
+      wn: document.getElementById("wn").value,
+      alamatKtp,
+      alamatDom,
+      pendidikan: {
+        kampus: document.getElementById("kampus").value,
+        jenjang: document.getElementById("jenjang").value,
+        jurusan: document.getElementById("jurusan").value,
+        thnLulus: document.getElementById("thnLulus").value,
+        ipk: document.getElementById("ipk").value,
+      },
+      pengalaman: {
+        freshGrad,
+        tahun: document.getElementById("tahunExp").value,
+        perusahaan: pengalamanUtama.perusahaan,
+        jabatan: pengalamanUtama.jabatan,
+        tglMasuk: pengalamanUtama.tglMasuk,
+        tglKeluar: pengalamanUtama.tglKeluar,
+        masihKerja: pengalamanUtama.masihKerja,
+        deskripsi: pengalamanUtama.deskripsi,
+        alasanResign: pengalamanUtama.alasanResign,
+        list: pengalamanList,
+        gaji: document.getElementById("gaji").value,
+        notice: document.getElementById("notice").value,
+      },
+      cvFileName: f.name,
+      status: "PENDING", // PENDING | SHORTLISTED | REJECTED | SCHEDULED
+      interview: null
+    };
+
+    const list = loadApplicants();
+    list.unshift(app);
+    saveApplicants(list);
+
+    alert("✅ Lamaran berhasil dikirim! Silakan buka tab Admin untuk melihat data.");
+    // reset simple
+    location.reload();
+  }
+  window.submitApplication = submitApplication;
+
+  // -------------------- Admin Tabs --------------------
+  function switchAdminTab(tab){
+    document.querySelectorAll(".tab").forEach(t=>{
+      t.classList.toggle("active", t.getAttribute("data-admin-tab")===tab);
+    });
+    document.querySelectorAll(".adminPane").forEach(p=>p.style.display="none");
+    document.getElementById("admin_"+tab).style.display="block";
+    renderAll();
+  }
+  window.switchAdminTab = switchAdminTab;
+
+  // -------------------- Rendering --------------------
+  function fmtDate(iso){
+    try{
+      const d = new Date(iso);
+      return d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"}) + " " +
+             d.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
+    }catch{ return iso; }
+  }
+
+  function statusTag(s){
+    if(s==="PENDING") return `<span class="tag pending">PENDING</span>`;
+    if(s==="SHORTLISTED") return `<span class="tag shortlisted">SHORTLISTED</span>`;
+    if(s==="REJECTED") return `<span class="tag rejected">REJECTED</span>`;
+    if(s==="SCHEDULED") return `<span class="tag scheduled">SCHEDULED</span>`;
+    return `<span class="tag">${s}</span>`;
+  }
+
+  function pengalamanText(app){
+    const p = app.pengalaman || {};
+    if(p.freshGrad) return "Fresh";
+    if(required(p.tahun)) return `${p.tahun} thn`;
+    if(Array.isArray(p.list) && p.list.length>0) return `${p.list.length} pengalaman`;
+    return "-";
+  }
+
+  function pengalamanDetailHTML(app){
+    const p = app.pengalaman || {};
+    if(p.freshGrad) return `<div class="helper">Fresh Graduate</div>`;
+    const list = (Array.isArray(p.list) && p.list.length>0)
+      ? p.list
+      : [p].filter(x => required(x.perusahaan) || required(x.jabatan) || required(x.tglMasuk) || required(x.tglKeluar) || x.masihKerja || required(x.deskripsi) || required(x.alasanResign));
+    if(!list.length) return `<div class="helper">Belum ada data pengalaman.</div>`;
+    return list.map((x,i)=>`
+      <div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;">
+        <div style="font-weight:900;margin-bottom:4px">Pengalaman ${i+1}</div>
+        <div class="helper">Perusahaan: <b>${escapeHTML(x.perusahaan || "-")}</b></div>
+        <div class="helper">Jabatan: <b>${escapeHTML(x.jabatan || "-")}</b></div>
+        <div class="helper">Periode: <b>${escapeHTML(x.tglMasuk || "-")} - ${escapeHTML(x.masihKerja ? "Sekarang" : (x.tglKeluar || "-"))}</b></div>
+        <div class="helper">Deskripsi Pekerjaan: <b>${escapeHTML(x.deskripsi || "-")}</b></div>
+        <div class="helper">Alasan Resign: <b>${escapeHTML(x.masihKerja ? "-" : (x.alasanResign || "-"))}</b></div>
+      </div>
+    `).join("");
+  }
+
+  function renderKPIs(list){
+    const total = list.length;
+    const pending = list.filter(x=>x.status==="PENDING").length;
+    const shortl = list.filter(x=>x.status==="SHORTLISTED").length;
+    const rej = list.filter(x=>x.status==="REJECTED").length;
+    const uniquePos = new Set(list.map(x=>x.posisi)).size;
+
+    document.getElementById("kpiTotal").textContent = total;
+    document.getElementById("kpiPending").textContent = pending;
+    document.getElementById("kpiShortlisted").textContent = shortl;
+    document.getElementById("kpiRejected").textContent = rej;
+    document.getElementById("kpiUniquePos").textContent = uniquePos;
+    document.getElementById("cvBankCount").textContent = list.filter(x=>x.cvFileName).length;
+  }
+
+  function rowActionsHTML(app){
+    return `
+      <div class="rowActions">
+        <button class="btn flat small" onclick="viewApplicant('${app.id}')">Lihat</button>
+        <button class="btn flat small" onclick="openEditStatus('${app.id}')">Edit</button>
+        <button class="btn flat small" onclick="openSchedule('${app.id}')">Interview</button>
+        <button class="btn danger small" onclick="setStatus('${app.id}','REJECTED')">Reject</button>
+      </div>
+    `;
+  }
+
+  function renderTables(){
+    const list = loadApplicants();
+    renderKPIs(list);
+
+    const q = (document.getElementById("search")?.value || "").toLowerCase().trim();
+    const filtered = q ? list.filter(x =>
+      (x.nama||"").toLowerCase().includes(q) ||
+      (x.email||"").toLowerCase().includes(q) ||
+      (x.posisi||"").toLowerCase().includes(q)
+    ) : list;
+
+    // all
+    const all = document.getElementById("tblAll");
+    if(all){
+      all.innerHTML = filtered.map(app=>`
+        <tr>
+          <td>${fmtDate(app.createdAt)}</td>
+          <td><b>${escapeHTML(app.posisi)}</b></td>
+          <td>${escapeHTML(app.nama)}</td>
+          <td>${escapeHTML(app.email)}</td>
+          <td>${escapeHTML(app.hp)}</td>
+          <td>${escapeHTML(pengalamanText(app))}</td>
+          <td>${statusTag(app.status)}</td>
+          <td>${app.cvFileName ? `<span class="pill">${escapeHTML(app.cvFileName)}</span>` : "-"}</td>
+          <td>${rowActionsHTML(app)}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="9" class="muted">Belum ada data.</td></tr>`;
+    }
+
+    // shortlist
+    const sh = document.getElementById("tblShortlist");
+    if(sh){
+      const rows = list.filter(x=>x.status==="SHORTLISTED").map(app=>`
+        <tr>
+          <td>${fmtDate(app.createdAt)}</td>
+          <td><b>${escapeHTML(app.posisi)}</b></td>
+          <td>${escapeHTML(app.nama)}</td>
+          <td>${escapeHTML(app.email)}</td>
+          <td>${statusTag(app.status)}</td>
+          <td>${rowActionsHTML(app)}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="6" class="muted">Belum ada.</td></tr>`;
+      sh.innerHTML = rows;
+    }
+
+    // interviews
+    const it = document.getElementById("tblInterviews");
+    if(it){
+      const rows = list.filter(x=>x.status==="SCHEDULED" && x.interview).map(app=>`
+        <tr>
+          <td><b>${escapeHTML(app.nama)}</b></td>
+          <td>${escapeHTML(app.posisi)}</td>
+          <td>${escapeHTML(app.interview.datetime || "-")}</td>
+          <td>${escapeHTML(app.interview.location || "-")}</td>
+          <td>${escapeHTML(app.interview.interviewer || "-")}</td>
+          <td>${statusTag(app.status)}</td>
+          <td>
+            <div class="rowActions">
+              <button class="btn flat small" onclick="openSchedule('${app.id}')">Reschedule</button>
+              <button class="btn danger small" onclick="setStatus('${app.id}','REJECTED')">Reject</button>
+            </div>
+          </td>
+        </tr>
+      `).join("") || `<tr><td colspan="7" class="muted">Belum ada interview terjadwal.</td></tr>`;
+      it.innerHTML = rows;
+    }
+
+    // rejected
+    const rj = document.getElementById("tblRejected");
+    if(rj){
+      const rows = list.filter(x=>x.status==="REJECTED").map(app=>`
+        <tr>
+          <td>${fmtDate(app.createdAt)}</td>
+          <td><b>${escapeHTML(app.posisi)}</b></td>
+          <td>${escapeHTML(app.nama)}</td>
+          <td>${escapeHTML(app.email)}</td>
+          <td>${statusTag(app.status)}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="5" class="muted">Belum ada.</td></tr>`;
+      rj.innerHTML = rows;
+    }
+  }
+
+  function renderSettings(){
+    const t = loadTemplates();
+    document.getElementById("tplConfirm").value = t.confirm;
+    document.getElementById("tplShortlist").value = t.shortlist;
+    document.getElementById("tplInterview").value = t.interview;
+    document.getElementById("tplReject").value = t.reject;
+  }
+
+  function renderAll(){
+    renderTables();
+    renderSettings();
+  }
+
+  // -------------------- Admin Actions --------------------
+  function updateApplicant(id, mutator){
+    const list = loadApplicants();
+    const idx = list.findIndex(x=>x.id===id);
+    if(idx<0) return;
+    const copy = {...list[idx]};
+    mutator(copy);
+    list[idx]=copy;
+    saveApplicants(list);
+    renderAll();
+  }
+
+  function setStatus(id, status){
+    updateApplicant(id, (a)=>{
+      a.status = status;
+      if(status!=="SCHEDULED") a.interview = a.interview; // keep interview data unless you want to clear
+    });
+  }
+  window.setStatus=setStatus;
+
+  function viewApplicant(id){
+    const a = loadApplicants().find(x=>x.id===id);
+    if(!a) return;
+    openModal("Detail Pelamar", `
+      <div class="grid two">
+        <div><div class="muted" style="font-weight:900;font-size:12px">Nama</div><div style="font-weight:1000">${escapeHTML(a.nama)}</div></div>
+        <div><div class="muted" style="font-weight:900;font-size:12px">Posisi</div><div style="font-weight:1000">${escapeHTML(a.posisi)}</div></div>
+        <div><div class="muted" style="font-weight:900;font-size:12px">Email</div><div>${escapeHTML(a.email)}</div></div>
+        <div><div class="muted" style="font-weight:900;font-size:12px">No. HP</div><div>${escapeHTML(a.hp)}</div></div>
+        <div><div class="muted" style="font-weight:900;font-size:12px">Status</div><div>${statusTag(a.status)}</div></div>
+        <div><div class="muted" style="font-weight:900;font-size:12px">CV</div><div>${a.cvFileName?escapeHTML(a.cvFileName):"-"}</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="muted" style="font-weight:900;font-size:12px">Alamat KTP</div>
+      <div style="margin-bottom:10px">${escapeHTML(a.alamatKtp||"-")}</div>
+      <div class="muted" style="font-weight:900;font-size:12px">Alamat Domisili</div>
+      <div style="margin-bottom:10px">${escapeHTML(a.alamatDom||"-")}</div>
+      <div class="muted" style="font-weight:900;font-size:12px">Pengalaman Kerja</div>
+      <div>${pengalamanDetailHTML(a)}</div>
+    `, `
+      <button class="btn flat" onclick="closeModal()">Tutup</button>
+      <button class="btn success" onclick="setStatus('${a.id}','SHORTLISTED');closeModal()">Shortlist</button>
+      <button class="btn danger" onclick="setStatus('${a.id}','REJECTED');closeModal()">Reject</button>
+    `);
+  }
+  window.viewApplicant=viewApplicant;
+
+  function openEditStatus(id){
+    const a = loadApplicants().find(x=>x.id===id);
+    if(!a) return;
+    openModal("Edit Pelamar", `
+      <div class="field">
+        <label>Status</label>
+        <select id="editStatus">
+          <option value="PENDING">PENDING</option>
+          <option value="SHORTLISTED">SHORTLISTED</option>
+          <option value="SCHEDULED">SCHEDULED</option>
+          <option value="REJECTED">REJECTED</option>
+        </select>
+        <div class="helper">Untuk status SCHEDULED, gunakan menu Interview agar detailnya tersimpan.</div>
+      </div>
+    `, `
+      <button class="btn flat" onclick="closeModal()">Batal</button>
+      <button class="btn blue" onclick="
+        (function(){
+          const v=document.getElementById('editStatus').value;
+          setStatus('${a.id}', v);
+          closeModal();
+        })()
+      ">Simpan</button>
+    `);
+    setTimeout(()=>{ document.getElementById("editStatus").value = a.status; }, 0);
+  }
+  window.openEditStatus=openEditStatus;
+
+  function openSchedule(id){
+    const a = loadApplicants().find(x=>x.id===id);
+    if(!a) return;
+    const current = a.interview || {datetime:"",location:"",interviewer:"",notes:""};
+    openModal(`Jadwalkan/Reschedule Interview - ${escapeHTML(a.nama)}`, `
+      <div class="grid two">
+        <div class="field">
+          <label>Tanggal & Waktu Interview</label>
+          <input id="intDT" type="datetime-local"/>
+          <div class="helper">Format 24 jam.</div>
+        </div>
+        <div class="field">
+          <label>Lokasi / Link Meeting</label>
+          <input id="intLoc" placeholder="Contoh: Zoom / Kantor pusat"/>
+        </div>
+      </div>
+      <div class="grid two">
+        <div class="field">
+          <label>Nama Pewawancara</label>
+          <input id="intIv" placeholder="Contoh: Budi - HR"/>
+        </div>
+        <div class="field">
+          <label>Catatan Tambahan</label>
+          <input id="intNotes" placeholder="Contoh: Mohon siapkan internet stabil"/>
+        </div>
+      </div>
+      <div class="divider"></div>    `, `
+      <button class="btn flat" onclick="closeModal()">Batal</button>
+      <button class="btn blue" onclick="
+        (function(){
+          const dt=document.getElementById('intDT').value;
+          const loc=document.getElementById('intLoc').value;
+          const iv=document.getElementById('intIv').value;
+          const notes=document.getElementById('intNotes').value;
+          if(!dt) return alert('Tanggal & waktu wajib diisi');
+          updateApplicant('${a.id}', (x)=>{
+            x.status='SCHEDULED';
+            x.interview = {
+              datetime: new Date(dt).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+              location: loc,
+              interviewer: iv,
+              notes: notes
+            };
+          });
+          closeModal();
+        })()
+      ">Simpan</button>
+    `);
+
+    // prefill
+    setTimeout(()=>{
+      // can't easily reverse locale string to datetime-local; only set empty unless existing raw
+      document.getElementById("intLoc").value = current.location || "";
+      document.getElementById("intIv").value = current.interviewer || "";
+      document.getElementById("intNotes").value = current.notes || "";
+    },0);
+  }
+  window.openSchedule=openSchedule;
+
+  function exportJSON(){
+    const data = loadApplicants();
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ats_demo_export.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+  window.exportJSON=exportJSON;
+
+  function seedDemo(){
+    const list = loadApplicants();
+    const now = Date.now();
+    const demo = [
+      {posisi:"HRD Staff", nama:"Sipaling OK", email:"sipalingok@gmail.com", hp:"628123000111", tahun:"5"},
+      {posisi:"HRD Staff", nama:"Test One Cek Two", email:"testone@gmail.com", hp:"628777555444", tahun:"5"},
+      {posisi:"Manager HR", nama:"Juliana Hasibuan", email:"juliana@gmail.com", hp:"6285551111", tahun:"3"},
+    ].map((x,i)=>({
+      id: uid(),
+      createdAt: new Date(now - (i*3600*1000)).toISOString(),
+      posisi:x.posisi, sumber:"Job Portal",
+      nama:x.nama, email:x.email, hp:x.hp,
+      tglLahir:"1998-01-01", agama:"", statusNikah:"", gender:"Laki-laki", wn:"Indonesia",
+      alamatKtp:"-", alamatDom:"-",
+      pendidikan:{kampus:"-",jenjang:"S1",jurusan:"-",thnLulus:"2020",ipk:"3.2"},
+      pengalaman:{freshGrad:false,tahun:x.tahun,perusahaan:"PT Test UjiCOBA",jabatan:"SPV HR",tglMasuk:"",tglKeluar:"",masihKerja:false,deskripsi:"Mengelola administrasi HR dan rekrutmen.",alasanResign:"Mencari jenjang karier lebih baik.",list:[{perusahaan:"PT Test UjiCOBA",jabatan:"SPV HR",tglMasuk:"",tglKeluar:"",masihKerja:false,deskripsi:"Mengelola administrasi HR dan rekrutmen.",alasanResign:"Mencari jenjang karier lebih baik."}],gaji:"7000000",notice:"2 Minggu"},
+      cvFileName:"CV_"+x.nama.replace(/\s+/g,"_")+".pdf",
+      status: i===0 ? "SHORTLISTED" : "PENDING",
+      interview: i===0 ? {datetime:"19/11/2025 15:00", location:"Zoom Online", interviewer:"Okta Egi Prayuda", notes:"Mohon siapkan data & internet"} : null
+    }));
+
+    saveApplicants([...demo, ...list]);
+    renderAll();
+    alert("✅ Data demo ditambahkan.");
+  }
+  window.seedDemo=seedDemo;
+
+  // -------------------- Settings Actions --------------------
+  function saveTemplates(){
+    const t = {
+      confirm: document.getElementById("tplConfirm").value,
+      shortlist: document.getElementById("tplShortlist").value,
+      interview: document.getElementById("tplInterview").value,
+      reject: document.getElementById("tplReject").value,
+    };
+    saveTemplatesToStorage(t);
+    alert("✅ Template disimpan.");
+  }
+  window.saveTemplates=saveTemplates;
+
+  function resetTemplates(){
+    if(confirm("Reset template ke default?")){
+      saveTemplatesToStorage(DEFAULT_TPL);
+      renderSettings();
+      alert("✅ Template direset.");
+    }
+  }
+  window.resetTemplates=resetTemplates;
+
+  // -------------------- Modal --------------------
+  function openModal(title, bodyHTML, footerHTML){
+    document.getElementById("modalTitle").textContent = title;
+    document.getElementById("modalBody").innerHTML = bodyHTML || "";
+    document.getElementById("modalFooter").innerHTML = footerHTML || `<button class="btn flat" onclick="closeModal()">Tutup</button>`;
+    document.getElementById("modalBackdrop").classList.add("show");
+  }
+  function closeModal(){
+    document.getElementById("modalBackdrop").classList.remove("show");
+  }
+  window.openModal=openModal;
+  window.closeModal=closeModal;
+
+  // -------------------- Utilities --------------------
+  function escapeHTML(s){
+    return (s ?? "").toString()
+      .replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  }
+
+  // -------------------- Init --------------------
+  document.getElementById("search")?.addEventListener("input", renderTables);
+  renderAll();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/form-pelamar/supabase-config.js"></script>
+<script src="/form-pelamar/app.js"></script>
+</body>
+</html>
+
+
+
+

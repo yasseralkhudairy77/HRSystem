@@ -1,0 +1,223 @@
+﻿<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tes Penalaran Pola</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../tes-paket/supabase-config.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="title">Tes Penalaran Pola</div>
+        <div class="sub">
+          Kerjakan 60 soal penalaran pola dalam waktu 30 menit.
+          <br />Gunakan tombol angka <b>1-8</b> di bawah soal untuk memilih jawaban. Jika waktu habis, jawaban akan dikirim otomatis.
+        </div>
+      </div>
+      <div class="pill"><span id="statusPillLabel">Durasi tes:</span> <b id="timeRemaining">30:00</b></div>
+    </header>
+
+    <div id="introView" class="onboardingShell">
+      <section class="card onboardingCard">
+        <div class="onboardingBody">
+          <div class="onboardingEyebrow">Pengantar Tes</div>
+          <h1 class="onboardingTitle">Tes Penalaran Pola</h1>
+          <p class="onboardingLead">Pada tes ini, Anda diminta memilih gambar yang paling sesuai untuk melengkapi pola yang tersedia.</p>
+
+          <div class="onboardingGrid">
+            <div class="infoPanel">
+              <div class="infoTitle">Yang perlu diperhatikan</div>
+              <ul class="infoList">
+                <li>Amati bentuk, arah garis, dan susunan pola</li>
+                <li>Pilih satu jawaban yang paling tepat</li>
+                <li>Kerjakan dengan teliti dan efisien</li>
+                <li>Jawaban direkam otomatis selama tes berlangsung</li>
+              </ul>
+            </div>
+            <div class="infoPanel">
+              <div class="infoTitle">Catatan sistem</div>
+              <p class="infoText">Tes utama berisi 60 soal dengan durasi 30 menit. Jika waktu habis, jawaban akan dikirim otomatis ke tim rekrutmen.</p>
+            </div>
+          </div>
+
+          <div class="onboardingActions">
+            <button id="btnShowExample" class="accent">Lihat contoh</button>
+            <button id="btnStartPractice" class="primary">Mulai latihan</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="simulationView" class="onboardingShell hidden">
+      <section class="card onboardingCard">
+        <div class="onboardingBody">
+          <div class="onboardingEyebrow">Contoh / Simulasi</div>
+          <h2 class="onboardingTitle small">Latihan singkat sebelum tes utama</h2>
+          <p class="onboardingLead">Ini adalah contoh soal latihan. Jawaban di tahap ini tidak memengaruhi hasil tes utama.</p>
+
+          <div class="simulationMeta">
+            <div class="pill muted">Contoh <b id="practiceIndexLabel">1</b> / <b id="practiceTotalLabel">2</b></div>
+          </div>
+
+          <div class="simulationQuestion cardLite">
+            <div class="kicker">Contoh soal</div>
+            <div class="qname" id="practiceTitle">A1</div>
+            <div class="imgWrap simulationWrap">
+              <div class="imgBox">
+                <div class="hint">Perhatikan area kosong dan cari pola yang paling sesuai</div>
+                <img id="practiceImg" alt="Gambar simulasi soal" />
+              </div>
+            </div>
+            <div class="choices practiceChoices" id="practiceChoices"></div>
+            <div id="practiceFeedback" class="submitState" style="display:none;"></div>
+            <div class="onboardingActions practiceActions">
+              <button id="btnPracticeNext" class="primary" disabled>Lanjut</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="readyView" class="onboardingShell hidden">
+      <section class="card onboardingCard">
+        <div class="onboardingBody">
+          <div class="onboardingEyebrow">Siap Mulai</div>
+          <h2 class="onboardingTitle small">Anda siap memulai tes</h2>
+          <p class="onboardingLead">Anda sudah melihat contoh cara mengerjakan. Saat siap, lanjutkan ke tes utama.</p>
+          <div class="infoPanel">
+            <div class="infoTitle">Sebelum mulai</div>
+            <p class="infoText">Jawaban direkam otomatis selama tes berlangsung. Pastikan Anda siap fokus mengerjakan seluruh soal dalam 30 menit.</p>
+          </div>
+          <div class="onboardingActions">
+            <button id="btnRepeatPractice" class="accent">Ulangi contoh</button>
+            <button id="btnStartMainTest" class="primary">Mulai tes utama</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="runningView" class="grid hidden">
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="kicker">Soal <b id="qIndexLabel">1</b> dari <b id="qTotalLabel">60</b></div>
+            <div class="qname" id="qTitle">A1</div>
+          </div>
+          <div class="btns">
+            <button id="btnPrev">Prev</button>
+            <button id="btnNext" class="primary">Next</button>
+            <button id="btnZoom" class="accent">Zoom</button>
+          </div>
+        </div>
+
+        <div class="imgWrap">
+          <div class="imgBox">
+            <div class="hint">Pilih jawaban hanya melalui tombol angka 1-8 di bawah soal</div>
+            <img id="qImg" alt="Gambar soal SPM" />
+          </div>
+        </div>
+
+        <div class="area">
+          <div class="row">
+            <div class="label">Jawaban dipilih: <b id="selectedLabel">-</b></div>
+            <div class="btns">
+              <button id="btnClear" class="danger">Hapus Jawaban</button>
+            </div>
+          </div>
+          <div class="choices" id="choices"></div>
+          <div class="submitArea">
+            <div class="submitMeta" id="submitMeta">Selesaikan sebanyak mungkin dalam 30 menit. Jika waktu habis, jawaban akan dikirim otomatis.</div>
+            <div class="btns">
+              <button id="btnFinishMain" class="primary">Submit jawaban</button>
+              <button id="btnResetMain" class="danger">Reset</button>
+            </div>
+          </div>
+          <div id="submitState" class="submitState" style="display:none;"></div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="card is-hidden">
+          <div class="head">
+            <div>
+              <div class="kicker">Progress</div>
+              <div class="qname">Status pengerjaan</div>
+            </div>
+          </div>
+          <div class="area">
+            <div class="row small">
+              <div>Terjawab: <b id="answeredCount2">0</b></div>
+              <div>Sisa: <b id="remainingCount">0</b></div>
+            </div>
+            <div class="bar"><div id="barFill"></div></div>
+            <div class="small" style="margin-top:10px">
+              Skor dihitung otomatis berdasarkan kunci jawaban 60 soal.
+            </div>
+          </div>
+        </section>
+
+        <section class="card is-hidden">
+          <div class="head">
+            <div>
+              <div class="kicker">Navigasi</div>
+              <div class="qname">Klik nomor soal</div>
+            </div>
+          </div>
+          <div class="nums">
+            <div class="small">Hijau = sudah dijawab</div>
+            <div class="numsGrid" id="numsGrid"></div>
+          </div>
+        </section>
+
+        <section class="card is-hidden">
+          <div class="head">
+            <div>
+              <div class="kicker">Hasil</div>
+              <div class="qname">JSON + Skor</div>
+            </div>
+            <div class="btns">
+              <button id="btnFinish" class="primary">Selesai</button>
+              <button id="btnCopy" class="accent">Copy JSON</button>
+              <button id="btnReset" class="danger">Reset</button>
+            </div>
+          </div>
+          <div class="area">
+            <textarea id="resultBox" readonly placeholder="Klik Selesai untuk lihat hasil + skor..."></textarea>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <div id="completedView" class="onboardingShell hidden">
+      <section class="card onboardingCard">
+        <div class="onboardingBody">
+          <div class="onboardingEyebrow">Tes Selesai</div>
+          <h2 class="onboardingTitle small">Jawaban Anda sudah diterima</h2>
+          <p class="onboardingLead" id="completedMessage">Tes sudah selesai. Hasil akan direview secara internal oleh tim rekrutmen.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal" id="modal">
+    <div class="modalBox">
+      <div class="modalHead">
+        <div class="t" id="modalTitle">Zoom</div>
+        <button id="btnCloseModal">Tutup</button>
+      </div>
+      <div class="modalBody">
+        <img id="modalImg" alt="Zoom gambar soal" />
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
+
+
+

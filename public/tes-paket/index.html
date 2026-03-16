@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paket Tes Kandidat</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase-config.js"></script>
+  <style>
+    :root {
+      --bg: #eef3f9;
+      --card: #ffffff;
+      --soft: #f7f9fc;
+      --line: #d6deea;
+      --text: #10233f;
+      --muted: #62748c;
+      --brand: #1f5fae;
+      --brand-strong: #163d70;
+      --ok: #2f9d6a;
+      --warn: #d39a22;
+      --shadow: 0 12px 32px rgba(15,39,71,.08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(900px 500px at 0% -10%, rgba(31,95,174,.08), transparent 50%),
+        radial-gradient(800px 500px at 100% 0%, rgba(47,157,106,.06), transparent 45%),
+        var(--bg);
+    }
+    .wrap{max-width:980px;margin:0 auto;padding:24px 16px 56px}
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .header{
+      padding:20px 22px;border-bottom:1px solid var(--line);
+      display:flex;justify-content:space-between;gap:16px;align-items:flex-start;
+    }
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    h1{margin:10px 0 0;font-size:30px;line-height:1.2;letter-spacing:-.03em}
+    .sub{margin-top:8px;font-size:14px;line-height:1.7;color:var(--muted)}
+    .status{
+      padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;
+      font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;
+    }
+    .body{padding:22px}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:16px}
+    @media (max-width: 900px){.grid{grid-template-columns:1fr}}
+    .panel{
+      border:1px solid var(--line);border-radius:18px;background:var(--soft);padding:16px;
+    }
+    .panel h2{margin:0 0 10px;font-size:15px}
+    .meta{display:grid;gap:12px}
+    .meta-item{border-top:1px solid var(--line);padding-top:12px}
+    .meta-item:first-child{border-top:0;padding-top:0}
+    .meta-item .label{font-size:12px;color:var(--muted)}
+    .meta-item .value{margin-top:4px;font-size:14px;font-weight:600;line-height:1.6}
+    .items{display:grid;gap:12px}
+    .item{
+      border:1px solid var(--line);border-radius:18px;background:#fff;padding:16px;
+    }
+    .item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .item-title{font-size:16px;font-weight:800}
+    .badge{
+      border:1px solid var(--line);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+    }
+    .badge.pending{background:#fff;color:var(--muted)}
+    .badge.in_progress{background:#eef6ff;color:#1f5fae;border-color:#bfd5f4}
+    .badge.completed{background:#eaf7ef;color:#2f9d6a;border-color:#b7e3ca}
+    .badge.incomplete{background:#fff4e8;color:#b45309;border-color:#f9d3a7}
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+    button,a.action-link{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      min-height:42px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);
+      background:#fff;color:var(--text);font-size:13px;font-weight:800;text-decoration:none;cursor:pointer;
+    }
+    button.primary{border-color:var(--brand);background:var(--brand);color:#fff}
+    button.primary:hover{background:var(--brand-strong)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .progress{
+      height:12px;border-radius:999px;border:1px solid var(--line);background:#edf3fa;overflow:hidden;
+    }
+    .progress > div{height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--ok));transition:width .2s ease}
+    .helper{margin-top:10px;font-size:12px;color:var(--muted)}
+    .message{padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:#fff;font-size:14px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="eyebrow">Paket Tes Kandidat</div>
+          <h1 id="candidate-name">Memuat paket tes...</h1>
+          <div class="sub" id="candidate-subtitle">Harap tunggu sebentar.</div>
+        </div>
+        <div class="status" id="package-status">Memuat</div>
+      </div>
+      <div class="body">
+        <div class="grid">
+          <div>
+            <div class="progress"><div id="progress-bar"></div></div>
+            <div class="helper" id="progress-text">0 / 0 tes selesai</div>
+            <div id="package-message" class="message" style="margin-top:16px;">
+              Halaman ini memuat seluruh tes yang perlu dikerjakan kandidat. Buka tes satu per satu dari sini. Progres akan direkam oleh sistem selama pengerjaan berlangsung.
+            </div>
+            <div id="item-list" class="items" style="margin-top:16px;"></div>
+          </div>
+          <div class="panel">
+            <h2>Ringkasan Paket</h2>
+            <div class="meta">
+              <div class="meta-item">
+                <div class="label">Nama paket</div>
+                <div class="value" id="meta-package-name">-</div>
+              </div>
+              <div class="meta-item">
+                <div class="label">Posisi</div>
+                <div class="value" id="meta-position">-</div>
+              </div>
+              <div class="meta-item">
+                <div class="label">Deadline</div>
+                <div class="value" id="meta-deadline">-</div>
+              </div>
+              <div class="meta-item">
+                <div class="label">Dikirim pada</div>
+                <div class="value" id="meta-sent-at">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const config = window.TEST_PACKAGE_SUPABASE_CONFIG;
+      const supabaseLib = window.supabase;
+      if (!config?.url || !config?.publishableKey || !supabaseLib?.createClient) {
+        alert("Konfigurasi package tes belum lengkap.");
+        return;
+      }
+
+      const supabase = supabaseLib.createClient(config.url, config.publishableKey);
+      const rawToken = new URLSearchParams(window.location.search).get("token");
+      const token = rawToken ? rawToken.replace(/[.,;:!?]+$/g, "") : "";
+
+      const candidateName = document.getElementById("candidate-name");
+      const candidateSubtitle = document.getElementById("candidate-subtitle");
+      const packageStatus = document.getElementById("package-status");
+      const metaPackageName = document.getElementById("meta-package-name");
+      const metaPosition = document.getElementById("meta-position");
+      const metaDeadline = document.getElementById("meta-deadline");
+      const metaSentAt = document.getElementById("meta-sent-at");
+      const progressBar = document.getElementById("progress-bar");
+      const progressText = document.getElementById("progress-text");
+      const itemList = document.getElementById("item-list");
+
+      function getCandidateFacingTestName(item) {
+        const map = {
+          disc: "Kuesioner Gaya Kerja",
+          big_five: "Kuesioner Kepribadian Kerja",
+          spm: "Tes Penalaran Pola",
+          holland: "Kuesioner Minat Kerja",
+        };
+
+        return map[item.test_key] || item.test_name_snapshot || "Tes";
+      }
+
+      function getCandidateFacingTestDescription(item) {
+        if (item.test_key === "disc") {
+          return "Pilih pernyataan yang paling dan paling tidak menggambarkan gaya kerja Anda, lalu lanjutkan ke tes berikutnya.";
+        }
+
+        if (item.test_key === "big_five") {
+          return "Jawab seluruh pernyataan sesuai kondisi diri Anda saat bekerja, lalu kembali ke halaman paket untuk melanjutkan.";
+        }
+
+        if (item.test_key === "spm") {
+          return "Kerjakan seluruh soal pola gambar dalam waktu 30 menit. Jika waktu habis, jawaban akan dikirim otomatis ke tim rekrutmen.";
+        }
+
+        if (item.test_key === "koran") {
+          return "Kerjakan tes ketelitian angka sampai waktu habis. Jawaban direkam otomatis dan hasil tersimpan tanpa submit manual.";
+        }
+
+        if (item.test_key === "holland") {
+          return "Jawab seluruh pernyataan minat kerja sesuai diri Anda. Hasil akan langsung diterima tim rekrutmen setelah dikirim.";
+        }
+
+        return "Buka tes ini, selesaikan, lalu kembali ke halaman paket untuk menandai progres.";
+      }
+
+      function buildTestUrl(baseUrl, item, packageRow) {
+        if (["completed", "incomplete", "expired"].includes(item.status)) {
+          return "#";
+        }
+
+        if (!baseUrl) return "#";
+
+        try {
+          const url = new URL(baseUrl, window.location.origin);
+          url.searchParams.set("package_token", token);
+          url.searchParams.set("package_id", String(packageRow.id));
+          url.searchParams.set("item_id", String(item.id));
+          url.searchParams.set("return_url", window.location.href);
+          return url.toString();
+        } catch (error) {
+          console.error("Gagal menyusun link tes paket:", error);
+          return baseUrl;
+        }
+      }
+
+      function formatDateTime(value) {
+        if (!value) return "-";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "-";
+        return date.toLocaleString("id-ID", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function packageStatusLabel(status) {
+        const map = {
+          sent: "Terkirim",
+          opened: "Sudah dibuka",
+          in_progress: "Sedang dikerjakan",
+          completed: "Selesai",
+          reviewed: "Direview",
+          expired: "Lewat deadline",
+        };
+        return map[status] || status || "-";
+      }
+
+      function itemStatusLabel(status) {
+        const map = {
+          pending: "Belum mulai",
+          in_progress: "Sedang dikerjakan",
+          completed: "Selesai",
+          incomplete: "Tidak selesai",
+          expired: "Lewat deadline",
+        };
+        return map[status] || status || "-";
+      }
+
+      async function markPackageOpened(packageId) {
+        await supabase
+          .from("candidate_test_packages")
+          .update({
+            status: "opened",
+            opened_at: new Date().toISOString(),
+          })
+          .eq("id", packageId)
+          .in("status", ["sent"]);
+      }
+
+      async function markItemStatus(itemId, nextStatus) {
+        const payload = { status: nextStatus };
+        const now = new Date().toISOString();
+
+        if (nextStatus === "in_progress") payload.started_at = now;
+        if (nextStatus === "completed") payload.completed_at = now;
+
+        const { error } = await supabase.from("candidate_test_package_items").update(payload).eq("id", itemId);
+        if (error) throw error;
+      }
+
+      async function syncPackageStatus(packageId) {
+        const { data: items, error } = await supabase
+          .from("candidate_test_package_items")
+          .select("status")
+          .eq("package_id", packageId);
+
+        if (error) throw error;
+
+        const statuses = (items || []).map((item) => item.status);
+        const updatePayload = {};
+
+        if (statuses.length && statuses.every((status) => status === "completed")) {
+          updatePayload.status = "completed";
+          updatePayload.completed_at = new Date().toISOString();
+        } else if (statuses.some((status) => status === "completed" || status === "in_progress" || status === "incomplete")) {
+          updatePayload.status = "in_progress";
+        } else {
+          updatePayload.status = "opened";
+        }
+
+        const { error: updateError } = await supabase.from("candidate_test_packages").update(updatePayload).eq("id", packageId);
+        if (updateError) throw updateError;
+      }
+
+      async function loadPackage() {
+        if (!token) {
+          candidateName.textContent = "Token paket tidak ditemukan";
+          candidateSubtitle.textContent = "Link paket tes ini tidak valid.";
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("candidate_test_packages")
+          .select(`
+            *,
+            pelamar:pelamar_id (nama_lengkap, posisi_dilamar),
+            candidate_test_package_items (*)
+          `)
+          .eq("link_token", token)
+          .single();
+
+        if (error || !data) {
+          candidateName.textContent = "Paket tes tidak ditemukan";
+          candidateSubtitle.textContent = "Link paket tidak valid atau sudah tidak aktif.";
+          return;
+        }
+
+        await markPackageOpened(data.id);
+
+        const items = (data.candidate_test_package_items || []).sort((a, b) => a.test_order - b.test_order);
+        const completedCount = items.filter((item) => item.status === "completed").length;
+        const progress = items.length ? Math.round((completedCount / items.length) * 100) : 0;
+
+        candidateName.textContent = data.pelamar?.nama_lengkap || "Kandidat";
+        candidateSubtitle.textContent = `${data.pelamar?.posisi_dilamar || "-"} / Harap kerjakan seluruh tes di bawah ini sampai selesai.`;
+        packageStatus.textContent = packageStatusLabel(data.status);
+        metaPackageName.textContent = data.template_name;
+        metaPosition.textContent = data.pelamar?.posisi_dilamar || "-";
+        metaDeadline.textContent = formatDateTime(data.deadline_at);
+        metaSentAt.textContent = formatDateTime(data.sent_at);
+        progressBar.style.width = `${progress}%`;
+        progressText.textContent = `${completedCount} / ${items.length} tes selesai`;
+
+        itemList.innerHTML = items.map((item) => {
+          const isLocked = ["completed", "incomplete", "expired"].includes(item.status);
+          const openLabel = isLocked ? "Tes terkunci" : "Buka tes";
+          return `
+          <div class="item">
+            <div class="item-head">
+              <div>
+                <div class="item-title">${item.test_order}. ${getCandidateFacingTestName(item)}</div>
+                <div class="sub" style="margin-top:6px;">${getCandidateFacingTestDescription(item)}</div>
+              </div>
+              <div class="badge ${item.status}">${itemStatusLabel(item.status)}</div>
+            </div>
+            ${item.status === "completed" ? `<div class="sub" style="margin-top:10px;">Tes ini sudah diterima oleh sistem dan sedang menunggu review tim rekrutmen.</div>` : ""}
+            ${item.status === "incomplete" ? `<div class="sub" style="margin-top:10px;">Tes ini sudah ditutup dan tidak dapat dibuka kembali. Tim rekrutmen akan melihat status tidak selesai.</div>` : ""}
+            <div class="actions">
+              <a class="action-link" href="${buildTestUrl(item.test_url, item, data)}" target="_blank" rel="noopener noreferrer" ${isLocked ? 'aria-disabled="true" tabindex="-1" style="pointer-events:none;opacity:.55;"' : ""}>${openLabel}</a>
+              <button data-action="start" data-id="${item.id}" ${isLocked ? "disabled" : ""}>Tandai sedang dikerjakan</button>
+              <button class="primary" data-action="complete" data-id="${item.id}" ${isLocked ? "disabled" : ""}>Saya sudah selesai</button>
+            </div>
+          </div>
+        `;
+        }).join("");
+
+        itemList.querySelectorAll("button").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const itemId = Number(button.dataset.id);
+            const action = button.dataset.action;
+            const nextStatus = action === "complete" ? "completed" : "in_progress";
+
+            button.disabled = true;
+            try {
+              await markItemStatus(itemId, nextStatus);
+              await syncPackageStatus(data.id);
+              await loadPackage();
+            } catch (updateError) {
+              console.error(updateError);
+              alert("Status tes belum berhasil diperbarui.");
+              button.disabled = false;
+            }
+          });
+        });
+      }
+
+      void loadPackage();
+    })();
+  </script>
+</body>
+</html>

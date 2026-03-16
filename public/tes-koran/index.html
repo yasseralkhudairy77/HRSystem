@@ -1,0 +1,1644 @@
+﻿<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tes Ketelitian Angka (Pauli)</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../tes-paket/supabase-config.js"></script>
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --surface:#ffffff;
+      --surface-strong:#ffffff;
+      --stroke:#e6e8ef;
+      --stroke-soft:#edf0f6;
+      --text:#0f172a;
+      --muted:#5b6472;
+      --accent:#1a73e8;
+      --good:#0a7a2f;
+      --bad:#b00020;
+      --radius-xl:14px;
+      --radius-md:12px;
+      --shadow-soft:0 1px 2px rgba(0,0,0,.03);
+      --shadow-key:none;
+      --font-ui:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    }
+
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:var(--font-ui);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      text-rendering:optimizeLegibility;
+      color:var(--text);
+      background:var(--bg);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding:24px;
+    }
+
+    .app{
+      width:min(860px,100%);
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+      animation:rise .45s ease-out;
+    }
+
+    .topbar{
+      background:var(--surface);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-xl);
+      padding:14px;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .stat{
+      background:#fafbff;
+      border:1px solid var(--stroke-soft);
+      border-radius:12px;
+      padding:10px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:3px;
+      min-height:66px;
+      justify-content:center;
+    }
+
+    .statLabel{
+      font-size:12px;
+      font-weight:510;
+      color:var(--muted);
+      letter-spacing:.2px;
+    }
+
+    .statValue{
+      font-size:22px;
+      font-weight:630;
+      line-height:1;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .main{
+      background:var(--surface);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-xl);
+      box-shadow:var(--shadow-soft);
+      padding:20px;
+    }
+
+    .stageCard{
+      background:var(--surface);
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      box-shadow:var(--shadow-soft);
+      padding:26px;
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+    }
+
+    .stageTitle{
+      margin:0;
+      font-size:34px;
+      line-height:1.14;
+      letter-spacing:-.04em;
+      font-weight:700;
+    }
+
+    .stageLead{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.8;
+    }
+
+    .stageActions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+    }
+
+    .exampleCard,
+    .ruleCard,
+    .practiceCard{
+      border:1px solid var(--stroke-soft);
+      border-radius:18px;
+      background:#fbfcff;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:14px;
+    }
+
+    .exampleGrid{
+      display:grid;
+      grid-template-columns:140px 1fr;
+      gap:18px;
+      align-items:center;
+    }
+
+    .examplePair{
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      background:#fff;
+      min-height:160px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .exampleDigits{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      align-items:center;
+      font-size:64px;
+      line-height:.9;
+      font-weight:700;
+      letter-spacing:-.04em;
+    }
+
+    .exampleLabel{
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:var(--muted);
+    }
+
+    .exampleText{
+      font-size:15px;
+      line-height:1.8;
+      color:var(--text);
+    }
+
+    .exampleAnswer{
+      margin-top:8px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border-radius:999px;
+      background:#eef6ff;
+      color:#184f93;
+      border:1px solid #c9ddf7;
+      padding:8px 12px;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    .ruleList{
+      margin:0;
+      padding-left:18px;
+      display:grid;
+      gap:10px;
+      color:var(--text);
+      font-size:14px;
+      line-height:1.7;
+    }
+
+    .practiceMeta{
+      font-size:13px;
+      font-weight:700;
+      color:var(--muted);
+      letter-spacing:.02em;
+    }
+
+    .practiceStatus{
+      margin-top:4px;
+      font-size:13px;
+      line-height:1.7;
+      color:var(--muted);
+      text-align:center;
+    }
+
+    .practiceHelper{
+      border-radius:14px;
+      border:1px solid var(--stroke-soft);
+      background:#fff;
+      padding:12px 14px;
+      font-size:13px;
+      line-height:1.7;
+      color:var(--muted);
+      text-align:center;
+    }
+
+    .countdownScreen{
+      text-align:center;
+      align-items:center;
+      justify-content:center;
+      min-height:440px;
+    }
+
+    .countdownLabel{
+      font-size:16px;
+      color:var(--muted);
+      line-height:1.7;
+    }
+
+    .countdownValue{
+      font-size:96px;
+      line-height:1;
+      letter-spacing:-.06em;
+      font-weight:750;
+      color:var(--accent);
+    }
+
+    .countdownHint{
+      font-size:14px;
+      color:var(--muted);
+      line-height:1.7;
+    }
+
+    .testShell{
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+
+    .questionWrap{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      align-items:center;
+    }
+
+    .testHelperStrip{
+      width:min(640px,100%);
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:10px;
+    }
+
+    .helperChip{
+      border-radius:999px;
+      border:1px solid #dbe4f1;
+      background:#f8fbff;
+      color:#3c5574;
+      padding:8px 12px;
+      font-size:12px;
+      font-weight:700;
+    }
+
+    .nums{
+      margin-top:6px;
+      background:var(--surface-strong);
+      border:1px solid var(--stroke-soft);
+      border-radius:14px;
+      min-height:245px;
+      width:min(360px,100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:0;
+      box-shadow:none;
+    }
+
+    .col{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      font-size:94px;
+      line-height:.85;
+      font-weight:650;
+      letter-spacing:-1px;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .prompt{
+      font-size:16px;
+      color:var(--muted);
+      text-align:center;
+      margin-top:2px;
+      font-weight:560;
+      letter-spacing:.1px;
+    }
+
+    .feedback{
+      height:18px;
+      font-size:14px;
+      color:var(--muted);
+      font-weight:560;
+      text-align:center;
+    }
+
+    .grid{
+      width:min(430px,100%);
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-top:4px;
+    }
+
+    button.key{
+      border:1px solid var(--stroke);
+      height:66px;
+      border-radius:12px;
+      background:var(--surface-strong);
+      color:var(--text);
+      font-size:30px;
+      font-weight:560;
+      box-shadow:var(--shadow-key);
+      cursor:pointer;
+      user-select:none;
+      transition:transform .08s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+    button.key:hover{
+      background:#fafbff;
+    }
+
+    button.key:active{
+      transform:translateY(1px);
+    }
+
+    button.key.secondary{
+      font-size:14px;
+      font-weight:600;
+      color:#334155;
+      letter-spacing:.15px;
+      background:#f8fafc;
+    }
+
+    .rowActions{
+      width:min(430px,100%);
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      align-items:stretch;
+    }
+
+    .btn{
+      height:42px;
+      border:1px solid #cdd2e6;
+      border-radius:999px;
+      background:#fff;
+      color:#0f172a;
+      font-size:13px;
+      font-weight:600;
+      box-shadow:var(--shadow-key);
+      cursor:pointer;
+      transition:transform .08s ease, box-shadow .2s ease;
+    }
+
+    .btn:active{transform:translateY(1px) scale(.99)}
+    .btn:disabled{opacity:.5; cursor:not-allowed}
+    .btn.good{background:var(--accent);border-color:var(--accent);color:#fff}
+    .btn.bad{background:#fff;border-color:#fecaca;color:var(--bad)}
+    .btn.ghost{background:#ffffff;color:#334155}
+
+    .autosaveState{
+      min-height:42px;
+      border-radius:12px;
+      border:1px solid #c8d7ea;
+      background:#f7fbff;
+      color:#335a88;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:10px 14px;
+      font-size:12px;
+      font-weight:700;
+      text-align:center;
+      letter-spacing:.01em;
+      line-height:1.25;
+    }
+
+    .autosaveState.ok{
+      border-color:#b7e3ca;
+      background:#eaf7ef;
+      color:#246d4c;
+    }
+
+    .autosaveState.warn{
+      border-color:#f1d79a;
+      background:#fff7df;
+      color:#8b650f;
+    }
+
+    .settings{
+      width:100%;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:6px;
+    }
+
+    .field{
+      background:var(--surface-strong);
+      border:1px solid var(--stroke-soft);
+      border-radius:var(--radius-md);
+      padding:10px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+
+    .field label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:560;
+    }
+
+    .field input{
+      border:1px solid #d6d9e6;
+      outline:none;
+      background:#fff;
+      border-radius:10px;
+      padding:8px 10px;
+      color:var(--text);
+      font-size:15px;
+      font-weight:560;
+      min-height:24px;
+    }
+
+    .field input::placeholder{color:#94a3b8}
+
+    .footerNote{
+      width:100%;
+      text-align:center;
+      margin-top:4px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .is-hidden{display:none !important}
+
+    .submitState{
+      width:100%;
+      margin-top:4px;
+      padding:12px 14px;
+      border:1px solid var(--stroke);
+      border-radius:12px;
+      background:#fff;
+      font-size:13px;
+      line-height:1.7;
+      color:var(--muted);
+      text-align:center;
+    }
+
+    .submitState.ok{
+      border-color:#b7e3ca;
+      background:#eaf7ef;
+      color:#246d4c;
+    }
+
+    .submitState.warn{
+      border-color:#f1d79a;
+      background:#fff7df;
+      color:#8b650f;
+    }
+
+    .minuteCard{
+      width:100%;
+      background:var(--surface-strong);
+      border:1px solid var(--stroke-soft);
+      border-radius:var(--radius-md);
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .minuteHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      font-size:13px;
+      font-weight:620;
+      color:#334155;
+      flex-wrap:wrap;
+    }
+
+    .minuteMeta{
+      font-size:12px;
+      font-weight:560;
+      color:var(--muted);
+    }
+
+    .minuteLegend{
+      display:flex;
+      gap:12px;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:560;
+    }
+
+    .legendDot{
+      display:inline-block;
+      width:8px;
+      height:8px;
+      border-radius:99px;
+      margin-right:4px;
+      vertical-align:middle;
+    }
+
+    .minuteChart{
+      width:100%;
+      min-height:170px;
+      display:grid;
+      align-items:end;
+      gap:5px;
+      overflow-x:auto;
+      padding-bottom:2px;
+    }
+
+    .minuteCol{
+      min-width:14px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:4px;
+    }
+
+    .minuteBar{
+      width:100%;
+      height:128px;
+      background:#f4f6fb;
+      border-radius:8px;
+      position:relative;
+      overflow:hidden;
+      border:1px solid var(--stroke);
+    }
+
+    .minuteGood,
+    .minuteBad{
+      position:absolute;
+      left:0;
+      width:100%;
+      transition:height .2s ease;
+    }
+
+    .minuteGood{
+      bottom:0;
+      background:#22c55e;
+    }
+
+    .minuteBad{
+      background:#ef4444;
+    }
+
+    .minuteCol.active .minuteBar{
+      outline:2px solid rgba(26,115,232,.35);
+      outline-offset:1px;
+    }
+
+    .minuteLabel{
+      font-size:10px;
+      color:#94a3b8;
+      line-height:1;
+      min-height:10px;
+    }
+
+    @keyframes rise{
+      from{opacity:0; transform:translateY(8px)}
+      to{opacity:1; transform:translateY(0)}
+    }
+
+    @media (max-width:760px){
+      body{padding:14px}
+      .topbar{grid-template-columns:1fr}
+      .rowActions{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .settings{grid-template-columns:1fr}
+      .exampleGrid{grid-template-columns:1fr}
+      .col{font-size:78px}
+      .nums{min-height:214px}
+      button.key{height:62px; font-size:26px}
+      .stageCard{padding:20px}
+      .stageTitle{font-size:28px}
+      .countdownValue{font-size:72px}
+    }
+
+    @media (max-width:420px){
+      .main{padding:14px}
+      .topbar{padding:10px}
+      .col{font-size:70px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="stageCard" id="introScreen">
+      <div class="eyebrow">Tes Ketelitian Angka (Pauli)</div>
+      <h1 class="stageTitle">Pahami cara pengerjaan sebelum tes dimulai.</h1>
+      <p class="stageLead">Pada tes ini, Anda akan menjumlahkan dua angka dan memasukkan angka satuannya saja. Instruksi dibuat singkat agar mudah dipahami dalam beberapa detik.</p>
+
+      <div class="exampleCard">
+        <div class="exampleGrid">
+          <div class="examplePair">
+            <div class="exampleDigits">
+              <div>6</div>
+              <div>7</div>
+            </div>
+          </div>
+          <div>
+            <div class="exampleLabel">Contoh visual</div>
+            <div class="exampleText">6 + 7 = 13. Yang diinput bukan 13, melainkan <strong>angka satuannya saja</strong>.</div>
+            <div class="exampleAnswer">Input yang benar: 3</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ruleCard">
+        <div class="exampleLabel">Aturan singkat</div>
+        <ul class="ruleList">
+          <li>Kerjakan secepat dan seteliti mungkin.</li>
+          <li>Masukkan angka satuan saja untuk setiap penjumlahan.</li>
+          <li>Jawaban direkam otomatis oleh sistem selama tes berlangsung.</li>
+          <li>Tes selesai otomatis saat waktu habis.</li>
+          <li>Jika keluar sebelum selesai, tes dapat dianggap tidak lengkap atau gagal.</li>
+        </ul>
+      </div>
+
+      <div class="stageActions">
+        <button class="btn ghost" id="practiceBtn">Coba simulasi</button>
+        <button class="btn good" id="mainStartBtn">Mulai tes utama</button>
+      </div>
+    </div>
+
+    <div class="stageCard is-hidden" id="practiceScreen">
+      <div class="eyebrow">Simulasi</div>
+      <h2 class="stageTitle" style="font-size:28px;">Latihan singkat sebelum tes utama</h2>
+      <div class="practiceMeta" id="practiceMeta">Soal 1 dari 5</div>
+        <div class="practiceCard">
+        <div class="nums" style="margin-top:0; margin-inline:auto;">
+          <div class="col">
+            <div id="practiceA">4</div>
+            <div id="practiceB">9</div>
+          </div>
+        </div>
+        <div class="prompt" id="practicePrompt" style="margin-top:0; text-align:center;">Jumlahkan dua angka berikut, lalu masukkan angka satuannya saja.</div>
+        <div class="feedback" id="practiceFeedback"></div>
+        <div class="grid" id="practiceKeypad" style="margin-inline:auto;"></div>
+      </div>
+      <div class="practiceHelper">Contoh: 8 + 5 = 13, maka input yang benar adalah 3. Simulasi ini tidak memengaruhi hasil tes utama.</div>
+      <div class="submitState" id="practiceState" style="display:none;"></div>
+      <div class="stageActions">
+        <button class="btn ghost" id="restartPracticeBtn">Ulangi simulasi</button>
+        <button class="btn good" id="practiceStartMainBtn">Mulai tes utama</button>
+      </div>
+    </div>
+
+    <div class="stageCard countdownScreen is-hidden" id="countdownScreen">
+      <div class="eyebrow">Bersiap</div>
+      <div class="countdownLabel">Tes akan dimulai dalam</div>
+      <div class="countdownValue" id="countdownValue">3</div>
+      <div class="countdownHint">Pastikan fokus dan siapkan tangan pada keypad angka.</div>
+    </div>
+
+    <div class="testShell is-hidden" id="testShell">
+      <div class="topbar">
+        <div class="stat">
+          <div class="statLabel" id="scoreStatLabel">Skor | Salah</div>
+          <div class="statValue"><span id="score">0</span><span id="scoreSeparator"> | </span><span id="wrong">0</span></div>
+        </div>
+        <div class="stat">
+          <div class="statLabel">Kolom | Sisa Kolom</div>
+          <div class="statValue"><span id="col">1</span> | <span id="colLeft">60</span>s</div>
+        </div>
+        <div class="stat">
+          <div class="statLabel">Sisa Total</div>
+          <div class="statValue"><span id="totalLeft">1800</span>s</div>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="questionWrap">
+          <div class="testHelperStrip">
+            <div class="helperChip">Masukkan angka satuan saja</div>
+            <div class="helperChip">Jawaban direkam otomatis</div>
+          </div>
+
+          <div class="nums">
+            <div class="col">
+              <div id="a">6</div>
+              <div id="b">7</div>
+            </div>
+          </div>
+
+          <div class="prompt" id="prompt">Jumlahkan dua angka, lalu input angka satuannya.</div>
+          <div class="feedback" id="feedback"></div>
+
+          <div class="grid" id="keypad"></div>
+
+        <div class="rowActions">
+          <button class="btn good" id="startBtn">Mulai</button>
+          <div class="autosaveState" id="autosaveState">Jawaban direkam otomatis</div>
+          <button class="btn bad" id="exitBtn">Keluar Tes</button>
+          <button class="btn ghost" id="csvBtn" disabled>Download CSV</button>
+        </div>
+
+          <div class="settings" id="settingsPanel">
+            <div class="field">
+              <label>Durasi total (detik) - fixed</label>
+              <input id="totalDur" type="number" value="1800" readonly>
+            </div>
+            <div class="field">
+              <label>Durasi per kolom (detik) - fixed</label>
+              <input id="colDur" type="number" value="60" readonly>
+            </div>
+            <div class="field" id="seedField">
+              <label>Seed (opsional, untuk konsisten)</label>
+              <input id="seed" type="text" placeholder="contoh: session123">
+            </div>
+            <div class="field">
+              <label>Nama peserta (opsional)</label>
+              <input id="participant" type="text" placeholder="Nama">
+            </div>
+          </div>
+
+          <div class="minuteCard" id="minuteCard">
+            <div class="minuteHead">
+              <span>Grafik Kinerja Per Menit</span>
+              <span class="minuteMeta" id="minuteMeta">Menit 1/30</span>
+            </div>
+            <div class="minuteLegend">
+              <span><i class="legendDot" style="background:#22c55e"></i>Benar</span>
+              <span><i class="legendDot" style="background:#ef4444"></i>Salah</span>
+            </div>
+            <div class="minuteChart" id="minuteChart"></div>
+          </div>
+
+          <div class="footerNote">
+            Input hanya angka satuan. Keyboard: 0-9 dan Backspace.
+          </div>
+          <div class="submitState" id="submitState" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stageCard is-hidden" id="completedScreen">
+      <div class="eyebrow">Tes selesai</div>
+      <h2 class="stageTitle" style="font-size:30px;">Tes ketelitian angka telah selesai.</h2>
+      <p class="stageLead" id="completedMessage">Jawaban Anda sudah direkam otomatis oleh sistem.</p>
+      <div class="stageActions">
+        <button class="btn good is-hidden" id="backToPackageBtn">Kembali ke paket tes</button>
+        <button class="btn ghost is-hidden" id="restartTestBtn">Ulangi tes</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const PRACTICE_QUESTIONS = [
+    { a: 6, b: 7, answer: 3 },
+    { a: 8, b: 5, answer: 3 },
+    { a: 9, b: 4, answer: 3 },
+    { a: 7, b: 8, answer: 5 },
+    { a: 5, b: 9, answer: 4 },
+  ];
+
+  function xmur3(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function() {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= (h >>> 16)) >>> 0;
+    };
+  }
+
+  function mulberry32(a) {
+    return function() {
+      let t = (a += 0x6D2B79F5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const el = (id) => document.getElementById(id);
+  const introScreen = el("introScreen");
+  const practiceScreen = el("practiceScreen");
+  const countdownScreen = el("countdownScreen");
+  const testShell = el("testShell");
+  const completedScreen = el("completedScreen");
+  const practiceBtn = el("practiceBtn");
+  const mainStartBtn = el("mainStartBtn");
+  const practiceStartMainBtn = el("practiceStartMainBtn");
+  const restartPracticeBtn = el("restartPracticeBtn");
+  const restartTestBtn = el("restartTestBtn");
+  const backToPackageBtn = el("backToPackageBtn");
+  const countdownValueEl = el("countdownValue");
+  const practiceAEl = el("practiceA");
+  const practiceBEl = el("practiceB");
+  const practiceMetaEl = el("practiceMeta");
+  const practiceFeedbackEl = el("practiceFeedback");
+  const practiceStateEl = el("practiceState");
+  const practiceKeypad = el("practiceKeypad");
+  const completedMessageEl = el("completedMessage");
+  const aEl = el("a");
+  const bEl = el("b");
+  const scoreEl = el("score");
+  const scoreStatLabelEl = el("scoreStatLabel");
+  const scoreSeparatorEl = el("scoreSeparator");
+  const wrongEl = el("wrong");
+  const colEl = el("col");
+  const colLeftEl = el("colLeft");
+  const totalLeftEl = el("totalLeft");
+  const feedbackEl = el("feedback");
+
+  const startBtn = el("startBtn");
+  const exitBtn = el("exitBtn");
+  const csvBtn = el("csvBtn");
+  const autosaveStateEl = el("autosaveState");
+
+  const totalDurInput = el("totalDur");
+  const colDurInput = el("colDur");
+  const seedInput = el("seed");
+  const participantInput = el("participant");
+  const minuteChartEl = el("minuteChart");
+  const minuteMetaEl = el("minuteMeta");
+  const submitStateEl = el("submitState");
+  const seedFieldEl = el("seedField");
+  const minuteCardEl = el("minuteCard");
+  const settingsPanelEl = el("settingsPanel");
+
+  const keypad = el("keypad");
+  const FIXED_TOTAL_SECONDS = 1800;
+  const FIXED_COL_SECONDS = 60;
+  const params = new URLSearchParams(window.location.search);
+  const packageContext = {
+    token: params.get("package_token"),
+    packageId: params.get("package_id"),
+    itemId: params.get("item_id"),
+    returnUrl: params.get("return_url"),
+  };
+  const isPackageMode = Boolean(packageContext.itemId && packageContext.packageId);
+  const supabaseConfig = window.TEST_PACKAGE_SUPABASE_CONFIG;
+  const supabaseLib = window.supabase;
+  const supabaseClient = supabaseConfig?.url && supabaseConfig?.publishableKey && supabaseLib?.createClient
+    ? supabaseLib.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
+    : null;
+
+  function buildKeypad(container, handler, labels) {
+    container.innerHTML = "";
+    labels.forEach((label) => {
+      const btn = document.createElement("button");
+      btn.className = "key" + (label === "DEL" ? " secondary" : "");
+
+      if (!label) {
+        btn.disabled = true;
+        btn.style.visibility = "hidden";
+      } else {
+        btn.textContent = label;
+        btn.addEventListener("click", () => handler(label));
+      }
+
+      container.appendChild(btn);
+    });
+  }
+
+  buildKeypad(keypad, onKey, ["1","2","3","4","5","6","7","8","9","DEL","0",""]);
+  buildKeypad(practiceKeypad, onPracticeKey, ["1","2","3","4","5","6","7","8","9","DEL","0",""]);
+
+  let running = false;
+  let viewState = "intro";
+  let practiceIndex = 0;
+  let practiceCompleted = false;
+  let countdownTimer = null;
+
+  let score = 0;
+  let wrong = 0;
+
+  let colIndex = 1;
+  let totalLeft = FIXED_TOTAL_SECONDS;
+  let colLeft = FIXED_COL_SECONDS;
+
+  let timer = null;
+
+  let rng = Math.random;
+  let curA = 0;
+  let curB = 0;
+
+  let lastShownAt = 0;
+  let attempts = [];
+  let minuteStats = [];
+  let attemptStatus = "not_started";
+  let sessionStartedAt = null;
+  let autosaveTimer = null;
+  let autosaveInFlight = false;
+  let hasFinalized = false;
+
+  if (isPackageMode) {
+    document.title = "Tes Ketelitian Angka";
+    const promptNode = document.getElementById("prompt");
+    if (scoreStatLabelEl) scoreStatLabelEl.textContent = "Respons Tercatat";
+    if (scoreSeparatorEl) scoreSeparatorEl.style.display = "none";
+    if (wrongEl) wrongEl.style.display = "none";
+    if (seedFieldEl) seedFieldEl.classList.add("is-hidden");
+    if (participantInput) participantInput.closest(".field")?.classList.add("is-hidden");
+    if (minuteCardEl) minuteCardEl.classList.add("is-hidden");
+    if (settingsPanelEl) settingsPanelEl.classList.add("is-hidden");
+    if (csvBtn) csvBtn.style.display = "none";
+    if (promptNode) promptNode.textContent = "Jumlahkan dua angka, lalu input angka satuannya.";
+  } else if (exitBtn) {
+    exitBtn.classList.add("is-hidden");
+  }
+
+  function updateAutosaveState(text, tone = "") {
+    if (!autosaveStateEl) return;
+    autosaveStateEl.textContent = text;
+    autosaveStateEl.className = `autosaveState${tone ? ` ${tone}` : ""}`;
+  }
+
+  function setAttemptStatus(nextStatus) {
+    attemptStatus = nextStatus;
+
+    if (!isPackageMode) return;
+
+    if (nextStatus === "running") {
+      updateAutosaveState("Jawaban direkam otomatis");
+      return;
+    }
+
+    if (nextStatus === "completed") {
+      updateAutosaveState("Tes selesai dan hasil tersimpan", "ok");
+      return;
+    }
+
+    if (nextStatus === "incomplete") {
+      updateAutosaveState("Tes ditandai tidak selesai", "warn");
+      return;
+    }
+
+    updateAutosaveState("Jawaban direkam otomatis");
+  }
+
+  function isAttemptActive() {
+    return isPackageMode && !hasFinalized && attemptStatus === "running";
+  }
+
+  function setViewState(nextState) {
+    viewState = nextState;
+    introScreen.classList.toggle("is-hidden", nextState !== "intro");
+    practiceScreen.classList.toggle("is-hidden", nextState !== "practice");
+    countdownScreen.classList.toggle("is-hidden", nextState !== "countdown");
+    testShell.classList.toggle("is-hidden", nextState !== "running");
+    completedScreen.classList.toggle("is-hidden", nextState !== "completed");
+  }
+
+  function setPracticeState(message, tone = "") {
+    if (!practiceStateEl) return;
+    if (!message) {
+      practiceStateEl.style.display = "none";
+      practiceStateEl.textContent = "";
+      practiceStateEl.className = "submitState";
+      return;
+    }
+
+    practiceStateEl.style.display = "block";
+    practiceStateEl.textContent = message;
+    practiceStateEl.className = `submitState${tone ? ` ${tone}` : ""}`;
+  }
+
+  function updatePracticeControls(disabled) {
+    practiceKeypad.querySelectorAll("button").forEach((button) => {
+      if (button.textContent) button.disabled = disabled;
+    });
+  }
+
+  function renderPracticeQuestion() {
+    if (practiceIndex >= PRACTICE_QUESTIONS.length) {
+      practiceCompleted = true;
+      practiceMetaEl.textContent = "Simulasi selesai";
+      practiceAEl.textContent = "✓";
+      practiceBEl.textContent = "✓";
+      practiceFeedbackEl.textContent = "";
+      setPracticeState("Simulasi selesai. Anda sudah memahami cara pengerjaan. Tekan “Mulai tes utama” saat Anda siap.", "ok");
+      updatePracticeControls(true);
+      return;
+    }
+
+    const current = PRACTICE_QUESTIONS[practiceIndex];
+    practiceMetaEl.textContent = `Soal ${practiceIndex + 1} dari ${PRACTICE_QUESTIONS.length}`;
+    practiceAEl.textContent = current.a;
+    practiceBEl.textContent = current.b;
+    practiceFeedbackEl.textContent = "";
+    setPracticeState("", "");
+    updatePracticeControls(false);
+  }
+
+  function startPractice() {
+    practiceIndex = 0;
+    practiceCompleted = false;
+    renderPracticeQuestion();
+    setViewState("practice");
+  }
+
+  function onPracticeKey(key) {
+    if (practiceCompleted) return;
+    if (key === "DEL" || !/^\d$/.test(key)) return;
+
+    const current = PRACTICE_QUESTIONS[practiceIndex];
+    const answer = Number(key);
+    const isCorrect = answer === current.answer;
+
+    practiceFeedbackEl.style.color = isCorrect ? "var(--good)" : "var(--bad)";
+    practiceFeedbackEl.textContent = isCorrect
+      ? "Benar. Lanjut ke soal berikutnya..."
+      : `Belum tepat. Jawaban yang benar adalah ${current.answer}.`;
+
+    updatePracticeControls(true);
+    window.setTimeout(() => {
+      practiceIndex += 1;
+      renderPracticeQuestion();
+    }, 800);
+  }
+
+  function startCountdown() {
+    let count = 3;
+    countdownValueEl.textContent = String(count);
+    setViewState("countdown");
+
+    if (countdownTimer) window.clearInterval(countdownTimer);
+    countdownTimer = window.setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        window.clearInterval(countdownTimer);
+        countdownTimer = null;
+        setViewState("running");
+        start();
+        return;
+      }
+
+      countdownValueEl.textContent = String(count);
+    }, 1000);
+  }
+
+  function showCompletedScreen(message) {
+    completedMessageEl.textContent = message;
+    if (isPackageMode && packageContext.returnUrl) {
+      backToPackageBtn.classList.remove("is-hidden");
+      restartTestBtn.classList.add("is-hidden");
+    } else {
+      restartTestBtn.classList.remove("is-hidden");
+      backToPackageBtn.classList.add("is-hidden");
+    }
+    setViewState("completed");
+  }
+
+  function setFeedback(text, kind = "") {
+    feedbackEl.textContent = text || "";
+    if (kind === "good") {
+      feedbackEl.style.color = getComputedStyle(document.documentElement).getPropertyValue("--good");
+    } else if (kind === "bad") {
+      feedbackEl.style.color = getComputedStyle(document.documentElement).getPropertyValue("--bad");
+    } else {
+      feedbackEl.style.color = getComputedStyle(document.documentElement).getPropertyValue("--muted");
+    }
+  }
+
+  function randDigit() {
+    return Math.floor(rng() * 10);
+  }
+
+  function nextPair() {
+    curA = curB;
+    curB = randDigit();
+    aEl.textContent = curA;
+    bEl.textContent = curB;
+    lastShownAt = performance.now();
+  }
+
+  function currentAnswer() {
+    return (curA + curB) % 10;
+  }
+
+  function updateHUD() {
+    scoreEl.textContent = String(isPackageMode ? score + wrong : score);
+    wrongEl.textContent = wrong;
+    colEl.textContent = colIndex;
+    colLeftEl.textContent = colLeft;
+    totalLeftEl.textContent = totalLeft;
+  }
+
+  function currentMinuteIndex() {
+    const elapsed = Math.max(0, FIXED_TOTAL_SECONDS - totalLeft);
+    return Math.min(minuteStats.length - 1, Math.floor(elapsed / 60));
+  }
+
+  function initMinuteStats() {
+    const totalMinutes = Math.ceil(FIXED_TOTAL_SECONDS / 60);
+    minuteStats = Array.from({ length: totalMinutes }, (_, i) => ({
+      minute: i + 1,
+      correct: 0,
+      wrong: 0,
+      total: 0
+    }));
+  }
+
+  function renderMinuteChart() {
+    if (!minuteStats.length) return;
+
+    const maxTotal = Math.max(1, ...minuteStats.map((m) => m.total));
+    const activeIdx = currentMinuteIndex();
+
+    minuteChartEl.style.gridTemplateColumns = "repeat(" + minuteStats.length + ", minmax(14px, 1fr))";
+    minuteChartEl.innerHTML = minuteStats.map((m, idx) => {
+      const total = m.total || 0;
+      const goodHeight = total ? Math.round((m.correct / maxTotal) * 100) : 0;
+      const badHeight = total ? Math.round((m.wrong / maxTotal) * 100) : 0;
+      const badBottom = goodHeight;
+      const activeClass = (running && idx === activeIdx) ? " active" : "";
+      const label = (m.minute === 1 || m.minute % 5 === 0 || m.minute === minuteStats.length) ? String(m.minute) : "";
+
+      return (
+        "<div class=\"minuteCol" + activeClass + "\">" +
+          "<div class=\"minuteBar\">" +
+            "<div class=\"minuteGood\" style=\"height:" + goodHeight + "%\"></div>" +
+            "<div class=\"minuteBad\" style=\"height:" + badHeight + "%;bottom:" + badBottom + "%\"></div>" +
+          "</div>" +
+          "<div class=\"minuteLabel\">" + label + "</div>" +
+        "</div>"
+      );
+    }).join("");
+
+    const active = minuteStats[activeIdx] || { minute: 1, correct: 0, wrong: 0 };
+    minuteMetaEl.textContent = "Menit " + active.minute + "/" + minuteStats.length + " | Benar " + active.correct + " | Salah " + active.wrong;
+  }
+
+  function enableControls() {
+    startBtn.disabled = running;
+    csvBtn.disabled = attempts.length === 0;
+  }
+
+  function start() {
+    score = 0;
+    wrong = 0;
+    colIndex = 1;
+
+    totalDurInput.value = FIXED_TOTAL_SECONDS;
+    colDurInput.value = FIXED_COL_SECONDS;
+    totalLeft = FIXED_TOTAL_SECONDS;
+    colLeft = FIXED_COL_SECONDS;
+
+    const seedStr = (seedInput.value || "").trim();
+    if (seedStr) {
+      const seedFn = xmur3(seedStr);
+      rng = mulberry32(seedFn());
+    } else {
+      rng = Math.random;
+    }
+
+    curA = randDigit();
+    curB = randDigit();
+    aEl.textContent = curA;
+    bEl.textContent = curB;
+    lastShownAt = performance.now();
+
+    attempts = [];
+    initMinuteStats();
+    running = true;
+    hasFinalized = false;
+    sessionStartedAt = new Date().toISOString();
+    setAttemptStatus("running");
+
+    setFeedback(isPackageMode ? "Tes dimulai. Jawaban direkam otomatis selama tes berlangsung." : "Tes dimulai.", "good");
+    enableControls();
+
+    tick();
+    timer = setInterval(tick, 1000);
+    renderMinuteChart();
+    if (isPackageMode) {
+      setSubmitState("Jawaban direkam otomatis oleh sistem. Tes akan selesai dan tersimpan otomatis saat waktu habis.", "");
+      scheduleAutosave();
+    }
+  }
+
+  function stop(reason = "Selesai", nextStatus = "completed") {
+    running = false;
+    if (timer) clearInterval(timer);
+    timer = null;
+    setAttemptStatus(nextStatus);
+
+    if (isPackageMode) {
+      setFeedback(reason + ".", "");
+    } else {
+      setFeedback(reason + ". Jawaban benar: " + score + ", salah: " + wrong + ".", "");
+    }
+    renderMinuteChart();
+    enableControls();
+    csvBtn.disabled = attempts.length === 0;
+  }
+
+  function tick() {
+    if (!running) return;
+
+    totalLeft -= 1;
+    colLeft -= 1;
+
+    if (colLeft <= 0) {
+      colIndex += 1;
+      colLeft = FIXED_COL_SECONDS;
+      setFeedback("Pindah kolom ke-" + colIndex, "");
+    }
+
+    if (totalLeft <= 0) {
+      updateHUD();
+      void finalizeCompletedAttempt("Waktu habis");
+      return;
+    }
+
+    updateHUD();
+    renderMinuteChart();
+  }
+
+  function logAttempt(userInput, correct) {
+    const now = performance.now();
+    const rt = Math.max(0, Math.round(now - lastShownAt));
+    const elapsedSec = Math.max(0, FIXED_TOTAL_SECONDS - totalLeft);
+    const minuteIndex = Math.min(minuteStats.length - 1, Math.floor(elapsedSec / 60));
+    const minuteValue = minuteIndex + 1;
+
+    if (minuteStats[minuteIndex]) {
+      minuteStats[minuteIndex].total += 1;
+      if (correct) minuteStats[minuteIndex].correct += 1;
+      else minuteStats[minuteIndex].wrong += 1;
+    }
+
+    attempts.push({
+      ts_iso: new Date().toISOString(),
+      participant: (participantInput.value || "").trim(),
+      seed: (seedInput.value || "").trim(),
+      col: colIndex,
+      minute: minuteValue,
+      elapsed_sec: elapsedSec,
+      a: curA,
+      b: curB,
+      expected: currentAnswer(),
+      input: userInput,
+      correct: correct ? 1 : 0,
+      reaction_ms: rt
+    });
+  }
+
+  function onAnswer(digit) {
+    if (!running) return;
+
+    const expected = currentAnswer();
+    const correct = digit === expected;
+    logAttempt(digit, correct);
+
+    if (correct) {
+      score += 1;
+      setFeedback(isPackageMode ? "Jawaban tercatat" : "Benar", "good");
+    } else {
+      wrong += 1;
+      setFeedback(isPackageMode ? "Jawaban tercatat" : "Salah (seharusnya " + expected + ")", isPackageMode ? "" : "bad");
+    }
+
+    nextPair();
+    updateHUD();
+    renderMinuteChart();
+    csvBtn.disabled = attempts.length === 0;
+    if (isPackageMode) scheduleAutosave();
+  }
+
+  function onKey(k) {
+    if (k === "DEL") {
+      setFeedback("Backspace tidak dipakai untuk mode 1 digit.", "");
+      return;
+    }
+
+    if (/^\d$/.test(k)) onAnswer(parseInt(k, 10));
+  }
+
+  function toCSV(rows) {
+    if (!rows.length) return "";
+
+    const headers = Object.keys(rows[0]);
+    const esc = (val) => {
+      const s = String(val ?? "");
+      if (/[",\n]/.test(s)) return '"' + s.replaceAll('"', '""') + '"';
+      return s;
+    };
+
+    const lines = [];
+    lines.push(headers.map(esc).join(","));
+    for (const row of rows) {
+      lines.push(headers.map((h) => esc(row[h])).join(","));
+    }
+    return lines.join("\n");
+  }
+
+  function downloadCSV() {
+    const csv = toCSV(attempts);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    const name = (participantInput.value || "peserta").trim().replace(/\s+/g, "_");
+    a.href = url;
+    a.download = "kraepelin_" + (name || "hasil") + "_" + Date.now() + ".csv";
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function setSubmitState(message, tone = "") {
+    if (!submitStateEl) return;
+    if (!message) {
+      submitStateEl.style.display = "none";
+      submitStateEl.textContent = "";
+      submitStateEl.className = "submitState";
+      return;
+    }
+
+    submitStateEl.style.display = "block";
+    submitStateEl.textContent = message;
+    submitStateEl.className = `submitState${tone ? ` ${tone}` : ""}`;
+  }
+
+  function buildPayload() {
+    const totalAttempts = score + wrong;
+    const accuracy = totalAttempts ? Math.round((score / totalAttempts) * 100) : 0;
+    const durationSec = FIXED_TOTAL_SECONDS - totalLeft;
+    const activeMinutes = minuteStats.filter((item) => item.total > 0);
+    const avgPerMinute = activeMinutes.length
+      ? Number((activeMinutes.reduce((sum, item) => sum + item.total, 0) / activeMinutes.length).toFixed(2))
+      : 0;
+    const peakMinute = minuteStats.reduce((best, item) => (item.total > best.total ? item : best), minuteStats[0] || { minute: 1, total: 0 });
+    const lowMinute = activeMinutes.reduce((best, item) => (item.total < best.total ? item : best), activeMinutes[0] || { minute: 1, total: 0 });
+
+    return {
+      test: "Kraepelin",
+      attempt_status: attemptStatus,
+      started_at: sessionStartedAt || new Date(Date.now() - durationSec * 1000).toISOString(),
+      ended_at: new Date().toISOString(),
+      duration_sec: durationSec,
+      remaining_sec: totalLeft,
+      current_column: colIndex,
+      score: {
+        correct: score,
+        wrong,
+        total_attempts: totalAttempts,
+        accuracy_percent: accuracy,
+        average_per_minute: avgPerMinute,
+      },
+      performance: {
+        peak_minute: peakMinute?.minute || 1,
+        peak_total: peakMinute?.total || 0,
+        low_minute: lowMinute?.minute || 1,
+        low_total: lowMinute?.total || 0,
+      },
+      minute_stats: minuteStats,
+      attempts,
+    };
+  }
+
+  async function syncPackageStatus(packageId) {
+    if (!supabaseClient || !packageId) return;
+
+    const numericPackageId = Number(packageId);
+    const { data: items, error } = await supabaseClient
+      .from("candidate_test_package_items")
+      .select("status")
+      .eq("package_id", numericPackageId);
+
+    if (error) throw error;
+
+    const statuses = (items || []).map((item) => item.status);
+    const payload = {};
+
+    if (statuses.length && statuses.every((status) => status === "completed")) {
+      payload.status = "completed";
+      payload.completed_at = new Date().toISOString();
+    } else if (statuses.some((status) => status === "completed" || status === "in_progress" || status === "incomplete")) {
+      payload.status = "in_progress";
+    } else {
+      payload.status = "opened";
+    }
+
+    const { error: updateError } = await supabaseClient
+      .from("candidate_test_packages")
+      .update(payload)
+      .eq("id", numericPackageId);
+
+    if (updateError) throw updateError;
+  }
+
+  async function persistPackageSnapshot(payload, itemStatus, options = {}) {
+    if (!supabaseClient || !isPackageMode) return false;
+
+    const itemId = Number(packageContext.itemId);
+    const isCompleted = itemStatus === "completed";
+    const isIncomplete = itemStatus === "incomplete";
+    const summary = isCompleted
+      ? `Benar ${payload.score.correct}, salah ${payload.score.wrong}, akurasi ${payload.score.accuracy_percent}%, rata-rata ${payload.score.average_per_minute}/menit.`
+      : isIncomplete
+        ? `Tes dihentikan sebelum selesai dan dianggap gagal. Respons terekam ${payload.score.total_attempts} dengan akurasi ${payload.score.accuracy_percent}%.`
+        : `Progres terekam ${payload.score.total_attempts} respons. Tes masih berlangsung.`;
+
+    const updatePayload = {
+      status: itemStatus,
+      started_at: payload.started_at,
+      score_numeric: isCompleted ? payload.score.correct : null,
+      score_label: isCompleted ? `Akurasi ${payload.score.accuracy_percent}%` : isIncomplete ? "Tes tidak selesai" : `Respons ${payload.score.total_attempts}`,
+      summary,
+      result_json: payload,
+    };
+
+    if (isCompleted || isIncomplete) {
+      updatePayload.completed_at = payload.ended_at;
+    }
+
+    if (options.keepalive) {
+      const response = await fetch(`${supabaseConfig.url}/rest/v1/candidate_test_package_items?id=eq.${itemId}`, {
+        method: "PATCH",
+        keepalive: true,
+        headers: {
+          apikey: supabaseConfig.publishableKey,
+          Authorization: `Bearer ${supabaseConfig.publishableKey}`,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify(updatePayload),
+      });
+
+      if (!response.ok) throw new Error("Gagal menyimpan snapshot tes koran.");
+    } else {
+      const { error } = await supabaseClient
+        .from("candidate_test_package_items")
+        .update(updatePayload)
+        .eq("id", itemId);
+
+      if (error) throw error;
+    }
+
+    if (!options.skipSync) {
+      await syncPackageStatus(packageContext.packageId);
+    }
+
+    return true;
+  }
+
+  function scheduleAutosave(statusOverride = attemptStatus) {
+    if (!isPackageMode || hasFinalized || statusOverride !== "running") return;
+
+    if (autosaveTimer) window.clearTimeout(autosaveTimer);
+    autosaveTimer = window.setTimeout(async () => {
+      if (autosaveInFlight || hasFinalized) return;
+      autosaveInFlight = true;
+      try {
+        const payload = buildPayload();
+        payload.attempt_status = statusOverride;
+        await persistPackageSnapshot(payload, "in_progress");
+      } catch (error) {
+        console.error("Autosave tes koran gagal:", error);
+      } finally {
+        autosaveInFlight = false;
+      }
+    }, 800);
+  }
+
+  async function finalizeCompletedAttempt(reason = "Waktu habis") {
+    if (hasFinalized) return;
+    hasFinalized = true;
+    stop(reason, "completed");
+    startBtn.disabled = true;
+    if (autosaveTimer) window.clearTimeout(autosaveTimer);
+
+    if (!isPackageMode) {
+      setFeedback(`${reason}. Jawaban benar: ${score}, salah: ${wrong}.`, "good");
+      return;
+    }
+
+    setSubmitState("Waktu habis. Sistem sedang menyimpan hasil tes ketelitian angka secara otomatis...", "");
+
+    try {
+      const payload = buildPayload();
+      await persistPackageSnapshot(payload, "completed");
+      setSubmitState("Tes ketelitian angka selesai dan hasil sudah tersimpan.", "ok");
+      showCompletedScreen("Tes selesai. Jawaban Anda sudah direkam otomatis dan hasil telah tersimpan untuk direview recruiter.");
+    } catch (error) {
+      console.error("Gagal menyimpan hasil tes koran ke paket tes:", error);
+      setSubmitState("Hasil belum berhasil disimpan otomatis. Harap hubungi recruiter untuk bantuan lebih lanjut.", "warn");
+    }
+  }
+
+  async function markAttemptIncomplete(source = "leave_page", keepalive = false) {
+    if (!isPackageMode || hasFinalized || attempts.length === 0) return;
+
+    hasFinalized = true;
+    if (autosaveTimer) window.clearTimeout(autosaveTimer);
+    stop("Tes dihentikan sebelum selesai", "incomplete");
+    const payload = buildPayload();
+    payload.attempt_status = "incomplete";
+    payload.exit_reason = source;
+
+    try {
+      await persistPackageSnapshot(payload, "incomplete", { keepalive });
+    } catch (error) {
+      console.error("Gagal menandai tes koran sebagai tidak selesai:", error);
+    }
+  }
+
+  async function handleExitTest() {
+    const shouldLeave = window.confirm("Tes belum selesai. Jika Anda keluar sekarang, hasil dapat dianggap tidak lengkap atau gagal.");
+    if (!shouldLeave) return;
+
+    if (isPackageMode) {
+      await markAttemptIncomplete("candidate_exit", false);
+      showCompletedScreen("Tes dihentikan atas permintaan Anda. Status tes ditandai tidak selesai dan akan dilaporkan ke recruiter.");
+      return;
+    }
+
+    stop("Tes dihentikan kandidat", "incomplete");
+    showCompletedScreen("Tes dihentikan. Silakan hubungi recruiter jika Anda memerlukan bantuan untuk mengulang tes.");
+  }
+
+  practiceBtn.addEventListener("click", startPractice);
+  mainStartBtn.addEventListener("click", startCountdown);
+  practiceStartMainBtn.addEventListener("click", startCountdown);
+  restartPracticeBtn.addEventListener("click", startPractice);
+  restartTestBtn.addEventListener("click", () => {
+    setSubmitState("", "");
+    setViewState("intro");
+  });
+  backToPackageBtn.addEventListener("click", () => {
+    if (packageContext.returnUrl) window.location.href = packageContext.returnUrl;
+  });
+  startBtn.addEventListener("click", start);
+  exitBtn.addEventListener("click", () => {
+    void handleExitTest();
+  });
+  csvBtn.addEventListener("click", downloadCSV);
+
+  document.addEventListener("keydown", (e) => {
+    if (viewState === "practice" && e.key >= "0" && e.key <= "9") {
+      onPracticeKey(e.key);
+      return;
+    }
+
+    if (e.key >= "0" && e.key <= "9") onAnswer(parseInt(e.key, 10));
+    else if (e.key === "Backspace") onKey("DEL");
+  });
+
+  totalDurInput.value = FIXED_TOTAL_SECONDS;
+  colDurInput.value = FIXED_COL_SECONDS;
+  initMinuteStats();
+  totalLeftEl.textContent = totalDurInput.value;
+  colLeftEl.textContent = colDurInput.value;
+  updateHUD();
+  renderMinuteChart();
+  renderPracticeQuestion();
+  if (isPackageMode) {
+    setSubmitState("Jawaban direkam otomatis oleh sistem. Tes akan selesai dan tersimpan otomatis saat waktu habis.", "");
+    setFeedback("Durasi fixed 30 menit. Klik Mulai untuk mulai tes. Tidak ada tombol submit manual.", "");
+    history.pushState({ kraepelinGuard: true }, "", window.location.href);
+    window.addEventListener("beforeunload", (event) => {
+      if (!isAttemptActive()) return;
+      event.preventDefault();
+      event.returnValue = "Tes belum selesai. Jika Anda keluar sekarang, progres tidak akan tersimpan sempurna dan tes dapat dianggap gagal.";
+    });
+
+    window.addEventListener("pagehide", () => {
+      if (!isAttemptActive()) return;
+      void markAttemptIncomplete("pagehide", true);
+    });
+
+    window.addEventListener("popstate", () => {
+      if (!isAttemptActive()) return;
+
+      const shouldLeave = window.confirm("Tes belum selesai. Jika Anda keluar sekarang, progres tidak akan tersimpan sempurna dan tes dapat dianggap gagal.");
+      if (!shouldLeave) {
+        history.pushState({ kraepelinGuard: true }, "", window.location.href);
+        return;
+      }
+
+      void markAttemptIncomplete("browser_back", true);
+      if (packageContext.returnUrl) {
+        window.location.href = packageContext.returnUrl;
+      }
+    });
+  } else {
+    setFeedback("Durasi fixed 30 menit. Klik Mulai untuk mulai tes.", "");
+  }
+  updateAutosaveState("Jawaban direkam otomatis");
+  setViewState("intro");
+  enableControls();
+})();
+</script>
+</body>
+</html>

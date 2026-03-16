@@ -1,0 +1,40 @@
+export interface LowonganPekerjaan {
+  id?: number;
+  kebutuhan_id?: number | null;
+  judul_lowongan: string;
+  posisi: string;
+  departemen?: string | null;
+  cabang?: string | null;
+  company_name?: string | null;
+  jumlah_kebutuhan?: number | null;
+  status_kerja?: string | null;
+  tipe_kerja?: string | null;
+  durasi_kontrak?: string | null;
+  gaji_min?: number | null;
+  gaji_max?: number | null;
+  pendidikan_min?: string | null;
+  pengalaman?: string | null;
+  skill?: string[];
+  skill_text?: string | null;
+  kriteria_tambahan?: string | null;
+  tes_yang_diperlukan?: string[];
+  deskripsi_pekerjaan?: string | null;
+  ringkasan_iklan?: string | null;
+  tanggung_jawab?: string | null;
+  tentang_perusahaan?: string | null;
+  lokasi_kerja?: string | null;
+  benefit?: string | null;
+  cara_melamar?: string | null;
+  status_lowongan?: string | null;
+  tanggal_tayang?: string | null;
+  tanggal_tutup?: string | null;
+  applicants_count?: number | null;
+  source_type?: string | null;
+  person_in_charge?: string | null;
+  archived?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type CreateLowonganPayload = Omit<LowonganPekerjaan, "id" | "created_at" | "updated_at">;
+export type UpdateLowonganPayload = Partial<Omit<LowonganPekerjaan, "id" | "created_at" | "updated_at">>;

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kuesioner Kepribadian Kerja</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #eef3f9;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    .frame {
+      display: block;
+      width: 100%;
+      min-height: 100vh;
+      border: 0;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="candidate-test-frame" class="frame" title="Kuesioner Kepribadian Kerja"></iframe>
+
+  <script>
+    (function () {
+      const frame = document.getElementById("candidate-test-frame");
+      const targetUrl = new URL("../tes-big-five/index.html", window.location.href);
+
+      targetUrl.search = window.location.search;
+      frame.src = targetUrl.toString();
+
+      function syncHeight() {
+        frame.style.height = `${window.innerHeight}px`;
+      }
+
+      window.addEventListener("resize", syncHeight);
+      syncHeight();
+    })();
+  </script>
+</body>
+</html>

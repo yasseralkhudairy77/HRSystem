@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kuesioner Kepribadian Kerja</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../tes-paket/supabase-config.js"></script>
+  <style>
+    :root{
+      --bg:#eef3f9;
+      --card:#ffffff;
+      --card-soft:#f8fbff;
+      --text:#10233f;
+      --muted:#62748c;
+      --line:#d7e1ee;
+      --brand:#1f5fae;
+      --brand-strong:#163d70;
+      --accent:#de6e4b;
+      --ok:#2f9d6a;
+      --warn:#d39a22;
+      --shadow:0 12px 32px rgba(15,39,71,.08);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(900px 400px at 0% -10%, rgba(31,95,174,.10), transparent 55%),
+        radial-gradient(800px 500px at 100% 0%, rgba(222,110,75,.08), transparent 50%),
+        var(--bg);
+    }
+    .topbar{
+      position:sticky;top:0;z-index:10;
+      backdrop-filter: blur(10px);
+      background: rgba(255,255,255,.84);
+      border-bottom:1px solid var(--line);
+    }
+    .topbar .inner{
+      max-width:1120px;margin:0 auto;padding:12px 16px;
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+    }
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{
+      width:38px;height:38px;border-radius:14px;
+      background: linear-gradient(135deg, var(--brand), var(--accent));
+      box-shadow:var(--shadow);
+    }
+    .brand h1{margin:0;font-size:15px;font-weight:800}
+    .brand p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+    .pill{
+      display:flex;align-items:center;gap:8px;
+      padding:8px 12px;border:1px solid var(--line);border-radius:999px;
+      font-size:12px;color:var(--muted);background:#fff;
+    }
+    .dot{width:8px;height:8px;border-radius:999px;background:var(--ok)}
+    .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 56px}
+    .hero{
+      display:block;
+      margin-bottom:16px;
+    }
+    .hero-shell{
+      width:100%;
+      max-width:none;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{padding:18px 20px;border-bottom:1px solid var(--line)}
+    .card .hd h2{margin:0;font-size:14px;font-weight:800}
+    .card .hd p{margin:8px 0 0;font-size:13px;line-height:1.6;color:var(--muted)}
+    .card .bd{padding:20px}
+    .eyebrow{
+      font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)
+    }
+    .headline{margin:10px 0 0;font-size:34px;line-height:1.18;letter-spacing:-.03em}
+    .lead{margin:12px 0 0;max-width:760px;font-size:14px;line-height:1.8;color:var(--muted)}
+    .hero-card{
+      width:100%;
+      max-width:760px;
+    }
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media (max-width: 680px){.metrics{grid-template-columns:1fr}}
+    .metric{
+      border:1px solid var(--line);border-radius:16px;background:var(--card-soft);padding:16px;
+    }
+    .metric .label{font-size:12px;color:var(--muted)}
+    .metric .value{margin-top:8px;font-size:24px;font-weight:800}
+    .metric .desc{margin-top:6px;font-size:13px;line-height:1.6;color:var(--muted)}
+    .panel{display:flex;flex-direction:column;gap:16px}
+    .q-list{display:flex;flex-direction:column;gap:12px}
+    .question{
+      border:1px solid var(--line);border-radius:16px;background:var(--card-soft);padding:16px;
+    }
+    .question h3{margin:0;font-size:15px;line-height:1.5}
+    .scale{
+      display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:14px;
+    }
+    @media (max-width: 640px){.scale{grid-template-columns:1fr}}
+    .choice input{display:none}
+    .choice label{
+      display:flex;align-items:center;justify-content:center;
+      min-height:42px;border:1px solid var(--line);border-radius:12px;background:#fff;
+      font-size:12px;font-weight:700;color:var(--muted);text-align:center;padding:8px 10px;cursor:pointer;
+      transition:.15s ease;
+    }
+    .choice input:checked + label{
+      border-color:var(--brand);background:var(--brand);color:#fff;
+    }
+    .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+    button{
+      cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--text);
+      padding:11px 14px;border-radius:12px;font-weight:800;font-size:13px;
+    }
+    a.button-link{
+      display:inline-flex;align-items:center;justify-content:center;
+      cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--text);
+      padding:11px 14px;border-radius:12px;font-weight:800;font-size:13px;text-decoration:none;
+    }
+    button.primary{border-color:var(--brand);background:var(--brand);color:#fff}
+    button.primary:hover{background:var(--brand-strong)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .progress{
+      height:10px;border-radius:999px;border:1px solid var(--line);background:#edf3fa;overflow:hidden;
+    }
+    .progress > div{
+      height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--accent));transition:width .2s ease;
+    }
+    .helper{margin-top:10px;font-size:12px;color:var(--muted)}
+    .aside-stack{display:flex;flex-direction:column;gap:16px}
+    .legend{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:linear-gradient(180deg,#ffffff 0%, #f8fbff 100%);
+      overflow:hidden;
+    }
+    .legend-item{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      min-width:0;
+      min-height:108px;
+      padding:14px 12px;
+      text-align:center;
+      border-right:1px solid var(--line);
+    }
+    .legend-item:last-child{border-right:0}
+    .legend-index{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:30px;height:30px;border-radius:999px;
+      background:var(--brand);
+      color:#fff;
+      font-size:12px;font-weight:800;
+      margin:0 auto;
+      flex:0 0 30px;
+    }
+    .legend-copy{margin-top:10px}
+    .legend-copy strong{
+      display:block;
+      font-size:12px;
+      line-height:1.4;
+      color:var(--text);
+    }
+    .legend-copy span{
+      display:block;
+      margin-top:4px;
+      font-size:11px;
+      line-height:1.5;
+      color:var(--muted);
+    }
+    @media (max-width: 980px){
+      .legend{
+        grid-template-columns:repeat(5,minmax(140px,1fr));
+        overflow-x:auto;
+      }
+      .legend-item{
+        min-width:140px;
+        min-height:108px;
+      }
+    }
+    .results{display:none}
+    .results.show{display:block}
+    .bars{display:grid;gap:12px}
+    .bar-row{display:grid;grid-template-columns:160px 1fr 54px;gap:12px;align-items:center}
+    @media (max-width: 640px){.bar-row{grid-template-columns:1fr}}
+    .bar{
+      height:12px;border-radius:999px;background:#edf3fa;border:1px solid var(--line);overflow:hidden;
+    }
+    .bar > div{height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--accent))}
+    .summary{
+      margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--card-soft);
+      font-size:14px;line-height:1.8;color:var(--text);
+    }
+    .muted{color:var(--muted)}
+    .footer-note{margin-top:12px;font-size:12px;line-height:1.7;color:var(--muted)}
+    .sync-state{
+      margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);
+      background:#fff;font-size:13px;line-height:1.7;color:var(--muted);
+    }
+    .sync-state.ok{border-color:#b7e3ca;background:#eaf7ef;color:#246d4c}
+    .sync-state.warn{border-color:#f1d79a;background:#fff7df;color:#8b650f}
+    .hidden{display:none !important}
+    .onboarding-shell{display:grid;gap:16px}
+    .onboarding-card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:24px;
+    }
+    .onboarding-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+    .onboarding-title{margin:10px 0 0;font-size:32px;line-height:1.18;letter-spacing:-.03em}
+    .onboarding-copy{margin:12px 0 0;font-size:14px;line-height:1.8;color:var(--muted)}
+    .onboarding-list{margin:0;padding-left:18px;color:var(--muted);font-size:14px;line-height:1.8}
+    .example-card{
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:16px;
+      background:linear-gradient(180deg,#ffffff 0%, #f8fbff 100%);
+    }
+    .example-card h3{margin:0 0 12px;font-size:15px}
+    .example-row{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+      padding:16px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+    }
+    .example-question{font-size:14px;font-weight:700;line-height:1.6;color:var(--text)}
+    .example-scale{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+    .example-choice{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      min-height:68px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#fff;
+      text-align:center;
+      padding:8px 6px;
+    }
+    .example-choice.active{
+      border-color:var(--brand);
+      background:var(--brand);
+      color:#fff;
+    }
+    .example-choice b{font-size:13px}
+    .example-choice span{margin-top:4px;font-size:11px;line-height:1.4}
+    .onboarding-actions{display:flex;flex-wrap:wrap;gap:10px}
+    .soft-note{
+      font-size:13px;line-height:1.7;color:var(--muted);
+      padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--card-soft);
+    }
+    @media (max-width: 980px){
+      .onboarding-grid{grid-template-columns:1fr}
+      .example-scale{grid-template-columns:1fr}
+      .onboarding-card{padding:20px}
+      .onboarding-title{font-size:28px}
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Kuesioner Kepribadian Kerja</h1>
+          <p>Isi pernyataan berikut sesuai kondisi diri Anda saat bekerja.</p>
+        </div>
+      </div>
+      <div class="pill"><span class="dot"></span><span>25 item aktif</span></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <section id="intro-view" class="onboarding-shell">
+      <article class="onboarding-card">
+        <div class="eyebrow">Pengantar Kuesioner</div>
+        <h2 class="onboarding-title">Kuesioner Kepribadian Kerja</h2>
+        <p class="onboarding-copy">
+          Pada kuesioner ini, Anda akan membaca beberapa pernyataan lalu memilih tingkat persetujuan yang paling sesuai dengan kondisi diri Anda saat bekerja.
+        </p>
+      </article>
+      <section class="onboarding-grid">
+        <article class="onboarding-card">
+          <h3 style="margin:0 0 10px;font-size:15px;">Hal penting yang perlu diperhatikan</h3>
+          <ul class="onboarding-list">
+            <li>Baca setiap pernyataan dengan tenang dan pilih jawaban yang paling mendekati diri Anda.</li>
+            <li>Gunakan skala 1 sampai 5, dari <b>sangat tidak setuju</b> sampai <b>sangat setuju</b>.</li>
+            <li>Tidak ada jawaban benar atau salah. Jawaban yang jujur akan membantu tim rekrutmen memahami profil kerja Anda.</li>
+          </ul>
+          <div class="soft-note" style="margin-top:12px;">Jawaban akan direkam saat Anda mengirim kuesioner di akhir pengisian.</div>
+        </article>
+        <article class="onboarding-card">
+          <div class="example-card">
+            <h3>Contoh cara menjawab</h3>
+            <div class="example-row">
+              <div class="example-question">Saya terbiasa menyelesaikan pekerjaan secara rapi dan terstruktur.</div>
+              <div class="example-scale">
+                <div class="example-choice"><b>1</b><span>Sangat tidak setuju</span></div>
+                <div class="example-choice"><b>2</b><span>Tidak setuju</span></div>
+                <div class="example-choice"><b>3</b><span>Netral</span></div>
+                <div class="example-choice active"><b>4</b><span>Setuju</span></div>
+                <div class="example-choice"><b>5</b><span>Sangat setuju</span></div>
+              </div>
+            </div>
+            <p class="onboarding-copy" style="margin-top:12px;">
+              Pada contoh di atas, pilihan <b>4</b> berarti pernyataan tersebut cukup sesuai dengan kebiasaan kerja Anda.
+            </p>
+          </div>
+        </article>
+      </section>
+      <div class="onboarding-actions">
+        <button id="btn-start-questionnaire" class="primary" type="button">Mulai kuesioner</button>
+      </div>
+    </section>
+
+    <section id="main-view" class="panel hidden">
+      <section class="hero">
+        <div class="card hero-shell">
+          <div class="bd hero-card">
+            <div class="eyebrow">Tes Kepribadian</div>
+            <h2 class="headline">Jawab seluruh pernyataan berikut sesuai kebiasaan dan cara Anda bekerja sehari-hari.</h2>
+            <p class="lead">Tidak ada jawaban benar atau salah. Pilih jawaban yang paling mendekati diri Anda agar tim rekrutmen bisa memahami profil kerja Anda dengan lebih akurat.</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="card">
+        <div class="hd">
+          <h2>Skala Jawaban</h2>
+        </div>
+        <div class="bd" style="border-bottom:1px solid var(--line);">
+          <div class="legend">
+            <div class="legend-item">
+              <div class="legend-index">1</div>
+              <div class="legend-copy">
+                <strong>Sangat tidak setuju</strong>
+                <span>Tidak merasa cocok.</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-index">2</div>
+              <div class="legend-copy">
+                <strong>Tidak setuju</strong>
+                <span>Cenderung tidak sesuai.</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-index">3</div>
+              <div class="legend-copy">
+                <strong>Netral</strong>
+                <span>Posisi tengah.</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-index">4</div>
+              <div class="legend-copy">
+                <strong>Setuju</strong>
+                <span>Cukup merasa sesuai.</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-index">5</div>
+              <div class="legend-copy">
+                <strong>Sangat setuju</strong>
+                <span>Sangat menggambarkan diri.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="hd">
+          <h2>Isi Pernyataan</h2>
+          <p>Pilih jawaban yang paling menggambarkan diri kandidat. Tidak ada jawaban benar atau salah.</p>
+        </div>
+        <div class="bd">
+          <div class="progress"><div id="progress-bar"></div></div>
+          <div class="helper"><span id="progress-text">0 / 25 item terisi</span></div>
+          <div id="question-list" class="q-list"></div>
+          <div class="controls">
+            <button class="primary" id="score-btn" disabled>Submit jawaban</button>
+            <button id="reset-btn" type="button">Reset jawaban</button>
+          </div>
+        </div>
+      </div>
+      <div class="aside-stack">
+        <div id="results-card" class="card results">
+          <div class="hd">
+            <h2>Jawaban Terkirim</h2>
+            <p>Jawaban kandidat sudah diterima dan akan direview oleh tim rekrutmen.</p>
+          </div>
+          <div class="bd">
+            <div id="summary" class="summary"></div>
+            <div id="sync-state" class="sync-state" style="display:none;"></div>
+            <div class="controls" id="result-actions" style="margin-top:14px;display:none;">
+              <a id="back-to-package" class="button-link" href="#" style="display:none;">Kembali ke paket tes</a>
+            </div>
+            <div class="footer-note">Hasil penilaian tidak ditampilkan di halaman kandidat. Tim rekrutmen akan membaca hasilnya secara internal.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const QUESTIONS = [
+      { id: 1, trait: "openness", reverse: false, text: "Saya menikmati mencoba cara baru atau pendekatan baru dalam bekerja." },
+      { id: 2, trait: "openness", reverse: false, text: "Saya tertarik mempelajari ide atau wawasan baru dari orang lain." },
+      { id: 3, trait: "openness", reverse: true, text: "Saya lebih nyaman melakukan sesuatu persis seperti biasanya tanpa eksplorasi baru." },
+      { id: 4, trait: "openness", reverse: false, text: "Saya mudah tertarik pada hal-hal kreatif, konsep baru, atau perspektif berbeda." },
+      { id: 5, trait: "openness", reverse: true, text: "Saya cenderung menolak perubahan sebelum benar-benar melihat manfaatnya." },
+
+      { id: 6, trait: "conscientiousness", reverse: false, text: "Saya terbiasa merapikan pekerjaan sampai detail kecilnya selesai." },
+      { id: 7, trait: "conscientiousness", reverse: false, text: "Saya biasanya datang tepat waktu dan menjaga komitmen yang sudah dibuat." },
+      { id: 8, trait: "conscientiousness", reverse: true, text: "Saya mudah menunda tugas walau tahu pekerjaan itu penting." },
+      { id: 9, trait: "conscientiousness", reverse: false, text: "Saya suka bekerja dengan struktur, target, dan prioritas yang jelas." },
+      { id: 10, trait: "conscientiousness", reverse: true, text: "Saya sering lupa detail atau langkah kecil dalam pekerjaan." },
+
+      { id: 11, trait: "extraversion", reverse: false, text: "Saya merasa berenergi saat berinteraksi dengan banyak orang." },
+      { id: 12, trait: "extraversion", reverse: false, text: "Saya nyaman berbicara lebih dulu saat situasi membutuhkan." },
+      { id: 13, trait: "extraversion", reverse: true, text: "Saya cenderung diam dan menghindari jadi pusat perhatian." },
+      { id: 14, trait: "extraversion", reverse: false, text: "Saya mudah membangun percakapan dengan orang baru." },
+      { id: 15, trait: "extraversion", reverse: true, text: "Saya cepat lelah jika terlalu banyak interaksi sosial dalam pekerjaan." },
+
+      { id: 16, trait: "agreeableness", reverse: false, text: "Saya berusaha menjaga hubungan kerja tetap baik meski ada perbedaan pendapat." },
+      { id: 17, trait: "agreeableness", reverse: false, text: "Saya cukup sabar saat membantu orang lain memahami pekerjaan." },
+      { id: 18, trait: "agreeableness", reverse: true, text: "Saya cenderung keras dalam diskusi dan sulit mengalah." },
+      { id: 19, trait: "agreeableness", reverse: false, text: "Saya berusaha adil dan menghargai sudut pandang rekan kerja." },
+      { id: 20, trait: "agreeableness", reverse: true, text: "Saya mudah curiga bahwa orang lain punya niat kurang baik." },
+
+      { id: 21, trait: "stability", reverse: false, text: "Saya cukup tenang saat menghadapi tekanan kerja." },
+      { id: 22, trait: "stability", reverse: true, text: "Saya mudah merasa cemas atau khawatir berlebihan di tempat kerja." },
+      { id: 23, trait: "stability", reverse: false, text: "Saya bisa kembali fokus setelah menghadapi masalah atau kritik." },
+      { id: 24, trait: "stability", reverse: true, text: "Mood saya mudah turun saat kondisi kerja tidak berjalan sesuai rencana." },
+      { id: 25, trait: "stability", reverse: false, text: "Saya tetap bisa mengambil keputusan dengan cukup stabil saat situasi ramai." }
+    ];
+
+    const TRAITS = {
+      openness: { label: "Openness", summaryHigh: "terbuka pada ide baru, fleksibel, dan cukup eksploratif", summaryLow: "lebih nyaman pada pola kerja yang stabil dan familiar" },
+      conscientiousness: { label: "Conscientiousness", summaryHigh: "rapi, disiplin, dan cenderung menjaga kualitas kerja", summaryLow: "perlu dukungan struktur, prioritas, dan pengingat yang jelas" },
+      extraversion: { label: "Extraversion", summaryHigh: "cukup ekspresif, aktif, dan nyaman berinteraksi", summaryLow: "lebih tenang, observatif, dan nyaman dengan interaksi yang lebih terukur" },
+      agreeableness: { label: "Agreeableness", summaryHigh: "kooperatif, hangat, dan mudah menjaga relasi kerja", summaryLow: "lebih tegas, kritis, dan kadang terasa keras dalam interaksi" },
+      stability: { label: "Emotional Stability", summaryHigh: "cukup stabil saat menghadapi tekanan dan perubahan", summaryLow: "lebih sensitif terhadap tekanan sehingga butuh dukungan ritme kerja yang jelas" }
+    };
+
+    const ANSWER_LABELS = {
+      1: "Sangat tidak setuju",
+      2: "Tidak setuju",
+      3: "Netral",
+      4: "Setuju",
+      5: "Sangat setuju"
+    };
+
+    const questionList = document.getElementById("question-list");
+    const progressBar = document.getElementById("progress-bar");
+    const progressText = document.getElementById("progress-text");
+    const scoreBtn = document.getElementById("score-btn");
+    const resetBtn = document.getElementById("reset-btn");
+    const introView = document.getElementById("intro-view");
+    const mainView = document.getElementById("main-view");
+    const startQuestionnaireBtn = document.getElementById("btn-start-questionnaire");
+    const resultsCard = document.getElementById("results-card");
+    const summaryEl = document.getElementById("summary");
+    const syncStateEl = document.getElementById("sync-state");
+    const resultActionsEl = document.getElementById("result-actions");
+    const backToPackageEl = document.getElementById("back-to-package");
+    const params = new URLSearchParams(window.location.search);
+    const packageContext = {
+      token: params.get("package_token"),
+      packageId: params.get("package_id"),
+      itemId: params.get("item_id"),
+      returnUrl: params.get("return_url"),
+    };
+    const supabaseConfig = window.TEST_PACKAGE_SUPABASE_CONFIG;
+    const supabaseLib = window.supabase;
+    const supabaseClient = supabaseConfig?.url && supabaseConfig?.publishableKey && supabaseLib?.createClient
+      ? supabaseLib.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
+      : null;
+
+    const answers = {};
+
+    if (packageContext.returnUrl && backToPackageEl && resultActionsEl) {
+      backToPackageEl.href = packageContext.returnUrl;
+      backToPackageEl.style.display = "inline-flex";
+      resultActionsEl.style.display = "flex";
+    }
+
+    function showMainQuestionnaire() {
+      introView?.classList.add("hidden");
+      mainView?.classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function setSyncState(message, tone) {
+      if (!message) {
+        syncStateEl.style.display = "none";
+        syncStateEl.textContent = "";
+        syncStateEl.className = "sync-state";
+        return;
+      }
+
+      syncStateEl.style.display = "block";
+      syncStateEl.textContent = message;
+      syncStateEl.className = `sync-state${tone ? ` ${tone}` : ""}`;
+    }
+
+    function renderQuestions() {
+      questionList.innerHTML = QUESTIONS.map((question, index) => `
+        <div class="question">
+          <h3>${index + 1}. ${question.text}</h3>
+          <div class="scale">
+            ${Object.entries(ANSWER_LABELS).map(([value, label]) => `
+              <div class="choice">
+                <input type="radio" name="q-${question.id}" id="q-${question.id}-${value}" value="${value}">
+                <label for="q-${question.id}-${value}">${value}<br>${label}</label>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `).join("");
+
+      QUESTIONS.forEach((question) => {
+        document.querySelectorAll(`input[name="q-${question.id}"]`).forEach((input) => {
+          input.addEventListener("change", (event) => {
+            answers[question.id] = Number(event.target.value);
+            updateProgress();
+          });
+        });
+      });
+    }
+
+    function updateProgress() {
+      const answered = Object.keys(answers).length;
+      const percent = Math.round((answered / QUESTIONS.length) * 100);
+      progressBar.style.width = `${percent}%`;
+      progressText.textContent = `${answered} / ${QUESTIONS.length} item terisi`;
+      scoreBtn.disabled = answered !== QUESTIONS.length;
+    }
+
+    function calculateResults() {
+      const grouped = {
+        openness: [],
+        conscientiousness: [],
+        extraversion: [],
+        agreeableness: [],
+        stability: []
+      };
+
+      QUESTIONS.forEach((question) => {
+        const raw = answers[question.id];
+        const scored = question.reverse ? 6 - raw : raw;
+        grouped[question.trait].push(scored);
+      });
+
+      const normalized = Object.entries(grouped).map(([key, values]) => {
+        const total = values.reduce((sum, value) => sum + value, 0);
+        const average = total / values.length;
+        const score100 = Math.round(((average - 1) / 4) * 100);
+        return { key, label: TRAITS[key].label, score: score100 };
+      }).sort((a, b) => b.score - a.score);
+
+      return normalized;
+    }
+
+    function buildResultSummary(results) {
+      const topTrait = results[0];
+      const lowTrait = results[results.length - 1];
+      const topText = scoreLevel(topTrait.score) === "tinggi" ? TRAITS[topTrait.key].summaryHigh : TRAITS[topTrait.key].summaryLow;
+      const lowText = scoreLevel(lowTrait.score) === "rendah" ? TRAITS[lowTrait.key].summaryLow : TRAITS[lowTrait.key].summaryHigh;
+
+      return {
+        topTrait,
+        lowTrait,
+        summaryHtml: `
+          <strong>Trait paling menonjol:</strong> ${topTrait.label} (${topTrait.score}/100), artinya kandidat cenderung ${topText}.<br><br>
+          <strong>Trait yang relatif lebih rendah:</strong> ${lowTrait.label} (${lowTrait.score}/100), artinya kandidat ${lowText}.<br><br>
+          <span class="muted">Gunakan hasil ini untuk memperdalam pertanyaan saat interview, misalnya tentang cara kandidat menghadapi tekanan, bekerja dalam tim, atau mengikuti aturan kerja.</span>
+        `,
+        summaryText: `Trait dominan ${topTrait.label} (${topTrait.score}/100), kandidat cenderung ${topText}. Trait relatif lebih rendah ${lowTrait.label} (${lowTrait.score}/100), kandidat ${lowText}.`,
+      };
+    }
+
+    async function syncPackageStatus(packageId) {
+      if (!supabaseClient || !packageId) return;
+
+      const numericPackageId = Number(packageId);
+      const { data: items, error } = await supabaseClient
+        .from("candidate_test_package_items")
+        .select("status")
+        .eq("package_id", numericPackageId);
+
+      if (error) throw error;
+
+      const statuses = (items || []).map((item) => item.status);
+      const updatePayload = {};
+
+      if (statuses.length && statuses.every((status) => status === "completed")) {
+        updatePayload.status = "completed";
+        updatePayload.completed_at = new Date().toISOString();
+      } else if (statuses.some((status) => status === "completed" || status === "in_progress")) {
+        updatePayload.status = "in_progress";
+      } else {
+        updatePayload.status = "opened";
+      }
+
+      const { error: updateError } = await supabaseClient.from("candidate_test_packages").update(updatePayload).eq("id", numericPackageId);
+      if (updateError) throw updateError;
+    }
+
+    async function saveResultToPackage(results, summary) {
+      if (!supabaseClient || !packageContext.itemId || !packageContext.packageId) {
+        return false;
+      }
+
+      const overallAverage = Math.round(results.reduce((sum, item) => sum + item.score, 0) / results.length);
+      const now = new Date().toISOString();
+      const payload = {
+        status: "completed",
+        started_at: now,
+        completed_at: now,
+        score_numeric: overallAverage,
+        score_label: `Trait dominan: ${summary.topTrait.label}`,
+        summary: summary.summaryText,
+        result_json: {
+          saved_at: now,
+          traits: results,
+          top_trait: summary.topTrait,
+          low_trait: summary.lowTrait,
+          answers_count: QUESTIONS.length,
+        },
+      };
+
+      const { error } = await supabaseClient.from("candidate_test_package_items").update(payload).eq("id", Number(packageContext.itemId));
+
+      if (error) throw error;
+
+      await syncPackageStatus(packageContext.packageId);
+      return true;
+    }
+
+    function scoreLevel(score) {
+      if (score >= 75) return "tinggi";
+      if (score >= 45) return "sedang";
+      return "rendah";
+    }
+
+    async function submitAnswers() {
+      const results = calculateResults();
+      const summary = buildResultSummary(results);
+
+      summaryEl.innerHTML = `
+        <strong>Terima kasih.</strong> Jawaban Anda sudah kami terima dan akan direview oleh tim rekrutmen.<br><br>
+        Anda tidak perlu melihat hasil psikotes di halaman ini. Jika masih ada tes lain di dalam paket, silakan kembali ke halaman paket untuk melanjutkan.
+      `;
+
+      resultsCard.classList.add("show");
+      resultsCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      scoreBtn.disabled = true;
+      scoreBtn.textContent = "Jawaban terkirim";
+
+      if (packageContext.itemId) {
+        setSyncState("Menyimpan jawaban kuesioner ke paket tes kandidat...", "");
+
+        try {
+          const saved = await saveResultToPackage(results, summary);
+          if (saved) {
+            setSyncState("Jawaban kuesioner sudah tersimpan. Anda bisa kembali ke halaman paket tes.", "ok");
+          } else {
+            setSyncState("Jawaban sudah disubmit, tetapi belum terhubung ke paket tes kandidat.", "warn");
+          }
+        } catch (error) {
+          console.error("Gagal menyimpan hasil Big Five ke paket tes:", error);
+          setSyncState("Jawaban kuesioner belum berhasil disimpan ke paket tes. Coba ulangi atau hubungi recruiter.", "warn");
+          scoreBtn.disabled = false;
+          scoreBtn.textContent = "Submit jawaban";
+        }
+      } else {
+        setSyncState("Jawaban tersimpan lokal di browser ini. Tidak ada konteks paket tes kandidat.", "warn");
+      }
+    }
+
+    function resetAnswers() {
+      Object.keys(answers).forEach((key) => delete answers[key]);
+      document.querySelectorAll('input[type="radio"]').forEach((input) => { input.checked = false; });
+      resultsCard.classList.remove("show");
+      summaryEl.innerHTML = "";
+      setSyncState("", "");
+      scoreBtn.textContent = "Submit jawaban";
+      updateProgress();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    scoreBtn.addEventListener("click", () => {
+      void submitAnswers();
+    });
+    resetBtn.addEventListener("click", resetAnswers);
+    startQuestionnaireBtn?.addEventListener("click", showMainQuestionnaire);
+
+    renderQuestions();
+    updateProgress();
+  </script>
+</body>
+</html>

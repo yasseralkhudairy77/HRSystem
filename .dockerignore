@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.github
+preview.log
+preview-error.log
+vite.log
+dev-runtime.log
+server/piper/models

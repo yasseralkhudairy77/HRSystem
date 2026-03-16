@@ -1,0 +1,1220 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../tes-paket/supabase-config.js"></script>
+  <title>Holland Test (RIASEC) – Aplikasi Profesional</title>
+  <style>
+    :root{
+      --bg:#eef3f9;
+      --card:#ffffff;
+      --card2:#f8fbff;
+      --text:#0f2747;
+      --muted:#62748c;
+      --line:#d7e1ee;
+      --accent:#1f5fae;
+      --accent2:#77c4b3;
+      --warn:#d39a22;
+      --danger:#c84545;
+      --shadow:0 12px 32px rgba(15,39,71,.08);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(31,95,174,.10), transparent 60%),
+                  radial-gradient(900px 500px at 110% 10%, rgba(119,196,179,.10), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+    a{color:var(--accent); text-decoration:none}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 16px 60px}
+    .topbar{
+      position:sticky;top:0;z-index:10;
+      backdrop-filter: blur(10px);
+      background: rgba(255,255,255,.82);
+      border-bottom:1px solid var(--line);
+    }
+    .topbar .inner{max-width:1100px;margin:0 auto;padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{
+      width:34px;height:34px;border-radius:12px;
+      background: linear-gradient(135deg, rgba(31,95,174,.95), rgba(119,196,179,.9));
+      box-shadow: var(--shadow);
+    }
+    .brand h1{font-size:14.5px;margin:0;font-weight:750;letter-spacing:.2px}
+    .brand .sub{font-size:12px;color:var(--muted);margin-top:2px}
+    .pill{
+      font-size:12px;color:var(--muted);
+      border:1px solid var(--line);
+      padding:7px 10px;border-radius:999px;
+      background: rgba(255,255,255,.92);
+      display:flex;gap:8px;align-items:center;
+    }
+    .dot{width:8px;height:8px;border-radius:999px;background:var(--accent2);box-shadow:0 0 0 4px rgba(119,196,179,.15)}
+    .grid{display:grid;grid-template-columns: 1.2fr .8fr;gap:16px;margin-top:16px}
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+
+    .card{
+      background: var(--card);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:16px 16px 14px;border-bottom:1px solid var(--line);
+      display:flex;gap:12px;align-items:flex-start;justify-content:space-between
+    }
+    .card .hd h2{margin:0;font-size:14px;font-weight:780}
+    .card .hd p{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.45}
+    .card .bd{padding:16px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .field{flex:1;min-width:190px}
+    label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+    input, select{
+      width:100%;padding:11px 12px;border-radius:12px;
+      border:1px solid var(--line);
+      background: #fff;
+      color:var(--text);
+      outline:none;
+    }
+    input::placeholder{color:#91a1b5}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    button{
+      cursor:pointer;border:1px solid var(--line);
+      background: #fff;
+      color:var(--text);
+      padding:10px 12px;border-radius:12px;
+      font-weight:700;font-size:13px;
+      transition:.15s transform ease, .15s opacity ease;
+    }
+    button:hover{transform: translateY(-1px); background:#f8fbff}
+    button.primary{
+      border:1px solid var(--accent);
+      background: var(--accent);
+      color:#fff;
+    }
+    button.ghost{background:transparent}
+    button.danger{
+      border-color: #f3c3c3;
+      background: #fdecec;
+      color: var(--danger);
+    }
+    button:disabled{opacity:.55;cursor:not-allowed;transform:none}
+
+    .progress{
+      height:10px;border-radius:999px;background: #edf3fa;
+      overflow:hidden;border:1px solid var(--line)
+    }
+    .progress > div{
+      height:100%;width:0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width .2s ease;
+    }
+
+    .qwrap{display:flex;flex-direction:column;gap:10px}
+    .q{
+      border:1px solid var(--line);
+      background: var(--card2);
+      border-radius:14px;
+      padding:12px 12px;
+      display:grid;
+      grid-template-columns: 46px 1fr 250px;
+      gap:10px;
+      align-items:center;
+    }
+    @media (max-width: 860px){
+      .q{grid-template-columns: 46px 1fr;grid-template-rows:auto auto}
+      .q .ans{grid-column:1 / -1;justify-content:flex-start}
+    }
+    .qno{
+      width:36px;height:36px;border-radius:12px;
+      display:grid;place-items:center;
+      background: #edf5ff;
+      border:1px solid #b8d0f1;
+      font-weight:850;
+    }
+    .qtext{font-size:13.5px;line-height:1.45}
+    .ans{display:flex;gap:8px;justify-content:flex-end}
+    .chip{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:9px 10px;border-radius:999px;
+      border:1px solid var(--line);
+      background: #fff;
+      font-size:12.5px;font-weight:750;
+      user-select:none;
+    }
+    .chip input{accent-color: var(--accent); width:16px;height:16px; margin:0}
+    .chip.on{
+      border-color: #9fd4c7;
+      background: #eef9f4;
+    }
+    .chip.off{
+      border-color: #f3c3c3;
+      background: #fdecec;
+    }
+    .muted{color:var(--muted)}
+    .small{font-size:12.5px}
+    .hr{height:1px;background:var(--line);margin:14px 0}
+    .kpi{display:grid;grid-template-columns: repeat(3, 1fr);gap:10px}
+    @media (max-width: 540px){ .kpi{grid-template-columns:1fr} }
+    .kpi .box{
+      border:1px solid var(--line);
+      background: var(--card2);
+      border-radius:14px;padding:12px;
+    }
+    .kpi .box b{font-size:13px}
+    .kpi .box .v{font-size:18px;font-weight:900;margin-top:6px}
+    .bars{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+    .bar{
+      display:grid;grid-template-columns: 34px 1fr 48px;gap:10px;align-items:center
+    }
+    .bar .lbl{
+      width:34px;height:28px;border-radius:10px;display:grid;place-items:center;
+      border:1px solid var(--line);
+      background: #fff;
+      font-weight:900;font-size:12.5px;
+    }
+    .bar .track{
+      height:10px;border-radius:999px;background: #edf3fa;
+      border:1px solid var(--line);overflow:hidden;
+    }
+    .bar .fill{height:100%;width:0%;background: linear-gradient(90deg, var(--accent), var(--accent2))}
+    .tag{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:7px 10px;border-radius:999px;
+      border:1px solid var(--line);
+      background: #fff;
+      font-size:12px;font-weight:800;
+      margin:4px 8px 0 0;
+    }
+    .tag strong{letter-spacing:.4px}
+    .note{
+      border:1px dashed #c7d5e7;
+      background: #f8fbff;
+      border-radius: 14px;
+      padding:12px;
+      color: var(--text);
+      font-size:12.5px;
+      line-height:1.5;
+    }
+    .footer-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .print-hide{ }
+    .hidden{display:none !important}
+    .onboarding-shell{display:grid;gap:16px;margin-bottom:18px}
+    .onboarding-card{
+      background: var(--card);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:22px;
+    }
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    .onboarding-title{margin:10px 0 0;font-size:32px;line-height:1.18;letter-spacing:-.03em}
+    .onboarding-copy{margin:12px 0 0;font-size:14px;line-height:1.8;color:var(--muted)}
+    .onboarding-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px}
+    .onboarding-list{margin:0;padding-left:18px;color:var(--muted);font-size:14px;line-height:1.8}
+    .example-box{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:linear-gradient(180deg,#ffffff 0%, #f8fbff 100%);
+      padding:16px;
+    }
+    .example-box h3{margin:0 0 12px;font-size:15px}
+    .example-question{
+      padding:14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      display:grid;
+      gap:12px;
+    }
+    .example-text{font-size:14px;font-weight:700;line-height:1.6}
+    .example-answers{display:flex;gap:10px;flex-wrap:wrap}
+    .example-chip{
+      display:inline-flex;align-items:center;justify-content:center;
+      min-width:92px;padding:10px 12px;border-radius:999px;
+      border:1px solid var(--line);background:#fff;font-size:12.5px;font-weight:800;
+    }
+    .example-chip.yes{border-color:#9fd4c7;background:#eef9f4;color:#19694c}
+    .example-chip.no{border-color:#f3c3c3;background:#fdecec;color:var(--danger)}
+    .onboarding-actions{display:flex;flex-wrap:wrap;gap:10px}
+    .soft-note{
+      border:1px dashed #c7d5e7;
+      background:#f8fbff;
+      border-radius:14px;
+      padding:12px;
+      color:var(--text);
+      font-size:12.5px;
+      line-height:1.6;
+    }
+    .completion-shell{
+      max-width:760px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+    .completion-card{
+      background: var(--card);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:26px 24px;
+    }
+    .completion-title{
+      margin:10px 0 0;
+      font-size:32px;
+      line-height:1.18;
+      letter-spacing:-.03em;
+    }
+    .completion-copy{
+      margin:12px 0 0;
+      font-size:14px;
+      line-height:1.8;
+      color:var(--muted);
+    }
+    @media print{
+      body{background:white;color:black}
+      .topbar, .print-hide{display:none !important}
+      .card{box-shadow:none;border-color:#ddd;background:white}
+      input,select{border-color:#ddd;color:black;background:white}
+      .chip{border-color:#ddd;background:white}
+      .q{border-color:#ddd;background:white}
+      .note{border-color:#bbb;background:white}
+    }
+    @media (max-width: 900px){
+      .onboarding-grid{grid-template-columns:1fr}
+      .onboarding-title{font-size:28px}
+      .onboarding-card{padding:18px}
+      .completion-title{font-size:28px}
+      .completion-card{padding:20px}
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar print-hide">
+    <div class="inner">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Holland Test (RIASEC) – Aplikasi Skoring</h1>
+          <div class="sub">Versi web single-file • YA/TIDAK • Skor otomatis R-I-A-S-E-C</div>
+        </div>
+      </div>
+      <div class="pill"><span class="dot"></span><span id="statusTxt">Siap digunakan</span></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <section id="introView" class="onboarding-shell print-hide">
+      <article class="onboarding-card">
+        <div class="eyebrow">Pengantar Kuesioner</div>
+        <h2 class="onboarding-title">Kuesioner Minat Kerja</h2>
+        <p class="onboarding-copy">
+          Pada kuesioner ini, Anda akan membaca beberapa pernyataan lalu memilih <b>YA</b> jika pernyataan tersebut sesuai dengan minat Anda,
+          atau <b>TIDAK</b> jika tidak sesuai.
+        </p>
+      </article>
+      <section class="onboarding-grid">
+        <article class="onboarding-card">
+          <h3 style="margin:0 0 10px;font-size:15px;">Cara mengerjakan</h3>
+          <ul class="onboarding-list">
+            <li>Baca setiap pernyataan dengan tenang sebelum memilih jawaban.</li>
+            <li>Pilih <b>YA</b> bila pernyataan itu terasa cocok dengan minat Anda.</li>
+            <li>Pilih <b>TIDAK</b> bila pernyataan itu tidak sesuai dengan minat Anda.</li>
+            <li>Tidak ada jawaban benar atau salah. Pilih jawaban yang paling jujur menggambarkan diri Anda.</li>
+          </ul>
+          <div class="soft-note" style="margin-top:12px;">Jawaban akan direkam saat Anda mengirim kuesioner di akhir halaman.</div>
+        </article>
+        <article class="onboarding-card">
+          <div class="example-box">
+            <h3>Contoh sederhana</h3>
+            <div class="example-question">
+              <div class="example-text">Saya tertarik membuat proyek baru dan memimpin pelaksanaannya.</div>
+              <div class="example-answers">
+                <div class="example-chip yes">YA</div>
+                <div class="example-chip">atau</div>
+                <div class="example-chip no">TIDAK</div>
+              </div>
+            </div>
+            <p class="onboarding-copy" style="margin-top:12px;">
+              Jika pernyataan tersebut terasa sesuai dengan minat Anda, pilih <b>YA</b>. Jika tidak sesuai, pilih <b>TIDAK</b>.
+            </p>
+          </div>
+        </article>
+      </section>
+      <div class="onboarding-actions">
+        <button id="btnStartOnboarding" class="primary" type="button">Mulai kuesioner</button>
+      </div>
+    </section>
+
+    <div id="mainGrid" class="grid hidden">
+      <!-- LEFT: TEST -->
+      <div class="card" id="cardTest">
+        <div class="hd">
+          <div>
+            <h2>Pengisian Tes</h2>
+            <p>
+              Bacalah setiap pernyataan. Pilih <b>YA</b> jika sesuai dengan diri Anda, atau <b>TIDAK</b> jika tidak sesuai.
+              Tidak ada jawaban benar/salah.
+            </p>
+          </div>
+          <div style="min-width:220px">
+            <div class="small muted" style="display:flex;justify-content:space-between;margin-bottom:6px">
+              <span>Progress</span>
+              <span><span id="answeredCount">0</span>/<span id="totalCount">108</span></span>
+            </div>
+            <div class="progress" aria-label="progress"><div id="progFill"></div></div>
+            <div class="small muted" style="margin-top:8px;text-align:right">
+              Halaman <span id="pageNow">1</span>/<span id="pageTotal">1</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bd">
+          <div class="row">
+            <div class="field">
+              <label>Nama Kandidat (opsional)</label>
+              <input id="nm" placeholder="Mis. Andi Pratama" />
+            </div>
+            <div class="field">
+              <label>Jenis Kelamin (opsional)</label>
+              <select id="jk">
+                <option value="">—</option>
+                <option value="Laki-laki">Laki-laki</option>
+                <option value="Perempuan">Perempuan</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Tanggal Lahir (opsional)</label>
+              <input id="tl" type="date" />
+            </div>
+            <div class="field">
+              <label>Pendidikan (opsional)</label>
+              <input id="pd" placeholder="Mis. S1 Manajemen" />
+            </div>
+          </div>
+
+          <div class="actions print-hide">
+            <button class="primary" id="btnStart">Mulai / Lanjutkan</button>
+            <button class="ghost" id="btnSave">Simpan (Local)</button>
+            <button class="danger" id="btnReset">Reset Jawaban</button>
+          </div>
+
+          <div class="hr"></div>
+
+          <div id="questionArea" class="qwrap" aria-live="polite"></div>
+
+          <div class="actions print-hide" style="justify-content:flex-end;margin-top:14px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;width:100%">
+              <button id="btnPrev">← Sebelumnya</button>
+              <button id="btnNext">Berikutnya →</button>
+            </div>
+            <button class="primary" id="btnFinish">Lihat Hasil</button>
+          </div>
+
+          <div class="note" style="margin-top:14px">
+            <b>Catatan implementasi:</b> Skoring mengikuti kode R/I/A/S/E/C per nomor soal dari file Excel yang kamu lampirkan.
+            Hasil bersifat indikatif (bukan diagnosis klinis) dan idealnya dikombinasikan dengan wawancara/asesmen lain.
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: RESULTS -->
+      <div class="card" id="cardResult">
+        <div class="hd">
+          <div>
+            <h2>Hasil & Interpretasi</h2>
+            <p>Setelah semua item dijawab, aplikasi akan menampilkan skor tiap dimensi dan 3 kode teratas (mis. <b>IAS</b>).</p>
+          </div>
+        </div>
+        <div class="bd">
+          <div class="kpi">
+            <div class="box">
+              <b>Kode Utama (Top 3)</b>
+              <div class="v" id="kTop3">—</div>
+              <div class="small muted" id="kTop3Sub">Jawab dulu semua pernyataan.</div>
+            </div>
+            <div class="box">
+              <b>Pasangan Teratas</b>
+              <div class="v" id="kTop2">—</div>
+              <div class="small muted" id="kCons">Konsistensi: —</div>
+            </div>
+            <div class="box">
+              <b>Status Pengisian</b>
+              <div class="v" id="kStatus">0%</div>
+              <div class="small muted" id="kStatusSub">0 dari 108 terjawab</div>
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="small muted">Skor per dimensi</div>
+          <div class="bars" id="bars"></div>
+
+          <div class="hr"></div>
+
+          <div id="tags"></div>
+
+          <div class="hr"></div>
+
+          <div id="interpretation" class="small" style="line-height:1.6"></div>
+
+          <div class="hr"></div>
+
+          <div id="comboInsight" class="small" style="line-height:1.6"></div>
+
+          <div class="footer-actions print-hide">
+            <button id="btnExportJson">Download JSON</button>
+            <button id="btnPrint">Print / Save PDF</button>
+          </div>
+
+          <div class="small muted" style="margin-top:10px">
+            Tips: gunakan tombol <b>Print / Save PDF</b> untuk menyimpan hasil sebagai laporan.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section id="completionView" class="completion-shell hidden">
+      <article class="completion-card">
+        <div class="eyebrow">Tes Selesai</div>
+        <h2 class="completion-title">Terima kasih, Anda telah menyelesaikan kuesioner minat kerja.</h2>
+        <p class="completion-copy">
+          Jawaban Anda sudah kami terima. Tim HRD akan mereview hasil tes ini terlebih dahulu dan akan menghubungi Anda apabila ada tahap berikutnya yang perlu dijalankan.
+        </p>
+        <div class="onboarding-actions" style="margin-top:14px;">
+          <a id="completionBackLink" href="#" class="primary" style="display:none;text-decoration:none;padding:10px 14px;border-radius:12px;">Kembali ke paket tes</a>
+        </div>
+      </article>
+    </section>
+  </div>
+
+<script>
+/** =========================
+ *  DATA (berdasarkan file Excel & PDF yang kamu lampirkan)
+ *  - 108 item
+ *  - code: contoh "A8", "I5" dst. (huruf pertama = dimensi R/I/A/S/E/C)
+ *  ========================= */
+const QUESTIONS = [
+  {"no":1,"code":"A8","cat":"A","text":"Senang menonton drama"},
+  {"no":2,"code":"S5","cat":"S","text":"Senang Melatih Orang"},
+  {"no":3,"code":"A11","cat":"A","text":"Mampu bermain dalam drama / berakting"},
+  {"no":4,"code":"I5","cat":"I","text":"Suka membaca mengenai topik-topik khusus atas keinginan sendiri"},
+  {"no":5,"code":"I7","cat":"I","text":"Mampu melakukan percobaan atau penelitian ilmiah"},
+  {"no":6,"code":"S7","cat":"S","text":"Senang Melatih Binatang"},
+  {"no":7,"code":"A2","cat":"A","text":"Tertarik menjadi aktor/ aktris"},
+  {"no":8,"code":"S8","cat":"S","text":"Suka menjaga / mengurus mengawasi anak-anak"},
+  {"no":9,"code":"I3","cat":"I","text":"Senang menganalisa dan mengevaluasi"},
+  {"no":10,"code":"E7","cat":"E","text":"Senang memulai proyek baru"},
+  {"no":11,"code":"I1","cat":"I","text":"Suka kegiatan akademis"},
+  {"no":12,"code":"S2","cat":"S","text":"Ramah"},
+  {"no":13,"code":"I9","cat":"I","text":"Mampu menyebutkan makanan yang memiliki protein tinggi"},
+  {"no":14,"code":"S3","cat":"S","text":"Suka melakukan pekerjaan social"},
+  {"no":15,"code":"E6","cat":"E","text":"Mampu mengetahui bagaimana menjadi pemimpin yang baik/ berhasil"},
+  {"no":16,"code":"R9","cat":"R","text":"Suka menerapkan matematika dalam masalah praktis"},
+  {"no":17,"code":"R4","cat":"R","text":"Menyukai memperbaiki peralatan mekanik"},
+  {"no":18,"code":"S10","cat":"S","text":"Mampu menghibur dan menemani orang yang lebih tua dari saya"},
+  {"no":19,"code":"A6","cat":"A","text":"Bisa mengekspresikan diri secara kreatif"},
+  {"no":20,"code":"C8","cat":"C","text":"Ingin bekerja dibagian Staff keuangan"},
+  {"no":21,"code":"I4","cat":"I","text":"Mampu memprogram komputer untuk mempelajari masalah ilmiah"},
+  {"no":22,"code":"R8","cat":"R","text":"Tertarik menjadi pengawas konstruksi bangunan"},
+  {"no":23,"code":"I6","cat":"I","text":"Suka dalam memecahkan soal eksak"},
+  {"no":24,"code":"C3","cat":"C","text":"Mampu melakukan dan menyukai tugas administratif"},
+  {"no":25,"code":"R2","cat":"R","text":"Suka menggunakan perkakas bengkel dan mesin"},
+  {"no":26,"code":"A1","cat":"A","text":"Artistik"},
+  {"no":27,"code":"E8","cat":"E","text":"Bisa mempengaruhi dan membujuk orang lain"},
+  {"no":28,"code":"C5","cat":"C","text":"Prosedural (Mengikuti aturan)"},
+  {"no":29,"code":"C7","cat":"C","text":"Suka menggunakan aplikasi pencatatan keuangan"},
+  {"no":30,"code":"R3","cat":"R","text":"Menyukai memperbaiki peralatan mekanik"},
+  {"no":31,"code":"R7","cat":"R","text":"Suka memperbaiki motor"},
+  {"no":32,"code":"A9","cat":"A","text":"Bisa mengekspresikan diri secara kreatif"},
+  {"no":33,"code":"C6","cat":"C","text":"Mampu mencatat dengan cermat pembayaran/ penjualan"},
+  {"no":34,"code":"R1","cat":"R","text":"Suka bekerja menggunakan tangan"},
+  {"no":35,"code":"S1","cat":"S","text":"Suka membantu orang lain dengan masalah pribadinya"},
+  {"no":36,"code":"R5","cat":"R","text":"Senang kegiatan fisik"},
+  {"no":37,"code":"I2","cat":"I","text":"Tertarik menjadi ahli teknisi laboratorium medis"},
+  {"no":38,"code":"A3","cat":"A","text":"Ingin menjadi seniman"},
+  {"no":39,"code":"I8","cat":"I","text":"Suka mengerjakan proyek ilmiah"},
+  {"no":40,"code":"S6","cat":"S","text":"Bisa menyatakan perasaan dengan jelas"},
+  {"no":41,"code":"R6","cat":"R","text":"Menyusun Sesuatu Atau Merakit Model"},
+  {"no":42,"code":"I10","cat":"I","text":"Senang mengamati"},
+  {"no":43,"code":"E9","cat":"E","text":"Mampu memengaruhi orang lain supaya melakukan sesuatu dengan caranya"},
+  {"no":44,"code":"A4","cat":"A","text":"Senang mengerjakan kerajinan tangan"},
+  {"no":45,"code":"I11","cat":"I","text":"Rumit"},
+  {"no":46,"code":"R10","cat":"R","text":"Tertarik menjadi spesialis perikanan/ margasatwa"},
+  {"no":47,"code":"E5","cat":"E","text":"Suka memimpin kelompok dalam meraih tujuan tertentu"},
+  {"no":48,"code":"E2","cat":"E","text":"Suka menjual suatu barang"},
+  {"no":49,"code":"E1","cat":"E","text":"Tegas"},
+  {"no":50,"code":"C1","cat":"C","text":"Mampu mencatat dengan cermat pembayaran/ penjualan"},
+  {"no":51,"code":"E3","cat":"E","text":"Bisa menguasai diri"},
+  {"no":52,"code":"S9","cat":"S","text":"Mampu membuat kelompok sosial/ kerja berjalan dengan baik"},
+  {"no":53,"code":"R11","cat":"R","text":"Tertarik menjadi insinyur otomotif"},
+  {"no":54,"code":"C9","cat":"C","text":"Suka membuat catatan pengeluaran yang terperinci"},
+  {"no":55,"code":"I12","cat":"I","text":"Kompleks"},
+  {"no":56,"code":"E4","cat":"E","text":"Mampu mengelola usaha kecil"},
+  {"no":57,"code":"S4","cat":"S","text":"Mampu mengajar orang dewasa dengan mudah"},
+  {"no":58,"code":"S11","cat":"S","text":"Antusias berparisipasi dalam pencarian dana/ amal"},
+  {"no":59,"code":"E10","cat":"E","text":"Mampu mudah berbicara dengan semua orang"},
+  {"no":60,"code":"I13","cat":"I","text":"Suka mempelajari teori ilmiah"},
+  {"no":61,"code":"I14","cat":"I","text":"Tertarik menjadi pekerja riset ilmiah"},
+  {"no":62,"code":"E11","cat":"E","text":"Mampu mengatur pekerjaan orang lain"},
+  {"no":63,"code":"A5","cat":"A","text":"Senang bekerja di situasi yang bebas"},
+  {"no":64,"code":"C10","cat":"C","text":"Membuat Hari Saya Terstruktur"},
+  {"no":65,"code":"S12","cat":"S","text":"Mampu menarik perhatian orang untuk menceritakan masalah mereka"},
+  {"no":66,"code":"C11","cat":"C","text":"Memperhatikan Detailnya"},
+  {"no":67,"code":"C12","cat":"C","text":"Sering diminta mengumpulkan data"},
+  {"no":68,"code":"A7","cat":"A","text":"Suka membuat sketsa, Mendesign atau melukis"},
+  {"no":69,"code":"S13","cat":"S","text":"Suka bekerja dalam kelompok"},
+  {"no":70,"code":"I15","cat":"I","text":"Suka membaca buku/ majalah ilmiah"},
+  {"no":71,"code":"R12","cat":"R","text":"Suka mengutak-atik mesin/alat elektronik"},
+  {"no":72,"code":"R13","cat":"R","text":"Suka kegiatan di luar ruangan"},
+  {"no":73,"code":"A10","cat":"A","text":"Senang memotret atau videographer"},
+  {"no":74,"code":"A12","cat":"A","text":"Suka membuat lukisan/ foto orang"},
+  {"no":75,"code":"A13","cat":"A","text":"Mampu memainkan alat musik"},
+  {"no":76,"code":"S14","cat":"S","text":"Tertarik menjadi konselor masalah pribadi"},
+  {"no":77,"code":"A14","cat":"A","text":"Ingin menjadi pemain dalam kelompok musik"},
+  {"no":78,"code":"I16","cat":"I","text":"Tertarik menjadi ahli biologi/ hayati"},
+  {"no":79,"code":"S15","cat":"S","text":"Tertarik menjadi pekerja sosial"},
+  {"no":80,"code":"R14","cat":"R","text":"Energetik"},
+  {"no":81,"code":"C2","cat":"C","text":"Penurut"},
+  {"no":82,"code":"C4","cat":"C","text":"Suka menyusun sistem pengarsipan"},
+  {"no":83,"code":"R15","cat":"R","text":"Suka olahraga"},
+  {"no":84,"code":"A15","cat":"A","text":"Bisa menulis karya sastra"},
+  {"no":85,"code":"S16","cat":"S","text":"Tertarik menjadi konselor kejuruan dan pekerjaan"},
+  {"no":86,"code":"S17","cat":"S","text":"Sensitif"},
+  {"no":87,"code":"R16","cat":"R","text":"Senang petualangan / mengambil resiko"},
+  {"no":88,"code":"E12","cat":"E","text":"Ambisius dan cenderung berbicara apa adanya (Spontan)"},
+  {"no":89,"code":"A16","cat":"A","text":"Terbuka"},
+  {"no":90,"code":"C13","cat":"C","text":"Tertarik menjadi penaksir biaya"},
+  {"no":91,"code":"S18","cat":"S","text":"Suka mendamaikan orang"},
+  {"no":92,"code":"I17","cat":"I","text":"Suka mengerjakan teka-teki"},
+  {"no":93,"code":"S19","cat":"S","text":"Mampu mengajar anak-anak dengan mudah"},
+  {"no":94,"code":"C14","cat":"C","text":"Suka membuat daftar inventaris dari persediaan/ produk"},
+  {"no":95,"code":"E13","cat":"E","text":"Senang bertemu orang baru"},
+  {"no":96,"code":"C15","cat":"C","text":"Bisa bekerja dengan baik dalam system /aturan"},
+  {"no":97,"code":"A17","cat":"A","text":"Suka merancang perabotan, pakaian atau poster"},
+  {"no":98,"code":"E14","cat":"E","text":"Tertarik menjadi pembawa acara / MC"},
+  {"no":99,"code":"I18","cat":"I","text":"Tertarik menjadi ilmuwan peneliti"},
+  {"no":100,"code":"R17","cat":"R","text":"Suka memperbaiki alat-alat listrik"},
+  {"no":101,"code":"R18","cat":"R","text":"Mampu melakukan perbaikan kecil pada pipa air, kran, dan lain-lain"},
+  {"no":102,"code":"R19","cat":"R","text":"Mampu membuat gambar dengan skala"},
+  {"no":103,"code":"C16","cat":"C","text":"Prosedural (Suka mengikuti aturan)"},
+  {"no":104,"code":"C17","cat":"C","text":"Suka mengarsip surat dan berkas-berkas lain"},
+  {"no":105,"code":"E15","cat":"E","text":"Mampu menjadi seorang pembicara di depan umum yang baik"},
+  {"no":106,"code":"E16","cat":"E","text":"Mampu memimpin diskusi kelompok"},
+  {"no":107,"code":"C18","cat":"C","text":"Suka melakukan pekerjaan surat menyurat/ masalah perkantoran"},
+  {"no":108,"code":"C4","cat":"C","text":"Suka menyusun sistem pengarsipan"}
+];
+
+/** NOTE:
+ * Pada data sumber Excel kamu, ada beberapa pernyataan yang tampak berulang/serupa (mis. arsip/pengarsipan).
+ * Aku tetap mengikuti data as-is. Jika kamu ingin “deduplicate”, bilang aja — nanti aku rapikan dan sinkronkan lagi.
+ */
+
+const REF = {
+  R: {
+    name: "Realistic",
+    desc: "Profil ini menyukai pekerjaan yang mencakup masalah dan jawaban praktis dan langsung. Menyukai kegiatan yang melibatkan keterampilan motorik, peralatan, mesin. Seringkali orang dengan minat Realistis tidak menyukai karier yang melibatkan dokumen atau bekerja sama dengan orang lain.",
+    jobs: "Mekanik, Insinyur, pengawas bangunan, Petani/Peternak Modern, Atlet, Operator, Polisi, Pemadam Kebakaran, Koki"
+  },
+  I: {
+    name: "Investigative",
+    desc: "Profil ini menyukai pekerjaan yang berkaitan dengan ide dan pemikiran. Memilih kegiatan penyelidikan yang observasional, simbolis, sistematis dan kreatif untuk memahami fenomena fisik, biologis dan kultural. Biasanya berprestasi dalam bidang akademik/ilmiah, serta kurang menyukai aktivitas fisik atau memimpin orang.",
+    jobs: "Antropologi, Astronomi, Biologi, Botani, Kimia, Editor ilmiah, Geologi, Riset, dan sejenisnya"
+  },
+  A: {
+    name: "Artistic",
+    desc: "Profil ini menyukai pekerjaan/aktivitas yang bebas, tidak sistematis, dan berorientasi penciptaan bentuk/produk seni. Umumnya kuat pada kompetensi artistik, bahasa, musik, drama, mengarang; namun cenderung kurang menyukai tugas klerikal/bisnis yang rutin.",
+    jobs: "Desainer, Penulis, Musisi, Arsitek, Wartawan, Penari, Translator, Artis, dan sejenisnya"
+  },
+  S: {
+    name: "Social",
+    desc: "Profil ini menyukai aktivitas yang melibatkan relasi, komunikasi, dan mengajar orang. Menonjol pada keterampilan sosial dan kebutuhan interaksi. Pekerjaan sering melibatkan membantu/layanan pada orang lain; namun biasanya kurang tertarik pada tugas teknis/manual.",
+    jobs: "Guru, Terapis, Tour Guide, Perawat, Konselor, Psikolog, Pekerja Sosial, dan sejenisnya"
+  },
+  E: {
+    name: "Enterprising",
+    desc: "Profil ini menyukai aktivitas memengaruhi/ mengarahkan orang lain untuk mencapai tujuan organisasi atau keuntungan ekonomi. Cenderung kuat pada kepemimpinan, persuasi, dan komunikasi; namun biasanya kurang menyukai aktivitas ilmiah murni.",
+    jobs: "Pengacara, Politikus, Humas, Manajer penjualan, Sales, Perwakilan dagang, dan sejenisnya"
+  },
+  C: {
+    name: "Conventional",
+    desc: "Profil ini menyukai aktivitas teratur dan sistematis seperti mengarsipkan, mencatat data, mengolah data, serta mengikuti prosedur dan rutinitas. Umumnya kuat pada kompetensi klerikal/operasional bisnis; namun cenderung kurang menyukai pekerjaan artistik yang bebas.",
+    jobs: "Akuntan, Aktuaris, Statistik, Analis Keuangan, Operator komputer, Pustakawan, Programmer bisnis, Pengarsip, Administrasi"
+  }
+};
+
+const CONSISTENCY = {
+  "RI":"Tinggi","RC":"Tinggi","IR":"Tinggi","IA":"Tinggi","AI":"Tinggi","AS":"Tinggi","SA":"Tinggi","SE":"Tinggi","ES":"Tinggi","CE":"Tinggi",
+  "EC":"Tinggi","RE":"Sedang","RA":"Sedang","RS":"Sedang","SR":"Sedang","SC":"Sedang","CS":"Sedang","IC":"Sedang","CI":"Sedang","IE":"Sedang",
+  "EI":"Rendah","CA":"Rendah","AC":"Rendah","AE":"Sedang","EA":"Sedang","SI":"Sedang","IS":"Sedang","CR":"Sedang","AR":"Sedang","ER":"Sedang"
+};
+
+const TOP2_COMBO = {
+  "AC": { jobs: "Graphic Designer, Proofreader, Web/Mobile Design, UI Designer & Visual Designer", desc: "Pendekatan kreatif dan berorientasi proses. Membutuhkan cara kerja terstruktur dan andal, sekaligus ide kreatif." },
+  "AS": { jobs: "Guru, Translator, Nanny, Career Advisor & Interpreter", desc: "Pendekatan kreatif dan berorientasi manusia. Membutuhkan sisi artistik dan sosial." },
+  "EC": { jobs: "General Manager, Air Traffic Controller, Branch Manager, Fundraiser, Recruiter & Shop Assistant", desc: "Pendekatan giat berbasis proses. Butuh tanggung jawab pribadi dan cara kerja terstruktur." },
+  "IA": { jobs: "Architect, Technical Writer, Animator & Desktop Publisher", desc: "Berorientasi riset dan kreatif. Menggabungkan analitis/ilmiah dengan artistik." },
+  "IC": { jobs: "Pengembang perangkat lunak, UX Designer, Paralegal, Data Analyst & Quality Controller", desc: "Pendekatan riset dan berbasis proses. Analitis dengan struktur kerja yang rapi." },
+  "IE": { jobs: "Consultant, Detektif, Solicitor, Market Researcher, Business Controller & Online Marketer", desc: "Riset + giat. Analitis, inisiatif, kepemimpinan/tanggung jawab." },
+  "IS": { jobs: "Dokter, Physics Teacher, Nurse, Physiotherapist & Coach", desc: "Riset + human-oriented. Analitis sekaligus empatik dan membantu." },
+  "RA": { jobs: "Photographer, Tailor, Artist, Pastry Chef & Furniture Designer", desc: "Fisik + kreatif. Manual skill sekaligus imajinatif." },
+  "RE": { jobs: "Koki, Engineering Manager, Police Officer, Process Operator & Taxi Driver", desc: "Fisik + giat. Manual skill, inisiatif, dan tanggung jawab." },
+  "AE": { jobs: "Interior Designer, Illustrator, Entrepreneur, Journalist, Producer, Art Director, Copywriter & Actor", desc: "Kreatif + giat. Artistik dengan unsur kepemimpinan/ tanggung jawab." },
+  "RI": { jobs: "Network/Mechanical/Automotive/Electronic Engineer, Building Installer, Pilot, Lab Technician, Product Assembler", desc: "Manual/outdoor/mesin + analitis. Praktis dan teliti." },
+  "RS": { jobs: "Asisten perawatan, Firefighter, Masseur, Sports Coach & Veterinary Assistant", desc: "Fisik + manusia. Manual skill dan membantu orang lain." },
+  "SC": { jobs: "Librarian, Telephone Operator, Medical Assistant & Teaching Assistant", desc: "Orang + proses. Membantu orang lain dengan kerja terstruktur." },
+  "RC": { jobs: "Lorry Driver, Machine Operator, Security Guard, Plumber, Cleaner, Warehouse Operative & Service Technician", desc: "Fisik/manual/outdoor + teratur/terstruktur." },
+  "SE": { jobs: "HR Manager, Account Manager, Customer Service Advisor & Waiter/Waitress", desc: "Orang + giat. Membantu orang sekaligus leadership/tanggung jawab." }
+};
+
+const TOTAL = QUESTIONS.length;
+const PAGE_SIZE = 12;
+
+// state
+let state = {
+  meta: { nm:"", jk:"", tl:"", pd:"" },
+  answers: {}, // no -> "Y"/"N"
+  page: 1
+};
+
+const params = new URLSearchParams(window.location.search);
+const packageContext = {
+  token: params.get("package_token"),
+  packageId: params.get("package_id"),
+  itemId: params.get("item_id"),
+  returnUrl: params.get("return_url"),
+};
+const supabaseConfig = window.TEST_PACKAGE_SUPABASE_CONFIG;
+const supabaseLib = window.supabase;
+const supabaseClient = supabaseConfig?.url && supabaseConfig?.publishableKey && supabaseLib?.createClient
+  ? supabaseLib.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
+  : null;
+const isPackageMode = Boolean(packageContext.token && packageContext.packageId && packageContext.itemId && supabaseClient);
+let packageSubmissionComplete = false;
+
+// elements
+const el = (id)=>document.getElementById(id);
+const qArea = el("questionArea");
+const answeredCount = el("answeredCount");
+const totalCount = el("totalCount");
+const progFill = el("progFill");
+const pageNow = el("pageNow");
+const pageTotal = el("pageTotal");
+const statusTxt = el("statusTxt");
+const cardResult = el("cardResult");
+const introView = el("introView");
+const mainGrid = el("mainGrid");
+const startOnboardingBtn = el("btnStartOnboarding");
+const completionView = el("completionView");
+const completionBackLink = el("completionBackLink");
+
+totalCount.textContent = TOTAL;
+pageTotal.textContent = Math.ceil(TOTAL / PAGE_SIZE);
+
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+
+function loadLocal(){
+  if (isPackageMode) return;
+  try{
+    const raw = localStorage.getItem("riasec_app_v1");
+    if(!raw) return;
+    const obj = JSON.parse(raw);
+    if(obj && obj.answers && obj.meta){
+      state = obj;
+      // hydrate meta inputs
+      el("nm").value = state.meta.nm || "";
+      el("jk").value = state.meta.jk || "";
+      el("tl").value = state.meta.tl || "";
+      el("pd").value = state.meta.pd || "";
+    }
+  }catch(e){}
+}
+
+function saveLocal(){
+  if (isPackageMode) return;
+  state.meta.nm = el("nm").value.trim();
+  state.meta.jk = el("jk").value;
+  state.meta.tl = el("tl").value;
+  state.meta.pd = el("pd").value.trim();
+  localStorage.setItem("riasec_app_v1", JSON.stringify(state));
+  statusTxt.textContent = "Tersimpan di perangkat (Local)";
+  setTimeout(()=>statusTxt.textContent="Siap digunakan", 1500);
+}
+
+function resetAll(){
+  if(!confirm("Reset semua jawaban? Ini akan menghapus progress yang tersimpan.")) return;
+  state.answers = {};
+  state.page = 1;
+  saveLocal();
+  render();
+  renderResult();
+}
+
+function answeredTotal(){
+  return Object.keys(state.answers).length;
+}
+
+function renderProgress(){
+  const a = answeredTotal();
+  answeredCount.textContent = a;
+  const pct = Math.round((a / TOTAL) * 100);
+  progFill.style.width = pct + "%";
+  el("kStatus").textContent = pct + "%";
+  el("kStatusSub").textContent = `${a} dari ${TOTAL} terjawab`;
+}
+
+function pageItems(page){
+  const p = clamp(page,1,Math.ceil(TOTAL/PAGE_SIZE));
+  const start = (p-1)*PAGE_SIZE;
+  return QUESTIONS.slice(start, start+PAGE_SIZE);
+}
+
+function render(){
+  const pmax = Math.ceil(TOTAL/PAGE_SIZE);
+  state.page = clamp(state.page, 1, pmax);
+  pageNow.textContent = state.page;
+  const isLastPage = state.page === pmax;
+
+  const items = pageItems(state.page);
+  qArea.innerHTML = "";
+
+  items.forEach(q=>{
+    const val = state.answers[q.no] || "";
+    const qEl = document.createElement("div");
+    qEl.className = "q";
+    qEl.innerHTML = `
+      <div class="qno">${q.no}</div>
+      <div class="qtext">${escapeHtml(q.text)}</div>
+      <div class="ans">
+        <label class="chip ${val==="Y"?"on":""}" title="Setuju / sesuai">
+          <input type="radio" name="q${q.no}" value="Y" ${val==="Y"?"checked":""} />
+          YA
+        </label>
+        <label class="chip ${val==="N"?"off":""}" title="Tidak setuju / tidak sesuai">
+          <input type="radio" name="q${q.no}" value="N" ${val==="N"?"checked":""} />
+          TIDAK
+        </label>
+      </div>
+    `;
+    qEl.querySelectorAll("input").forEach(inp=>{
+      inp.addEventListener("change", ()=>{
+        state.answers[q.no] = inp.value;
+        // update chip styles
+        const chips = qEl.querySelectorAll(".chip");
+        chips.forEach(c=>c.classList.remove("on","off"));
+        if(inp.value==="Y") qEl.querySelectorAll(".chip")[0].classList.add("on");
+        if(inp.value==="N") qEl.querySelectorAll(".chip")[1].classList.add("off");
+        renderProgress();
+        renderResult(); // live update
+      });
+    });
+
+    qArea.appendChild(qEl);
+  });
+
+  renderProgress();
+
+  const finishButton = el("btnFinish");
+  if(finishButton){
+    finishButton.classList.toggle("hidden", !isLastPage);
+  }
+  const nextButton = el("btnNext");
+  if(nextButton){
+    nextButton.classList.toggle("hidden", isLastPage);
+  }
+}
+
+function computeScores(){
+  const scores = {R:0,I:0,A:0,S:0,E:0,C:0};
+  for(const q of QUESTIONS){
+    const ans = state.answers[q.no];
+    if(ans==="Y"){
+      scores[q.cat] += 1;
+    }
+  }
+  return scores;
+}
+
+function sortScores(scores){
+  return Object.entries(scores)
+    .map(([k,v])=>({k,v}))
+    .sort((a,b)=> b.v - a.v || "RIASEC".indexOf(a.k) - "RIASEC".indexOf(b.k));
+}
+
+function renderBars(scores){
+  const max = Math.max(...Object.values(scores), 1);
+  const container = el("bars");
+  container.innerHTML = "";
+  const order = ["R","I","A","S","E","C"];
+  order.forEach(k=>{
+    const v = scores[k];
+    const row = document.createElement("div");
+    row.className = "bar";
+    row.innerHTML = `
+      <div class="lbl">${k}</div>
+      <div class="track"><div class="fill" style="width:${Math.round((v/max)*100)}%"></div></div>
+      <div class="small muted" style="text-align:right;font-weight:800">${v}</div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function renderTags(top){
+  const tags = el("tags");
+  tags.innerHTML = "";
+  top.forEach(t=>{
+    const d = REF[t.k];
+    const span = document.createElement("span");
+    span.className = "tag";
+    span.innerHTML = `<strong>${t.k}</strong> <span class="muted">${escapeHtml(d.name)}</span>`;
+    tags.appendChild(span);
+  });
+}
+
+function renderInterpretation(top){
+  const box = el("interpretation");
+  if(top.length===0){
+    box.innerHTML = `<div class="muted">Belum ada hasil.</div>`;
+    return;
+  }
+  const html = top.map(t=>{
+    const d = REF[t.k];
+    return `
+      <div style="margin-bottom:10px">
+        <b>${t.k} — ${escapeHtml(d.name)}</b><br/>
+        <span class="muted">${escapeHtml(d.desc)}</span><br/>
+        <span class="small"><b>Contoh pekerjaan:</b> ${escapeHtml(d.jobs)}</span>
+      </div>
+    `;
+  }).join("");
+  box.innerHTML = html;
+}
+
+function renderComboInsight(top2){
+  const out = el("comboInsight");
+  if(!top2){
+    out.innerHTML = `<div class="muted">—</div>`;
+    return;
+  }
+  const pair = top2;
+  const reverse = pair.split("").reverse().join("");
+  const lvl = CONSISTENCY[pair] || CONSISTENCY[reverse] || "—";
+  el("kCons").textContent = `Konsistensi: ${lvl}`;
+
+  const c = TOP2_COMBO[pair] || TOP2_COMBO[reverse];
+  if(c){
+    out.innerHTML = `
+      <b>Insight pasangan ${pair}:</b><br/>
+      <span class="muted">${escapeHtml(c.desc || "")}</span><br/>
+      <span class="small"><b>Contoh profesi:</b> ${escapeHtml(c.jobs || "")}</span>
+    `;
+  }else{
+    out.innerHTML = `
+      <b>Insight pasangan ${pair}:</b><br/>
+      <span class="muted">Referensi pasangan ini belum tersedia di tabel kombinasi (yang ada hanya beberapa kombinasi utama). Kamu tetap bisa pakai Top 3 sebagai arah minat dominan.</span>
+    `;
+  }
+}
+
+function renderResult(){
+  if (isPackageMode && !packageSubmissionComplete) {
+    cardResult.classList.add("hidden");
+    return;
+  }
+  const a = answeredTotal();
+  const scores = computeScores();
+  const sorted = sortScores(scores);
+  const top3 = sorted.slice(0,3);
+  const top2 = sorted.slice(0,2).map(x=>x.k).join("");
+
+  renderBars(scores);
+
+  // KPI
+  if(a < TOTAL){
+    el("kTop3").textContent = "—";
+    el("kTop3Sub").textContent = `Lengkapi jawaban: ${a}/${TOTAL}`;
+    el("kTop2").textContent = "—";
+    el("kCons").textContent = "Konsistensi: —";
+    el("interpretation").innerHTML = `<div class="muted">Hasil interpretasi akan muncul setelah semua pernyataan dijawab.</div>`;
+    el("comboInsight").innerHTML = `<div class="muted">—</div>`;
+    el("tags").innerHTML = "";
+    return;
+  }
+
+  const code3 = top3.map(x=>x.k).join("");
+  el("kTop3").textContent = code3;
+  el("kTop3Sub").textContent = `Dominan: ${top3[0].k} (${REF[top3[0].k].name})`;
+  el("kTop2").textContent = top2;
+
+  renderTags(top3);
+  renderInterpretation(top3);
+  renderComboInsight(top2);
+}
+
+function buildPackagePayload(){
+  const scores = computeScores();
+  const sorted = sortScores(scores);
+  const top3List = sorted.slice(0,3);
+  const top2 = sorted.slice(0,2).map((entry)=>entry.k).join("");
+  const top3 = top3List.map((entry)=>entry.k).join("");
+  const top1 = top3List[0] || null;
+
+  return {
+    score_numeric: top1 ? top1.v : null,
+    score_label: top3 ? `Top 3 ${top3}` : null,
+    summary: top1
+      ? `Minat dominan ${REF[top1.k]?.name || top1.k} dengan kombinasi ${top3}.`
+      : "Jawaban minat kerja sudah diterima sistem.",
+    result_json: {
+      answered: answeredTotal(),
+      total: TOTAL,
+      scores,
+      rank: sorted,
+      top2,
+      top3,
+      consistency: CONSISTENCY[top2] || CONSISTENCY[top2.split("").reverse().join("")] || null,
+      traits: sorted.map((entry)=>({
+        key: entry.k,
+        label: REF[entry.k]?.name || entry.k,
+        score: entry.v
+      }))
+    }
+  };
+}
+
+async function syncPackageStatus(packageId){
+  const { data: items, error } = await supabaseClient
+    .from("candidate_test_package_items")
+    .select("status")
+    .eq("package_id", packageId);
+
+  if(error) throw error;
+
+  const statuses = (items || []).map((item)=>item.status);
+  const updatePayload = {};
+
+  if(statuses.length && statuses.every((status)=> status === "completed")){
+    updatePayload.status = "completed";
+    updatePayload.completed_at = new Date().toISOString();
+  }else if(statuses.some((status)=> ["completed","in_progress","incomplete"].includes(status))){
+    updatePayload.status = "in_progress";
+  }else{
+    updatePayload.status = "opened";
+  }
+
+  const { error: packageError } = await supabaseClient
+    .from("candidate_test_packages")
+    .update(updatePayload)
+    .eq("id", Number(packageContext.packageId));
+
+  if(packageError) throw packageError;
+}
+
+async function markPackageStarted(){
+  if(!isPackageMode || packageSubmissionComplete) return;
+
+  const now = new Date().toISOString();
+  const { error: itemError } = await supabaseClient
+    .from("candidate_test_package_items")
+    .update({
+      status: "in_progress",
+      started_at: now
+    })
+    .eq("id", Number(packageContext.itemId))
+    .eq("status", "pending");
+
+  if(itemError){
+    console.error("Gagal tandai Holland mulai dikerjakan:", itemError);
+    return;
+  }
+
+  const { error: packageError } = await supabaseClient
+    .from("candidate_test_packages")
+    .update({
+      status: "in_progress",
+      opened_at: now
+    })
+    .eq("id", Number(packageContext.packageId))
+    .in("status", ["sent", "opened", "in_progress"]);
+
+  if(packageError){
+    console.error("Gagal update status package Holland:", packageError);
+  }
+}
+
+async function submitPackageResult(){
+  if(!isPackageMode || packageSubmissionComplete) return;
+
+  const payload = buildPackagePayload();
+  const now = new Date().toISOString();
+  const { error: itemError } = await supabaseClient
+    .from("candidate_test_package_items")
+    .update({
+      status: "completed",
+      completed_at: now,
+      score_numeric: payload.score_numeric,
+      score_label: payload.score_label,
+      summary: payload.summary,
+      result_json: payload.result_json
+    })
+    .eq("id", Number(packageContext.itemId));
+
+  if(itemError) throw itemError;
+
+  await syncPackageStatus(Number(packageContext.packageId));
+  packageSubmissionComplete = true;
+}
+
+function showPackageCompletion(){
+  document.title = "Kuesioner Minat Kerja";
+  if(mainGrid) mainGrid.classList.add("hidden");
+  if(introView) introView.classList.add("hidden");
+  if(completionView) completionView.classList.remove("hidden");
+  if(completionBackLink && packageContext.returnUrl){
+    completionBackLink.href = packageContext.returnUrl;
+    completionBackLink.style.display = "inline-flex";
+  }
+  completionView?.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function applyPackageMode(){
+  if(!isPackageMode) return;
+
+  document.title = "Kuesioner Minat Kerja";
+  const brandTitle = document.querySelector(".brand h1");
+  const brandSub = document.querySelector(".brand .sub");
+  const testTitle = document.querySelector("#cardTest .hd h2");
+  const testDesc = document.querySelector("#cardTest .hd p");
+  const metaRow = document.querySelector("#cardTest .bd .row");
+  const topActions = document.querySelector("#cardTest .actions.print-hide");
+  const noteBox = document.querySelector("#cardTest .note");
+
+  if(brandTitle) brandTitle.textContent = "Kuesioner Minat Kerja";
+  if(brandSub) brandSub.textContent = "Pilih YA atau TIDAK sesuai kecenderungan minat kerja Anda.";
+  if(testTitle) testTitle.textContent = "Kuesioner Minat Kerja";
+  if(testDesc) testDesc.innerHTML = "Bacalah setiap pernyataan. Pilih <b>YA</b> jika sesuai dengan diri Anda, atau <b>TIDAK</b> jika tidak sesuai. Jawaban akan langsung direview oleh tim rekrutmen.";
+  if(metaRow) metaRow.classList.add("hidden");
+  if(topActions) topActions.classList.add("hidden");
+  if(noteBox) noteBox.innerHTML = "<b>Catatan:</b> Tidak ada jawaban benar atau salah. Pilih jawaban yang paling menggambarkan minat kerja Anda.";
+  if(el("btnFinish")) el("btnFinish").textContent = "Submit jawaban";
+  if(el("btnExportJson")) el("btnExportJson").classList.add("hidden");
+  if(el("btnPrint")) el("btnPrint").classList.add("hidden");
+  cardResult.classList.add("hidden");
+}
+
+function escapeHtml(str){
+  return String(str ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function startQuestionnaire(){
+  if(introView) introView.classList.add("hidden");
+  if(mainGrid) mainGrid.classList.remove("hidden");
+  saveLocal();
+  void markPackageStarted();
+  render();
+  renderResult();
+  statusTxt.textContent = "Sedang mengerjakan tes";
+  setTimeout(()=>statusTxt.textContent="Siap digunakan", 1500);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// navigation
+el("btnPrev").addEventListener("click", ()=>{
+  state.page = Math.max(1, state.page - 1);
+  render();
+  saveLocal();
+});
+el("btnNext").addEventListener("click", ()=>{
+  const max = Math.ceil(TOTAL/PAGE_SIZE);
+  state.page = Math.min(max, state.page + 1);
+  render();
+  saveLocal();
+});
+
+el("btnStart").addEventListener("click", ()=>{
+  startQuestionnaire();
+});
+
+startOnboardingBtn?.addEventListener("click", ()=>{
+  startQuestionnaire();
+});
+
+el("btnSave").addEventListener("click", saveLocal);
+el("btnReset").addEventListener("click", resetAll);
+
+el("btnFinish").addEventListener("click", ()=>{
+  if(answeredTotal() < TOTAL){
+    alert("Harap jawab seluruh pernyataan sebelum mengirim hasil.");
+    return;
+  }
+  saveLocal();
+  renderProgress();
+  if(isPackageMode){
+    submitPackageResult()
+      .then(()=>{
+        showPackageCompletion();
+        statusTxt.textContent = "Jawaban berhasil dikirim";
+      })
+      .catch((error)=>{
+        console.error("Gagal simpan hasil Holland ke paket tes:", error);
+        alert("Jawaban belum berhasil dikirim. Silakan coba lagi.");
+      });
+    return;
+  }
+
+  renderResult();
+  document.getElementById("cardResult").scrollIntoView({behavior:"smooth", block:"start"});
+});
+
+el("btnExportJson").addEventListener("click", ()=>{
+  const scores = computeScores();
+  const sorted = sortScores(scores);
+  const top3 = sorted.slice(0,3).map(x=>x.k).join("");
+  const top2 = sorted.slice(0,2).map(x=>x.k).join("");
+  const payload = {
+    generated_at: new Date().toISOString(),
+    meta: {
+      name: el("nm").value.trim(),
+      gender: el("jk").value,
+      birth_date: el("tl").value,
+      education: el("pd").value.trim()
+    },
+    answered: answeredTotal(),
+    total: TOTAL,
+    scores,
+    rank: sorted,
+    top2,
+    top3
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `riasec_${(payload.meta.name || "kandidat").replace(/\s+/g,"_")}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+el("btnPrint").addEventListener("click", ()=>{
+  saveLocal();
+  window.print();
+});
+
+// init
+applyPackageMode();
+loadLocal();
+render();
+renderResult();
+</script>
+</body>
+</html>

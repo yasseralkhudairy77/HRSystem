@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wawancara AI Kandidat</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../tes-paket/supabase-config.js"></script>
+  <style>
+    :root{
+      --bg:#eef3f9;
+      --card:#ffffff;
+      --soft:#f7f9fc;
+      --line:#d8e0ec;
+      --text:#10233f;
+      --muted:#62748c;
+      --brand:#1f5fae;
+      --brand-strong:#163d70;
+      --ok:#2f9d6a;
+      --warn:#d39a22;
+      --shadow:0 18px 42px rgba(15,39,71,.09);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(900px 480px at 0% -10%, rgba(31,95,174,.08), transparent 50%),
+        radial-gradient(820px 500px at 100% 0%, rgba(47,157,106,.06), transparent 45%),
+        var(--bg);
+    }
+    .wrap{max-width:980px;margin:0 auto;padding:24px 16px 56px}
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .header{
+      padding:22px 24px;border-bottom:1px solid var(--line);
+      display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;
+    }
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    h1{margin:10px 0 0;font-size:31px;line-height:1.15;letter-spacing:-.03em}
+    .sub{margin-top:8px;font-size:14px;line-height:1.75;color:var(--muted);max-width:720px}
+    .status{
+      padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;
+      font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap;
+    }
+    .body{padding:24px}
+    .layout{display:grid;grid-template-columns:1fr 300px;gap:16px}
+    @media (max-width:920px){.layout{grid-template-columns:1fr}}
+    .panel{
+      border:1px solid var(--line);
+      border-radius:20px;
+      background:var(--soft);
+      padding:18px;
+    }
+    .panel h2{margin:0 0 10px;font-size:16px}
+    .meta{display:grid;gap:12px}
+    .meta-item{border-top:1px solid var(--line);padding-top:12px}
+    .meta-item:first-child{border-top:0;padding-top:0}
+    .meta-label{font-size:12px;color:var(--muted)}
+    .meta-value{margin-top:4px;font-size:14px;font-weight:600;line-height:1.6}
+    .message{
+      border:1px solid var(--line);border-radius:16px;background:#fff;padding:14px 16px;
+      font-size:14px;line-height:1.7;color:var(--muted);
+    }
+    .progress{
+      height:12px;border-radius:999px;border:1px solid var(--line);background:#edf3fa;overflow:hidden;
+    }
+    .progress > div{height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--ok));transition:width .2s ease}
+    .progress-text{margin-top:10px;font-size:12px;color:var(--muted)}
+    .question-card{
+      margin-top:16px;border:1px solid var(--line);border-radius:20px;background:#fff;padding:18px;
+    }
+    .question-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+    .question-no{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+    .question-title{margin-top:6px;font-size:22px;font-weight:800;letter-spacing:-.03em}
+    .badge{
+      border:1px solid var(--line);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;background:#fff;color:var(--muted);
+    }
+    .badge.completed{background:#eaf7ef;color:var(--ok);border-color:#b7e3ca}
+    .badge.active{background:#eef6ff;color:var(--brand);border-color:#bfd5f4}
+    .question-text{margin-top:16px;font-size:15px;line-height:1.9;color:var(--text)}
+    .hint{margin-top:10px;border-radius:14px;background:var(--soft);padding:12px 14px;font-size:13px;line-height:1.7;color:var(--muted)}
+    .audio-wrap{margin-top:16px}
+    audio{width:100%}
+    .field{margin-top:18px}
+    .field label{display:block;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--text)}
+    textarea{
+      width:100%;min-height:180px;resize:vertical;border:1px solid var(--line);border-radius:16px;
+      padding:14px 16px;font:inherit;color:var(--text);background:#fff;outline:none;
+    }
+    textarea:focus{border-color:#aac8ed;box-shadow:0 0 0 3px rgba(31,95,174,.10)}
+    .helper{margin-top:8px;font-size:12px;line-height:1.6;color:var(--muted)}
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+    button{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 14px;
+      border-radius:14px;border:1px solid var(--line);background:#fff;color:var(--text);font-size:13px;font-weight:800;cursor:pointer;
+    }
+    button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    button.primary:hover{background:var(--brand-strong)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .stepper{display:grid;gap:10px;margin-top:18px}
+    .step{
+      display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:16px;background:#fff;padding:12px 14px;
+    }
+    .step-index{
+      width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+      font-size:12px;font-weight:800;background:#edf3fa;color:var(--muted);flex-shrink:0;
+    }
+    .step.done .step-index{background:#d9f0e3;color:var(--ok)}
+    .step.active{border-color:#bfd5f4;background:#f8fbff}
+    .step.active .step-index{background:#ddebff;color:var(--brand)}
+    .step-title{font-size:13px;font-weight:700;color:var(--text)}
+    .step-sub{margin-top:4px;font-size:12px;line-height:1.6;color:var(--muted)}
+    .notice{
+      margin-top:16px;border-radius:16px;border:1px solid #cfe0f3;background:#f7fbff;padding:14px 16px;font-size:13px;line-height:1.7;color:#335a88;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="eyebrow">Wawancara AI Kandidat</div>
+          <h1 id="candidate-name">Memuat sesi wawancara...</h1>
+          <div class="sub" id="candidate-subtitle">Harap tunggu sebentar.</div>
+        </div>
+        <div class="status" id="session-status">Memuat</div>
+      </div>
+      <div class="body">
+        <div class="layout">
+          <div>
+            <div class="progress"><div id="progress-bar"></div></div>
+            <div class="progress-text" id="progress-text">0 / 0 pertanyaan terjawab</div>
+            <div class="message" id="intro-message" style="margin-top:16px;">
+              Jawab setiap pertanyaan dengan jujur, singkat, dan jelas. Anda bisa pindah ke pertanyaan berikutnya setelah jawaban disimpan.
+            </div>
+
+            <div id="question-card" class="question-card" style="display:none;">
+              <div class="question-header">
+                <div>
+                  <div class="question-no" id="question-no">Pertanyaan 1</div>
+                  <div class="question-title" id="question-title">Memuat pertanyaan...</div>
+                </div>
+                <div class="badge" id="question-badge">Belum dijawab</div>
+              </div>
+
+              <div class="question-text" id="question-text"></div>
+              <div class="hint" id="question-hint"></div>
+
+              <div class="audio-wrap" id="audio-wrap" style="display:none;">
+                <audio id="prompt-audio" controls preload="none"></audio>
+              </div>
+
+              <div class="field">
+                <label for="answer-input">Jawaban kandidat</label>
+                <textarea id="answer-input" placeholder="Tulis jawaban Anda untuk pertanyaan ini..."></textarea>
+                <div class="helper">Jawaban akan disimpan ke sesi recruiter setelah Anda klik simpan. Anda tetap bisa membuka kembali link ini selama sesi belum direview recruiter.</div>
+              </div>
+
+              <div class="actions">
+                <button id="prev-btn">Sebelumnya</button>
+                <button id="save-btn" class="primary">Simpan jawaban</button>
+                <button id="next-btn">Pertanyaan berikutnya</button>
+                <button id="finish-btn" class="primary" style="display:none;">Kirim semua jawaban</button>
+              </div>
+            </div>
+
+            <div class="notice" id="completion-notice" style="display:none;"></div>
+          </div>
+
+          <div class="panel">
+            <h2>Ringkasan Sesi</h2>
+            <div class="meta">
+              <div class="meta-item">
+                <div class="meta-label">Posisi</div>
+                <div class="meta-value" id="meta-position">-</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Deadline</div>
+                <div class="meta-value" id="meta-deadline">-</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Status</div>
+                <div class="meta-value" id="meta-status">-</div>
+              </div>
+            </div>
+
+            <div class="stepper" id="question-stepper"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const config = window.TEST_PACKAGE_SUPABASE_CONFIG;
+      const supabaseLib = window.supabase;
+
+      if (!config?.url || !config?.publishableKey || !supabaseLib?.createClient) {
+        alert("Konfigurasi Wawancara AI belum lengkap.");
+        return;
+      }
+
+      const supabase = supabaseLib.createClient(config.url, config.publishableKey);
+      const token = new URLSearchParams(window.location.search).get("token") || "";
+      const INTERVIEW_AI_TEMPLATE_KEY = "interview_ai_screening";
+
+      const candidateNameEl = document.getElementById("candidate-name");
+      const candidateSubtitleEl = document.getElementById("candidate-subtitle");
+      const sessionStatusEl = document.getElementById("session-status");
+      const progressBarEl = document.getElementById("progress-bar");
+      const progressTextEl = document.getElementById("progress-text");
+      const questionCardEl = document.getElementById("question-card");
+      const questionNoEl = document.getElementById("question-no");
+      const questionTitleEl = document.getElementById("question-title");
+      const questionTextEl = document.getElementById("question-text");
+      const questionHintEl = document.getElementById("question-hint");
+      const questionBadgeEl = document.getElementById("question-badge");
+      const answerInputEl = document.getElementById("answer-input");
+      const stepperEl = document.getElementById("question-stepper");
+      const prevBtn = document.getElementById("prev-btn");
+      const saveBtn = document.getElementById("save-btn");
+      const nextBtn = document.getElementById("next-btn");
+      const finishBtn = document.getElementById("finish-btn");
+      const completionNoticeEl = document.getElementById("completion-notice");
+      const metaPositionEl = document.getElementById("meta-position");
+      const metaDeadlineEl = document.getElementById("meta-deadline");
+      const metaStatusEl = document.getElementById("meta-status");
+      const audioWrapEl = document.getElementById("audio-wrap");
+      const promptAudioEl = document.getElementById("prompt-audio");
+
+      let packageRow = null;
+      let items = [];
+      let activeIndex = 0;
+
+      function formatDateTime(value) {
+        if (!value) return "-";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "-";
+        return date.toLocaleString("id-ID", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function statusLabel(status) {
+        const map = {
+          sent: "Belum mulai",
+          opened: "Sudah dibuka",
+          in_progress: "Sedang dikerjakan",
+          completed: "Sudah selesai",
+          reviewed: "Sudah direview",
+        };
+
+        return map[status] || status || "-";
+      }
+
+      function itemStatusLabel(status) {
+        if (status === "completed") return "Sudah dijawab";
+        if (status === "in_progress") return "Sedang diisi";
+        return "Belum dijawab";
+      }
+
+      function completedCount() {
+        return items.filter((item) => item.status === "completed").length;
+      }
+
+      function currentItem() {
+        return items[activeIndex] || null;
+      }
+
+      async function updateCandidateStatus(statusLabelValue) {
+        if (!packageRow?.pelamar?.id) {
+          return;
+        }
+
+        await supabase
+          .from("pelamar")
+          .update({
+            tahap_proses: "Wawancara AI",
+            status_tindak_lanjut: statusLabelValue,
+          })
+          .eq("id", packageRow.pelamar.id);
+      }
+
+      async function markPackageOpened() {
+        if (!packageRow || packageRow.status !== "sent") {
+          return;
+        }
+
+        const now = new Date().toISOString();
+        const { error } = await supabase
+          .from("candidate_test_packages")
+          .update({
+            status: "opened",
+            opened_at: now,
+          })
+          .eq("id", packageRow.id);
+
+        if (error) {
+          console.error("Gagal membuka sesi Wawancara AI:", error);
+          return;
+        }
+
+        packageRow.status = "opened";
+        packageRow.opened_at = now;
+        await updateCandidateStatus("Sedang dikerjakan");
+      }
+
+      function renderStepper() {
+        stepperEl.innerHTML = items
+          .map((item, index) => {
+            const classes = [
+              "step",
+              item.status === "completed" ? "done" : "",
+              index === activeIndex ? "active" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            const answerText = String(item.result_json?.answer_text || "").trim();
+            return `
+              <button type="button" class="${classes}" data-index="${index}" style="text-align:left;cursor:pointer;">
+                <div class="step-index">${index + 1}</div>
+                <div>
+                  <div class="step-title">${item.test_name_snapshot}</div>
+                  <div class="step-sub">${answerText ? answerText.slice(0, 76) : itemStatusLabel(item.status)}</div>
+                </div>
+              </button>
+            `;
+          })
+          .join("");
+
+        Array.from(stepperEl.querySelectorAll("[data-index]")).forEach((node) => {
+          node.addEventListener("click", () => {
+            activeIndex = Number(node.getAttribute("data-index"));
+            renderQuestion();
+          });
+        });
+      }
+
+      function renderProgress() {
+        const total = items.length || 1;
+        const completed = completedCount();
+        progressBarEl.style.width = `${Math.round((completed / total) * 100)}%`;
+        progressTextEl.textContent = `${completed} / ${items.length} pertanyaan terjawab`;
+        sessionStatusEl.textContent = statusLabel(packageRow?.status);
+        metaStatusEl.textContent = statusLabel(packageRow?.status);
+      }
+
+      function renderQuestion() {
+        const item = currentItem();
+        if (!item) {
+          questionCardEl.style.display = "none";
+          return;
+        }
+
+        questionCardEl.style.display = "block";
+        questionNoEl.textContent = `Pertanyaan ${activeIndex + 1} dari ${items.length}`;
+        questionTitleEl.textContent = item.test_name_snapshot || `Pertanyaan ${activeIndex + 1}`;
+        questionTextEl.textContent = item.result_json?.question_text || "Pertanyaan belum tersedia.";
+        questionHintEl.textContent = item.result_json?.hint || "Jawab dengan singkat dan jelas.";
+        questionBadgeEl.textContent = itemStatusLabel(item.status);
+        questionBadgeEl.className = `badge ${item.status === "completed" ? "completed" : "active"}`;
+        answerInputEl.value = item.result_json?.answer_text || "";
+
+        const promptAudioUrl = item.result_json?.prompt_audio_url;
+        if (promptAudioUrl) {
+          audioWrapEl.style.display = "block";
+          promptAudioEl.src = promptAudioUrl;
+        } else {
+          audioWrapEl.style.display = "none";
+          promptAudioEl.removeAttribute("src");
+        }
+
+        prevBtn.disabled = activeIndex === 0;
+        nextBtn.disabled = activeIndex >= items.length - 1;
+        finishBtn.style.display = activeIndex === items.length - 1 ? "inline-flex" : "none";
+
+        renderStepper();
+        renderProgress();
+      }
+
+      async function refreshPackage() {
+        const { data, error } = await supabase
+          .from("candidate_test_packages")
+          .select(`
+            *,
+            pelamar:pelamar_id (
+              id,
+              nama_lengkap,
+              posisi_dilamar,
+              no_hp,
+              email,
+              alamat_domisili,
+              tahap_proses,
+              status_tindak_lanjut
+            ),
+            candidate_test_package_items (*)
+          `)
+          .eq("link_token", token)
+          .single();
+
+        if (error || !data || data.template_key !== INTERVIEW_AI_TEMPLATE_KEY) {
+          candidateNameEl.textContent = "Sesi Wawancara AI tidak ditemukan";
+          candidateSubtitleEl.textContent = "Pastikan link yang Anda buka benar atau hubungi recruiter.";
+          sessionStatusEl.textContent = "Tidak tersedia";
+          return false;
+        }
+
+        packageRow = data;
+        items = [...(data.candidate_test_package_items || [])].sort((left, right) => left.test_order - right.test_order);
+
+        candidateNameEl.textContent = data.pelamar?.nama_lengkap || "Kandidat";
+        candidateSubtitleEl.textContent = `${data.pelamar?.posisi_dilamar || "-"} / Jawab seluruh pertanyaan sebelum deadline berakhir.`;
+        metaPositionEl.textContent = data.pelamar?.posisi_dilamar || "-";
+        metaDeadlineEl.textContent = formatDateTime(data.deadline_at);
+
+        if (data.status === "completed" || data.status === "reviewed") {
+          completionNoticeEl.style.display = "block";
+          completionNoticeEl.textContent = "Sesi ini sudah selesai dikirim. Jika recruiter meminta revisi, silakan gunakan link baru dari recruiter.";
+        } else {
+          completionNoticeEl.style.display = "none";
+        }
+
+        renderQuestion();
+        return true;
+      }
+
+      async function saveCurrentAnswer(moveDirection) {
+        const item = currentItem();
+        if (!item) return;
+
+        const answerText = answerInputEl.value.trim();
+        if (!answerText) {
+          window.alert("Jawaban masih kosong. Mohon isi jawaban terlebih dahulu.");
+          return;
+        }
+
+        saveBtn.disabled = true;
+        nextBtn.disabled = true;
+        finishBtn.disabled = true;
+
+        const now = new Date().toISOString();
+        const nextResultJson = {
+          ...(item.result_json || {}),
+          answer_text: answerText,
+          answered_at: now,
+        };
+
+        const { error: itemError } = await supabase
+          .from("candidate_test_package_items")
+          .update({
+            status: "completed",
+            started_at: item.started_at || now,
+            completed_at: now,
+            summary: answerText.slice(0, 160),
+            result_json: nextResultJson,
+          })
+          .eq("id", item.id);
+
+        if (itemError) {
+          console.error("Gagal menyimpan jawaban Wawancara AI:", itemError);
+          window.alert("Jawaban belum berhasil disimpan. Coba lagi.");
+          saveBtn.disabled = false;
+          nextBtn.disabled = false;
+          finishBtn.disabled = false;
+          return;
+        }
+
+        if (packageRow.status === "opened" || packageRow.status === "sent") {
+          await supabase
+            .from("candidate_test_packages")
+            .update({
+              status: "in_progress",
+            })
+            .eq("id", packageRow.id);
+          packageRow.status = "in_progress";
+        }
+
+        await updateCandidateStatus("Sedang dikerjakan");
+        await refreshPackage();
+
+        if (moveDirection === "next" && activeIndex < items.length - 1) {
+          activeIndex += 1;
+        }
+
+        renderQuestion();
+        saveBtn.disabled = false;
+        nextBtn.disabled = false;
+        finishBtn.disabled = false;
+      }
+
+      async function finishInterview() {
+        const unanswered = items.filter((item) => String(item.result_json?.answer_text || "").trim().length === 0);
+        if (unanswered.length > 0) {
+          window.alert("Masih ada pertanyaan yang belum dijawab. Mohon lengkapi semua jawaban sebelum mengirim.");
+          return;
+        }
+
+        finishBtn.disabled = true;
+        const now = new Date().toISOString();
+
+        const { error } = await supabase
+          .from("candidate_test_packages")
+          .update({
+            status: "completed",
+            completed_at: now,
+            overall_summary: `Kandidat menyelesaikan ${items.length} pertanyaan Wawancara AI dan menunggu review recruiter.`,
+          })
+          .eq("id", packageRow.id);
+
+        if (error) {
+          console.error("Gagal menyelesaikan sesi Wawancara AI:", error);
+          window.alert("Sesi belum berhasil dikirim. Coba lagi.");
+          finishBtn.disabled = false;
+          return;
+        }
+
+        await updateCandidateStatus("Sudah selesai");
+        await refreshPackage();
+        renderQuestion();
+        finishBtn.disabled = false;
+      }
+
+      prevBtn.addEventListener("click", () => {
+        if (activeIndex > 0) {
+          activeIndex -= 1;
+          renderQuestion();
+        }
+      });
+
+      nextBtn.addEventListener("click", () => {
+        void saveCurrentAnswer("next");
+      });
+
+      saveBtn.addEventListener("click", () => {
+        void saveCurrentAnswer();
+      });
+
+      finishBtn.addEventListener("click", () => {
+        void finishInterview();
+      });
+
+      if (!token) {
+        candidateNameEl.textContent = "Token sesi tidak ditemukan";
+        candidateSubtitleEl.textContent = "Mohon buka link lengkap yang dikirim recruiter.";
+        sessionStatusEl.textContent = "Tidak valid";
+        return;
+      }
+
+      refreshPackage().then(async (loaded) => {
+        if (!loaded) return;
+        await markPackageOpened();
+        await refreshPackage();
+      });
+    })();
+  </script>
+</body>
+</html>

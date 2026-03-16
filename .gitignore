@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.DS_Store
+Thumbs.db
+*.log
+preview-error.log
+preview.log
+vite.log
+dev-runtime.log
+server/piper/models/

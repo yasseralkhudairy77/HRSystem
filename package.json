@@ -1,0 +1,33 @@
+{
+  "name": "umkm-hr-webapp-design",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "piper:api": "node server/piper-api.mjs",
+    "seed:recruitment-dummy": "node scripts/seed-hr-recruitment-dummy.mjs",
+    "seed:psychotest-dummy": "node scripts/seed-psychotest-dummy.mjs",
+    "seed:interview-ai-dummy": "node scripts/seed-interview-ai-dummy.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.98.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.24",
+    "jspdf": "^4.2.0",
+    "lucide-react": "^0.542.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tailwind-merge": "^3.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.2",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "supabase": "^2.78.1",
+    "tailwindcss": "^3.4.17",
+    "vite": "^7.1.3"
+  }
+}
