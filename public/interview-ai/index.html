@@ -517,7 +517,7 @@
               <div class="actions">
                 <button id="prev-btn">Sebelumnya</button>
                 <button id="next-btn" class="primary">Simpan & lanjut</button>
-                <button id="finish-btn" class="primary" style="display:none;">Simpan & kirim semua</button>
+                <button id="finish-btn" class="primary" style="display:none;">Selesai & kirim</button>
               </div>
             </div>
 
@@ -1249,6 +1249,7 @@
         renderAnswerAudioState();
         prevBtn.disabled = activeIndex === 0;
         nextBtn.disabled = activeIndex >= items.length - 1;
+        nextBtn.style.display = activeIndex >= items.length - 1 ? "none" : "inline-flex";
         finishBtn.style.display = activeIndex === items.length - 1 ? "inline-flex" : "none";
 
         renderStepper();
