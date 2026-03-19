@@ -3,6 +3,16 @@ import type { CreateOfferingLetterPayload, OfferingLetter, UpdateOfferingLetterP
 
 const TABLE_NAME = "offering_letters";
 
+function isMissingOfferingTable(error: unknown) {
+  const code = typeof error === "object" && error !== null ? error.code : "";
+  const message = typeof error === "object" && error !== null ? String(error.message || "") : "";
+  return code === "42P01" || message.toLowerCase().includes("offering_letters");
+}
+
+function createMissingTableError() {
+  return new Error("Tabel offering belum tersedia di database. Jalankan migration Supabase untuk `offering_letters` terlebih dulu.");
+}
+
 export async function getOfferingLetterMapByPelamarIds(pelamarIds: number[]): Promise<Record<number, OfferingLetter>> {
   if (!pelamarIds.length) return {};
 
@@ -15,6 +25,7 @@ export async function getOfferingLetterMapByPelamarIds(pelamarIds: number[]): Pr
 
   if (error) {
     console.error("Supabase gagal load offering letter:", error);
+    if (isMissingOfferingTable(error)) return {};
     throw error;
   }
 
@@ -31,6 +42,7 @@ export async function createOfferingLetter(payload: CreateOfferingLetterPayload)
 
   if (error) {
     console.error("Supabase gagal create offering letter:", error);
+    if (isMissingOfferingTable(error)) throw createMissingTableError();
     throw error;
   }
 
@@ -42,6 +54,7 @@ export async function updateOfferingLetter(id: number, payload: UpdateOfferingLe
 
   if (error) {
     console.error(`Supabase gagal update offering letter id=${id}:`, error);
+    if (isMissingOfferingTable(error)) throw createMissingTableError();
     throw error;
   }
 

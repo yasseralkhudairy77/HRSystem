@@ -179,7 +179,8 @@ export default function OfferingPage() {
       setSelected((current) => (current ? nextRows.find((item) => item.id === current.id) || null : null));
     } catch (error) {
       console.error("Load offering gagal:", error);
-      setErrorMessage(error instanceof Error ? error.message : "Gagal memuat data penawaran kerja.");
+      const message = error instanceof Error ? error.message : "Gagal memuat data penawaran kerja.";
+      setErrorMessage(message);
       setRows([]);
     } finally {
       setIsLoading(false);
@@ -339,7 +340,11 @@ export default function OfferingPage() {
         </div>
       ) : null}
 
-      {errorMessage ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div> : null}
+      {errorMessage ? (
+        <div className={`rounded-2xl border px-4 py-3 text-sm ${errorMessage.includes("migration Supabase") ? "border-amber-200 bg-amber-50 text-amber-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+          {errorMessage}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((item) => (
