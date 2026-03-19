@@ -130,8 +130,7 @@ function tabMatch(item, key) {
 
 function mapRow(item) {
   const stage = item.tahap_proses || "";
-  const status = item.status_tindak_lanjut || "";
-  if (!["Tahap akhir", "Penawaran kerja", "Siap masuk", "Sudah masuk kerja"].includes(stage) && status !== "Masuk tahap akhir") return null;
+  if (!["Siap masuk", "Sudah masuk kerja"].includes(stage)) return null;
 
   const parsed = parseNote(item.catatan_recruiter);
 
@@ -146,9 +145,9 @@ function mapRow(item) {
     pendidikan: [item.jenjang_pendidikan, item.jurusan].filter(Boolean).join(" / ") || "-",
     pengalaman: summarizeExperience(item),
     ekspektasiGaji: formatCurrency(item.ekspektasi_gaji),
-    tahapProses: stage || "Penawaran kerja",
-    statusTindakLanjut: status || "Masuk tahap akhir",
-    statusPersiapan: preparationStatus(stage || "Penawaran kerja", parsed.form),
+    tahapProses: stage || "Siap masuk",
+    statusTindakLanjut: item.status_tindak_lanjut || "Siap masuk",
+    statusPersiapan: preparationStatus(stage || "Siap masuk", parsed.form),
     interviewer: item.interview_interviewer || "Recruiter",
     interviewDatetime: item.interview_datetime || "",
     plainNotes: parsed.plain,
@@ -278,8 +277,8 @@ export default function OnboardingPage() {
   }
 
   async function saveOffer() {
-    const next = await persistStage(selected?.tahapProses === "Sudah masuk kerja" ? "Sudah masuk kerja" : "Penawaran kerja", "Masuk tahap akhir", "Detail penawaran kerja diperbarui.");
-    if (next?.mapped) setFeedback({ type: "success", message: `Detail penawaran ${selected.nama} berhasil disimpan.` });
+    const next = await persistStage(selected?.tahapProses === "Sudah masuk kerja" ? "Sudah masuk kerja" : "Siap masuk", "Siap masuk", "Detail persiapan masuk kerja diperbarui.");
+    if (next?.mapped) setFeedback({ type: "success", message: `Detail persiapan ${selected.nama} berhasil disimpan.` });
   }
 
   async function markReady() {
@@ -315,7 +314,7 @@ export default function OnboardingPage() {
       "",
       `Terima kasih sudah mengikuti proses rekrutmen posisi ${selected.posisi} di HireUMKM.`,
       "",
-      form.startDate ? `Rencana tanggal mulai kerja Anda adalah ${formatDate(form.startDate)}.` : "Tim kami sedang menyiapkan detail penawaran kerja Anda.",
+      form.startDate ? `Rencana tanggal mulai kerja Anda adalah ${formatDate(form.startDate)}.` : "Tim kami sedang menyiapkan detail persiapan masuk kerja Anda.",
       form.employmentType && form.employmentType !== "Belum ditentukan" ? `Status kerja yang sedang kami siapkan: ${form.employmentType}.` : "",
       form.offerNote ? `Catatan dari recruiter: ${form.offerNote}` : "",
       "",
@@ -349,9 +348,9 @@ export default function OnboardingPage() {
 
   const summary = useMemo(
     () => [
-      { label: "Total kandidat akhir", value: rows.length, note: "Kandidat dari penawaran kerja sampai hari pertama masuk.", icon: UserPlus, tone: "slate" },
+      { label: "Total kandidat akhir", value: rows.length, note: "Kandidat yang offering-nya sudah diterima sampai hari pertama masuk.", icon: UserPlus, tone: "slate" },
       { label: "Belum lengkap", value: rows.filter((item) => item.statusPersiapan === "Belum lengkap").length, note: "Masih perlu dilengkapi oleh recruiter.", icon: BriefcaseBusiness, tone: "amber" },
-      { label: "Sedang disiapkan", value: rows.filter((item) => item.statusPersiapan === "Sedang disiapkan").length, note: "Penawaran kerja sedang dirapikan.", icon: BriefcaseBusiness, tone: "sky" },
+      { label: "Sedang disiapkan", value: rows.filter((item) => item.statusPersiapan === "Sedang disiapkan").length, note: "Detail hari pertama dan kebutuhan masuk kerja sedang dirapikan.", icon: BriefcaseBusiness, tone: "sky" },
       { label: "Siap masuk kerja", value: rows.filter((item) => item.statusPersiapan === "Siap masuk kerja").length, note: "Tinggal dijalankan pada hari pertama kerja.", icon: ShieldCheck, tone: "emerald" },
       { label: "Sudah masuk kerja", value: rows.filter((item) => item.statusPersiapan === "Sudah masuk kerja").length, note: "Sudah dinyatakan mulai bekerja.", icon: CheckCircle2, tone: "emerald" },
     ],
@@ -365,7 +364,7 @@ export default function OnboardingPage() {
           <div className="max-w-3xl">
             <div className={employeeDensity.overline}>HR Administrasi</div>
             <h1 className="mt-1.5 text-[28px] font-semibold tracking-[-0.03em] text-[var(--text-main)]">Karyawan Baru</h1>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Kelola penawaran kerja, kesiapan masuk, dan status hari pertama kerja kandidat yang sudah lolos sampai tahap akhir.</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Kelola kesiapan masuk kerja dan status hari pertama untuk kandidat yang penawaran kerjanya sudah diterima.</p>
           </div>
 
           <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_320px]">
@@ -380,7 +379,7 @@ export default function OnboardingPage() {
             </div>
 
             <div className={`${employeeDensity.inset} bg-white px-4 py-3 text-[13px] text-[var(--text-muted)]`}>
-              Alur aktif: <span className="font-medium text-[var(--text-main)]">Wawancara -&gt; Penawaran kerja -&gt; Siap masuk -&gt; Sudah masuk kerja</span>
+              Alur aktif: <span className="font-medium text-[var(--text-main)]">Offering diterima -&gt; Siap masuk -&gt; Sudah masuk kerja</span>
             </div>
           </div>
         </CardContent>
@@ -425,8 +424,8 @@ export default function OnboardingPage() {
       <Card className={employeeDensity.cardFlat}>
         <CardContent className="space-y-4 p-5">
           <div className="border-b border-[rgba(214,222,234,0.82)] pb-4">
-            <div className={employeeDensity.sectionTitle}>Daftar kandidat tahap akhir</div>
-            <div className={employeeDensity.sectionDescription}>{filtered.length} data ditemukan. Recruiter bisa menyimpan detail penawaran lalu memindahkan kandidat ke tahap siap masuk.</div>
+            <div className={employeeDensity.sectionTitle}>Daftar kandidat karyawan baru</div>
+            <div className={employeeDensity.sectionDescription}>{filtered.length} data ditemukan. Recruiter bisa merapikan detail persiapan masuk lalu menandai kandidat sudah mulai bekerja.</div>
           </div>
 
           {loading ? (
@@ -475,7 +474,7 @@ export default function OnboardingPage() {
                       Detail
                     </Button>
                     <Button variant="outline" className="rounded-[10px]" onClick={() => setSelected(item)}>
-                      {["Penawaran kerja", "Tahap akhir"].includes(item.tahapProses) ? "Lengkapi penawaran" : "Kelola"}
+                      Kelola
                     </Button>
                   </div>
                 </div>
@@ -484,7 +483,7 @@ export default function OnboardingPage() {
 
             {!loading && filtered.length === 0 ? (
               <div className="rounded-[12px] border border-dashed border-[var(--border-soft)] bg-[var(--surface-0)] p-8 text-center text-sm text-[var(--text-muted)]">
-                Belum ada kandidat tahap akhir yang cocok dengan pencarian atau filter yang dipilih.
+                Belum ada kandidat karyawan baru yang cocok dengan pencarian atau filter yang dipilih.
               </div>
             ) : null}
           </div>
@@ -541,7 +540,7 @@ export default function OnboardingPage() {
 
               <Card className={employeeDensity.cardFlat}>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium text-[var(--text-main)]">Form penawaran & kesiapan masuk</div>
+                  <div className="text-sm font-medium text-[var(--text-main)]">Form kesiapan masuk kerja</div>
 
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <div>
@@ -581,12 +580,12 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="mt-4">
-                    <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Catatan penawaran / onboarding</div>
+                    <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Catatan onboarding</div>
                     <textarea
                       value={form.offerNote}
                       onChange={(event) => setForm((current) => ({ ...current, offerNote: event.target.value }))}
                       rows={5}
-                      placeholder="Tulis poin penting untuk kandidat, misalnya detail offer, dokumen yang harus dibawa, atau catatan hari pertama kerja."
+                      placeholder="Tulis poin penting untuk kandidat, misalnya dokumen yang harus dibawa, arahan hari pertama, atau catatan onboarding."
                       className="min-h-[132px] w-full rounded-[10px] border border-[var(--border-soft)] bg-white px-3 py-2.5 text-sm text-[var(--text-main)] outline-none transition focus:border-[var(--brand-700)]"
                     />
                   </div>
@@ -595,7 +594,7 @@ export default function OnboardingPage() {
 
               <div className="flex flex-wrap gap-2 border-t border-[rgba(214,222,234,0.82)] pt-4">
                 <Button className="rounded-[10px]" onClick={() => void saveOffer()} disabled={submitting}>
-                  Simpan penawaran
+                  Simpan persiapan
                 </Button>
                 <Button variant="outline" className="rounded-[10px]" onClick={contactCandidate}>
                   <MessageCircle className="mr-2 h-4 w-4" />

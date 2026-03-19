@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getActiveCandidateTestPackageMap, isCandidateTestPackageFeatureUnavailable } from "@/services/candidateTestPackageService";
 import { getLowonganList } from "@/services/lowonganService";
+import { upsertOfferingLetterByPelamarId } from "@/services/offeringService";
 import { getPelamarList, updatePelamar } from "@/services/pelamarService";
 import { createInterviewSchedule } from "@/services/recruitmentWorkflowService";
 
@@ -466,6 +467,33 @@ function getInterviewModeHelper(interview) {
   return "Lowongan ini cukup sampai wawancara HRD tanpa interview user.";
 }
 
+function buildOfferingDraftPayload(interview, form, lowongan) {
+  return {
+    pelamar_id: interview.candidateId,
+    status: "draft",
+    version: 1,
+    position_title: interview.posisiDilamar,
+    branch_name: lowongan?.cabang || lowongan?.lokasi_kerja || interview.domisili || "-",
+    company_name: lowongan?.company_name || interview.namaUsaha || "HireUMKM Demo",
+    employment_type: lowongan?.status_kerja || "Probation",
+    salary_amount: null,
+    start_date: null,
+    probation_period: "3 bulan",
+    benefits_summary: "Gaji pokok, onboarding awal, dan penjelasan kerja lebih lanjut saat kandidat mulai bergabung.",
+    response_deadline: null,
+    hr_pic_name: interview.interviewer !== "-" ? interview.interviewer : "Tim HR HireUMKM",
+    additional_notes:
+      interview.interviewStageType === "user"
+        ? form.summary?.trim() || form.notes?.trim() || null
+        : form.catatanUntukOwner?.trim() || form.kesanUmum?.trim() || null,
+    letter_payload: {
+      sourceStage: interview.interviewStageType,
+    },
+    sent_at: null,
+    responded_at: null,
+  };
+}
+
 export default function InterviewPage() {
   const [interviewRows, setInterviewRows] = useState(interviewRecords);
   const [isLoading, setIsLoading] = useState(false);
@@ -776,11 +804,27 @@ export default function InterviewPage() {
       user_interview_status: selectedInterview.interviewStageType === "user" ? "completed" : undefined,
       note:
         selectedInterview.interviewStageType === "user"
-          ? "Kandidat dinyatakan lanjut dari interview user ke penawaran kerja."
-          : "Kandidat dinyatakan lanjut dari tahap wawancara ke penawaran kerja.",
-      successMessage: `${selectedInterview.namaPelamar} dilanjutkan ke penawaran kerja.`,
+          ? "Kandidat dinyatakan lanjut dari interview user ke tahap penawaran kerja."
+          : "Kandidat dinyatakan lanjut dari tahap wawancara ke tahap penawaran kerja.",
+      successMessage: `${selectedInterview.namaPelamar} dipindahkan ke tahap penawaran kerja.`,
     });
-    if (nextInterview) setSelectedInterview(nextInterview);
+    if (!nextInterview) return;
+
+    try {
+      const lowongan = selectedInterview.lowonganId ? lowonganMapById[selectedInterview.lowonganId] || null : null;
+      const offeringPayload = buildOfferingDraftPayload(
+        selectedInterview,
+        selectedInterview.interviewStageType === "user" ? userInterviewForm : interviewForm,
+        lowongan,
+      );
+      await upsertOfferingLetterByPelamarId(selectedInterview.candidateId, offeringPayload);
+      setSelectedInterview(nextInterview);
+      window.dispatchEvent(new CustomEvent("app:navigate", { detail: { menu: "offering" } }));
+    } catch (error) {
+      console.error("Buat draft offering gagal:", error);
+      showFeedback("info", `${selectedInterview.namaPelamar} sudah masuk tahap penawaran kerja, tetapi draft offering belum berhasil disiapkan otomatis.`);
+      setSelectedInterview(nextInterview);
+    }
   }
 
   async function handleMoveToUserInterview() {
@@ -1217,7 +1261,7 @@ export default function InterviewPage() {
                   </Button>
                 ) : null}
                 <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-700" onClick={() => void handleAdvanceCandidate()} disabled={isSubmittingAction || !canAdvanceFromHrd(selectedInterview)}>
-                  Lanjut ke penawaran
+                  Buat Offering
                 </Button>
                 <Button
                   variant="outline"

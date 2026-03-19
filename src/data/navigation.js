@@ -58,6 +58,7 @@ export const sidebarSections = [
       { key: "psychotest-results", route: "psychotest-results", label: "Hasil Psikotest", icon: FileText, roles: [appRoles.hr, appRoles.agency], enabled: true },
       { key: "interview-ai", route: "interview-ai", label: "Wawancara AI", icon: Bot, roles: [appRoles.hr, appRoles.agency, appRoles.supervisor], enabled: true },
       { key: "interview", route: "interview", label: "Wawancara HRD", icon: UserRound, roles: [appRoles.hr, appRoles.agency, appRoles.supervisor], enabled: true },
+      { key: "offering", route: "offering", label: "Offering", icon: BadgeDollarSign, roles: [appRoles.hr, appRoles.agency, appRoles.supervisor], enabled: true },
       { key: "talent", route: "talent", label: "Cadangan Kandidat", icon: Database, roles: [appRoles.hr, appRoles.agency], enabled: true },
     ],
   },

@@ -14,6 +14,7 @@ import JobsPage from "@/pages/JobsPage";
 import KebutuhanSupabaseTestPage from "@/pages/KebutuhanSupabaseTestPage";
 import LettersPage from "@/pages/LettersPage";
 import OffboardingPage from "@/pages/OffboardingPage";
+import OfferingPage from "@/pages/OfferingPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import OrganizationStructurePage from "@/pages/OrganizationStructurePage";
 import PerformancePage from "@/pages/PerformancePage";
@@ -43,6 +44,7 @@ export const pageComponents = {
   "interview-ai": InterviewAiPage,
   pipeline: PipelinePage,
   interview: InterviewPage,
+  offering: OfferingPage,
   employees: EmployeesPage,
   "organization-structure": OrganizationStructurePage,
   onboarding: OnboardingPage,
