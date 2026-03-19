@@ -78,7 +78,15 @@ function appendNote(previous, next) {
 }
 
 function defaultForm() {
-  return { startDate: "", employmentType: "Belum ditentukan", finalSalary: "", owner: "", offerNote: "" };
+  return {
+    startDate: "",
+    employmentType: "Belum ditentukan",
+    finalSalary: "",
+    owner: "",
+    offerNote: "",
+    documentsReceived: false,
+    firstDayBriefReady: false,
+  };
 }
 
 function parseNote(notes) {
@@ -118,6 +126,24 @@ function preparationStatus(stage, form) {
   return form.startDate || form.owner || form.finalSalary || (form.employmentType && form.employmentType !== "Belum ditentukan") || form.offerNote
     ? "Sedang disiapkan"
     : "Belum lengkap";
+}
+
+function getReadinessChecklist(form) {
+  const normalizedEmployment = String(form.employmentType || "").trim();
+  const normalizedOwner = String(form.owner || "").trim();
+  return [
+    { key: "startDate", label: "Tanggal mulai sudah disepakati", done: Boolean(form.startDate) },
+    { key: "employmentType", label: "Status kerja sudah ditetapkan", done: Boolean(normalizedEmployment && normalizedEmployment !== "Belum ditentukan") },
+    { key: "owner", label: "PIC / atasan sudah ditentukan", done: Boolean(normalizedOwner) },
+    { key: "documentsReceived", label: "Dokumen utama sudah diterima", done: Boolean(form.documentsReceived) },
+    { key: "firstDayBriefReady", label: "Arahan hari pertama sudah siap", done: Boolean(form.firstDayBriefReady) },
+  ];
+}
+
+function readinessProgress(form) {
+  const items = getReadinessChecklist(form);
+  const completed = items.filter((item) => item.done).length;
+  return { items, completed, total: items.length, isComplete: completed === items.length };
 }
 
 function tabMatch(item, key) {
@@ -282,8 +308,13 @@ export default function OnboardingPage() {
   }
 
   async function markReady() {
-    if (!form.startDate || !String(form.owner || "").trim()) {
-      setFeedback({ type: "error", message: "Tanggal mulai kerja dan penanggung jawab wajib diisi sebelum kandidat ditandai siap masuk." });
+    const progress = readinessProgress(form);
+    if (!progress.isComplete) {
+      const remaining = progress.items.filter((item) => !item.done).map((item) => item.label);
+      setFeedback({
+        type: "error",
+        message: `Lengkapi checklist utama dulu sebelum kandidat ditandai siap masuk: ${remaining.join(", ")}.`,
+      });
       return;
     }
     const next = await persistStage("Siap masuk", "Siap masuk", `Kandidat siap masuk kerja pada ${formatDate(form.startDate)}.`);
@@ -345,6 +376,7 @@ export default function OnboardingPage() {
   }, [activeTab, rows, search]);
 
   const counts = useMemo(() => Object.fromEntries(tabs.map((tab) => [tab.key, rows.filter((item) => tabMatch(item, tab.key)).length])), [rows]);
+  const selectedReadiness = useMemo(() => readinessProgress(form), [form]);
 
   const summary = useMemo(
     () => [
@@ -466,6 +498,13 @@ export default function OnboardingPage() {
                         <div className={employeeDensity.fieldLabel}>PIC recruiter</div>
                         <div className="mt-1.5 font-medium text-[var(--text-main)]">{item.form.owner || item.interviewer}</div>
                       </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+                      <span className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-0)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">
+                        Checklist {readinessProgress(item.form).completed}/{readinessProgress(item.form).total}
+                      </span>
+                      <span>{readinessProgress(item.form).isComplete ? "Semua syarat siap masuk sudah lengkap." : "Masih ada checklist utama yang perlu dibereskan."}</span>
                     </div>
                   </div>
 
@@ -592,6 +631,52 @@ export default function OnboardingPage() {
                 </CardContent>
               </Card>
 
+              <Card className={employeeDensity.cardFlat}>
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-[var(--text-main)]">Checklist siap masuk</div>
+                      <div className="mt-1 text-sm text-[var(--text-muted)]">Status `Siap masuk` hanya aktif kalau semua checklist utama ini sudah lengkap.</div>
+                    </div>
+                    <div className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${selectedReadiness.isComplete ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                      {selectedReadiness.completed}/{selectedReadiness.total} checklist lengkap
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {selectedReadiness.items.map((item) => {
+                      const isManual = ["documentsReceived", "firstDayBriefReady"].includes(item.key);
+                      return (
+                        <label key={item.key} className={`flex items-start gap-3 rounded-[12px] border px-4 py-3 text-sm ${item.done ? "border-emerald-200 bg-emerald-50/60" : "border-[var(--border-soft)] bg-white"}`}>
+                          {isManual ? (
+                            <input
+                              type="checkbox"
+                              checked={item.done}
+                              onChange={(event) => setForm((current) => ({ ...current, [item.key]: event.target.checked }))}
+                              className="mt-0.5 h-4 w-4 rounded border-[var(--border-soft)] text-[var(--brand-800)] focus:ring-[var(--brand-700)]"
+                            />
+                          ) : (
+                            <div className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-bold ${item.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white text-slate-400"}`}>
+                              {item.done ? "✓" : ""}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-[var(--text-main)]">{item.label}</div>
+                            <div className="mt-1 text-[13px] leading-5 text-[var(--text-muted)]">
+                              {isManual
+                                ? item.key === "documentsReceived"
+                                  ? "Centang jika dokumen utama kandidat sudah diterima tim HR."
+                                  : "Centang jika arahan hari pertama seperti jam hadir, lokasi, dan PIC sudah siap dibagikan."
+                                : "Terisi otomatis dari form di atas."}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="flex flex-wrap gap-2 border-t border-[rgba(214,222,234,0.82)] pt-4">
                 <Button className="rounded-[10px]" onClick={() => void saveOffer()} disabled={submitting}>
                   Simpan persiapan
@@ -604,7 +689,7 @@ export default function OnboardingPage() {
                   variant="outline"
                   className="rounded-[10px] border-emerald-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
                   onClick={() => void markReady()}
-                  disabled={submitting || ["Siap masuk", "Sudah masuk kerja"].includes(selected.tahapProses)}
+                  disabled={submitting || ["Siap masuk", "Sudah masuk kerja"].includes(selected.tahapProses) || !selectedReadiness.isComplete}
                 >
                   Tandai siap masuk
                 </Button>
