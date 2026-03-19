@@ -54,6 +54,7 @@ const statusClasses = {
   "Siap masuk": "bg-emerald-50 text-emerald-700 border-emerald-200",
   "Siap masuk kerja": "bg-emerald-50 text-emerald-700 border-emerald-200",
   "Sudah masuk kerja": "bg-slate-900 text-white border-slate-900",
+  "Batal bergabung": "bg-rose-50 text-rose-700 border-rose-200",
   "Akan keluar": "bg-sky-50 text-sky-700 border-sky-200",
   "Sedang diproses": "bg-amber-50 text-amber-700 border-amber-200",
   "Sedang dipakai": "bg-sky-50 text-sky-700 border-sky-200",

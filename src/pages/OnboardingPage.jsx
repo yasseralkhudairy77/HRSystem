@@ -19,6 +19,7 @@ const tabs = [
   { key: "siapkan", label: "Sedang disiapkan" },
   { key: "siap", label: "Siap masuk" },
   { key: "masuk", label: "Sudah masuk" },
+  { key: "batal", label: "Batal bergabung" },
 ];
 
 const employmentOptions = ["Belum ditentukan", "Probation", "Kontrak", "Tetap", "Freelance", "Part time"];
@@ -120,6 +121,7 @@ function summarizeExperience(item) {
 }
 
 function preparationStatus(stage, form) {
+  if (stage === "Batal bergabung") return "Batal bergabung";
   if (stage === "Sudah masuk kerja") return "Sudah masuk kerja";
   if (stage === "Siap masuk") return "Siap masuk kerja";
 
@@ -151,12 +153,13 @@ function tabMatch(item, key) {
   if (key === "siapkan") return item.statusPersiapan === "Sedang disiapkan";
   if (key === "siap") return item.statusPersiapan === "Siap masuk kerja";
   if (key === "masuk") return item.statusPersiapan === "Sudah masuk kerja";
+  if (key === "batal") return item.statusPersiapan === "Batal bergabung";
   return true;
 }
 
 function mapRow(item) {
   const stage = item.tahap_proses || "";
-  if (!["Siap masuk", "Sudah masuk kerja"].includes(stage)) return null;
+  if (!["Siap masuk", "Sudah masuk kerja", "Batal bergabung"].includes(stage)) return null;
 
   const parsed = parseNote(item.catatan_recruiter);
 
@@ -337,6 +340,26 @@ export default function OnboardingPage() {
     }
   }
 
+  async function markCancelled() {
+    if (!selected) return;
+
+    const reason = window.prompt(
+      "Tulis alasan batal bergabung.\nContoh: menerima tawaran lain, tidak hadir, mengundurkan diri, tidak cocok jadwal / lokasi, alasan pribadi.",
+      "",
+    );
+
+    if (reason === null) return;
+
+    const trimmedReason = String(reason).trim();
+    if (!trimmedReason) {
+      setFeedback({ type: "error", message: "Alasan batal bergabung wajib diisi." });
+      return;
+    }
+
+    const next = await persistStage("Batal bergabung", "Batal bergabung", `Kandidat batal bergabung. Alasan: ${trimmedReason}.`);
+    if (next?.mapped) setFeedback({ type: "info", message: `${selected.nama} ditandai batal bergabung.` });
+  }
+
   function contactCandidate() {
     if (!selected) return;
 
@@ -385,6 +408,7 @@ export default function OnboardingPage() {
       { label: "Sedang disiapkan", value: rows.filter((item) => item.statusPersiapan === "Sedang disiapkan").length, note: "Detail hari pertama dan kebutuhan masuk kerja sedang dirapikan.", icon: BriefcaseBusiness, tone: "sky" },
       { label: "Siap masuk kerja", value: rows.filter((item) => item.statusPersiapan === "Siap masuk kerja").length, note: "Tinggal dijalankan pada hari pertama kerja.", icon: ShieldCheck, tone: "emerald" },
       { label: "Sudah masuk kerja", value: rows.filter((item) => item.statusPersiapan === "Sudah masuk kerja").length, note: "Sudah dinyatakan mulai bekerja.", icon: CheckCircle2, tone: "emerald" },
+      { label: "Batal bergabung", value: rows.filter((item) => item.statusPersiapan === "Batal bergabung").length, note: "Sudah accept offering, tetapi akhirnya tidak jadi masuk kerja.", icon: BriefcaseBusiness, tone: "amber" },
     ],
     [rows],
   );
@@ -425,7 +449,7 @@ export default function OnboardingPage() {
 
       {error ? <div className="rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         {summary.map((item) => (
           <Metric key={item.label} {...item} />
         ))}
@@ -504,7 +528,13 @@ export default function OnboardingPage() {
                       <span className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-0)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">
                         Checklist {readinessProgress(item.form).completed}/{readinessProgress(item.form).total}
                       </span>
-                      <span>{readinessProgress(item.form).isComplete ? "Semua syarat siap masuk sudah lengkap." : "Masih ada checklist utama yang perlu dibereskan."}</span>
+                      <span>
+                        {item.statusPersiapan === "Batal bergabung"
+                          ? "Kandidat tidak jadi bergabung dan sudah keluar dari alur masuk kerja."
+                          : readinessProgress(item.form).isComplete
+                            ? "Semua syarat siap masuk sudah lengkap."
+                            : "Masih ada checklist utama yang perlu dibereskan."}
+                      </span>
                     </div>
                   </div>
 
@@ -689,12 +719,20 @@ export default function OnboardingPage() {
                   variant="outline"
                   className="rounded-[10px] border-emerald-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
                   onClick={() => void markReady()}
-                  disabled={submitting || ["Siap masuk", "Sudah masuk kerja"].includes(selected.tahapProses) || !selectedReadiness.isComplete}
+                  disabled={submitting || ["Siap masuk", "Sudah masuk kerja", "Batal bergabung"].includes(selected.tahapProses) || !selectedReadiness.isComplete}
                 >
                   Tandai siap masuk
                 </Button>
-                <Button className="rounded-[10px] bg-slate-900 hover:bg-slate-800" onClick={() => void markJoined()} disabled={submitting || selected.tahapProses === "Sudah masuk kerja"}>
+                <Button className="rounded-[10px] bg-slate-900 hover:bg-slate-800" onClick={() => void markJoined()} disabled={submitting || ["Sudah masuk kerja", "Batal bergabung"].includes(selected.tahapProses)}>
                   Tandai sudah masuk kerja
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-[10px] border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
+                  onClick={() => void markCancelled()}
+                  disabled={submitting || ["Sudah masuk kerja", "Batal bergabung"].includes(selected.tahapProses)}
+                >
+                  Tandai batal bergabung
                 </Button>
               </div>
             </div>
