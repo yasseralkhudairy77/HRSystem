@@ -1,0 +1,15 @@
+export const employeeDensity = {
+  card: "rounded-[14px] border-[rgba(191,204,220,0.78)] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]",
+  cardFlat: "rounded-[14px] border-[rgba(191,204,220,0.78)] bg-white",
+  inset: "rounded-[10px] border border-[rgba(191,204,220,0.64)] bg-[var(--surface-0)]",
+  header: "border-b border-[rgba(214,222,234,0.82)] px-5 py-4",
+  mainPadding: "p-5",
+  innerPadding: "p-4",
+  sectionTitle: "text-lg font-semibold leading-6 tracking-[-0.01em] text-[var(--text-main)]",
+  sectionDescription: "mt-1.5 text-[13px] leading-5 text-[var(--text-muted)]",
+  overline: "text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]",
+  fieldLabel: "text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-soft)]",
+  fieldValue: "text-sm font-medium leading-5 text-[var(--text-main)]",
+  tableHeadCell: "px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]",
+  tableCell: "px-5 py-3.5 text-[13px] leading-5",
+} as const;

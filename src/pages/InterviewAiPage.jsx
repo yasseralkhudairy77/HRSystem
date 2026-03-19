@@ -49,6 +49,29 @@ function buildInterviewAiWhatsAppMessage(candidate, linkUrl, deadlineIso) {
   ].join("\n");
 }
 
+function buildInterviewAiRejectionMessage(candidate, recruiterSummary) {
+  const summaryNote = String(recruiterSummary || "").trim();
+
+  return [
+    `Halo ${candidate.namaLengkap},`,
+    "",
+    `Terima kasih sudah meluangkan waktu untuk mengikuti proses Wawancara AI untuk posisi ${candidate.posisiDilamar}.`,
+    "",
+    "Setelah kami meninjau hasil sesi Anda secara menyeluruh, saat ini kami memutuskan untuk belum melanjutkan proses rekrutmen ke tahap berikutnya.",
+    "",
+    summaryNote ? `Catatan singkat dari tim kami: ${summaryNote}.` : null,
+    summaryNote ? "" : null,
+    "Keputusan ini tidak mengurangi nilai dan potensi yang Anda miliki. Kami menghargai waktu, usaha, dan ketertarikan Anda untuk bergabung bersama tim kami.",
+    "",
+    "Semoga Anda segera mendapatkan peluang yang paling sesuai dengan rencana karier Anda ke depan.",
+    "",
+    "Salam hormat,",
+    "Tim Rekrutmen HireUMKM",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function shouldCreateFreshInterviewInvitation(candidate) {
   const interviewPackage = candidate?.interviewAiPackage;
 
@@ -437,20 +460,27 @@ export default function InterviewAiPage() {
         nextStage = "Wawancara";
         nextStatus = "Sedang diproses";
         stageHistoryTarget = "Wawancara";
-        stageHistoryNote = "Lolos review Wawancara AI dan lanjut ke Wawancara HRD.";
+        stageHistoryNote = "Kandidat di-approve HRD dari hasil Wawancara AI dan masuk ke tahap Wawancara HRD.";
       } else if (decision === "Tidak lanjut") {
         nextStage = "Tidak lanjut";
         nextStatus = "Tidak lanjut";
         rejectionReason = reviewSummary.trim() || "Hasil Wawancara AI belum sesuai kebutuhan posisi.";
         stageHistoryTarget = "Tidak lanjut";
-        stageHistoryNote = "Hasil Wawancara AI direview dan kandidat dinyatakan tidak lanjut.";
+        stageHistoryNote = "Hasil Wawancara AI direview dan kandidat dinyatakan tidak lolos ke tahap berikutnya.";
       }
 
       const updatedPelamar = await updatePelamar(candidate.id, {
         tahap_proses: nextStage,
         status_tindak_lanjut: nextStatus,
         penilaian_singkat: reviewSummary.trim() || null,
-        catatan_recruiter: reviewNote.trim() || null,
+        catatan_recruiter: appendRecruiterNote(
+          reviewNote.trim() || null,
+          decision === "Lanjut ke Wawancara HRD"
+            ? "HRD approve kandidat untuk masuk ke tahap Wawancara HRD."
+            : decision === "Tidak lanjut"
+              ? `Kandidat tidak lolos dari tahap Wawancara AI.${rejectionReason ? ` Catatan: ${rejectionReason}` : ""}`
+              : "Hasil Wawancara AI disimpan untuk review lanjutan."
+        ),
         alasan_tidak_lanjut: rejectionReason,
       });
 
@@ -467,7 +497,30 @@ export default function InterviewAiPage() {
 
       const nextCandidate = mapPelamarToInterviewAi(updatedPelamar || candidate, updatedPackage);
       syncSelectedCandidate(nextCandidate);
-      setFeedback({ type: "success", message: `Keputusan recruiter untuk ${candidate.namaLengkap} berhasil disimpan.` });
+      if (decision === "Tidak lanjut") {
+        const rejectionMessage = buildInterviewAiRejectionMessage(candidate, rejectionReason);
+        const rejectionUrl = buildWhatsAppLink(candidate.noWhatsapp, rejectionMessage);
+
+        if (rejectionUrl) {
+          window.open(rejectionUrl, "_blank", "noopener,noreferrer");
+          setFeedback({
+            type: "success",
+            message: `Kandidat ${candidate.namaLengkap} ditandai tidak lolos dan WhatsApp notifikasi penolakan dibuka otomatis.`,
+          });
+        } else {
+          setFeedback({
+            type: "info",
+            message: `Kandidat ${candidate.namaLengkap} ditandai tidak lolos, tetapi nomor WhatsApp kandidat belum valid untuk membuka notifikasi.`,
+          });
+        }
+      } else if (decision === "Lanjut ke Wawancara HRD") {
+        setFeedback({
+          type: "success",
+          message: `${candidate.namaLengkap} sudah di-approve HRD dan masuk ke tahap Wawancara HRD.`,
+        });
+      } else {
+        setFeedback({ type: "success", message: `Review HRD untuk ${candidate.namaLengkap} berhasil disimpan.` });
+      }
     } catch (error) {
       console.error("Keputusan recruiter Wawancara AI gagal:", error);
       setFeedback({ type: "error", message: error instanceof Error ? error.message : "Keputusan recruiter belum berhasil disimpan." });
@@ -903,27 +956,27 @@ export default function InterviewAiPage() {
                   </section>
 
                   <section className="space-y-4">
-                    <div className="border-b border-[var(--border-soft)] pb-2 text-sm font-semibold text-[var(--text-main)]">Review recruiter</div>
+                    <div className="border-b border-[var(--border-soft)] pb-2 text-sm font-semibold text-[var(--text-main)]">Review HRD</div>
                     <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
                       <div>
-                        <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Ringkasan recruiter</div>
-                        <TextAreaField value={reviewSummary} onChange={setReviewSummary} placeholder="Tulis ringkasan singkat dari jawaban kandidat, kecocokan awal, dan poin penting yang perlu dibawa ke tahap berikutnya." rows={6} />
+                        <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Ringkasan penilaian HRD</div>
+                        <TextAreaField value={reviewSummary} onChange={setReviewSummary} placeholder="Tulis ringkasan singkat hasil review HRD, kecocokan kandidat, dan poin penting yang menjadi dasar keputusan." rows={6} />
                       </div>
                       <div className="space-y-4">
                         <div>
-                          <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Catatan internal recruiter</div>
-                          <TextAreaField value={reviewNote} onChange={setReviewNote} placeholder="Catatan internal untuk recruiter, owner, atau user yang mereview kandidat ini." rows={6} />
+                          <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Catatan internal HRD</div>
+                          <TextAreaField value={reviewNote} onChange={setReviewNote} placeholder="Catatan internal untuk HRD, owner, atau user yang mereview kandidat ini." rows={6} />
                         </div>
                         <div>
-                          <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Rekomendasi saat ini</div>
+                          <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Keputusan HRD</div>
                           <select
                             value={reviewRecommendation}
                             onChange={(event) => setReviewRecommendation(event.target.value)}
                             className="flex h-11 w-full rounded-xl border border-[var(--border-soft)] bg-white px-3 py-2 text-sm text-[var(--text-main)]"
                           >
                             <option value="Perlu review lanjutan">Perlu review lanjutan</option>
-                            <option value="Lanjut ke Wawancara HRD">Lanjut ke Wawancara HRD</option>
-                            <option value="Tidak lanjut">Tidak lanjut</option>
+                            <option value="Lanjut ke Wawancara HRD">Approve ke Wawancara HRD</option>
+                            <option value="Tidak lanjut">Tidak lolos</option>
                           </select>
                         </div>
                       </div>
@@ -931,20 +984,20 @@ export default function InterviewAiPage() {
 
                     <div className="flex flex-wrap gap-2">
                       <Button variant="outline" onClick={() => void handleSaveReview(selectedCandidate)} disabled={isBusy}>
-                        {isBusy ? "Memproses..." : "Simpan review"}
+                        {isBusy ? "Memproses..." : "Simpan review HRD"}
                       </Button>
                       <Button onClick={() => void handleDecision(selectedCandidate, "Lanjut ke Wawancara HRD")} disabled={isBusy || selectedCandidate.interviewAiProgress.completed < selectedCandidate.interviewAiProgress.total}>
-                        {isBusy ? "Memproses..." : "Lanjut ke Wawancara HRD"}
+                        {isBusy ? "Memproses..." : "Approve ke Wawancara HRD"}
                       </Button>
                       <Button variant="outline" onClick={() => void handleDecision(selectedCandidate, "Perlu review lanjutan")} disabled={isBusy}>
-                        {isBusy ? "Memproses..." : "Simpan dulu"}
+                        {isBusy ? "Memproses..." : "Review lagi"}
                       </Button>
                       <Button variant="outline" onClick={() => void handleDecision(selectedCandidate, "Tidak lanjut")} disabled={isBusy}>
-                        {isBusy ? "Memproses..." : "Tidak lanjut"}
+                        {isBusy ? "Memproses..." : "Tidak lolos"}
                       </Button>
                     </div>
                     {selectedCandidate.interviewAiProgress.completed < selectedCandidate.interviewAiProgress.total ? (
-                      <div className="text-sm text-[var(--text-muted)]">Tombol lanjut ke Wawancara HRD aktif setelah seluruh pertanyaan kandidat sudah dijawab.</div>
+                      <div className="text-sm text-[var(--text-muted)]">Tombol approve ke Wawancara HRD aktif setelah seluruh pertanyaan kandidat sudah dijawab.</div>
                     ) : null}
                   </section>
                 </>

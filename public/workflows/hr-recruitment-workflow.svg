@@ -1,0 +1,185 @@
+<svg width="1600" height="980" viewBox="0 0 1600 980" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Workflow HR Rekrutmen</title>
+  <desc id="desc">Diagram alur HR rekrutmen dari kebutuhan karyawan sampai kandidat diterima, dengan cabang talent pool dan tidak lanjut.</desc>
+  <defs>
+    <linearGradient id="bg" x1="154" y1="94" x2="1440" y2="902" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="0.52" stop-color="#EFF6FF"/>
+      <stop offset="1" stop-color="#ECFDF5"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="258" y1="228" x2="1337" y2="770" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="0.52" stop-color="#0369A1"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1600" height="980" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="16"/>
+      <feGaussianBlur stdDeviation="16"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0588235 0 0 0 0 0.0941176 0 0 0 0 0.164706 0 0 0 0.08 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+    <style>
+      .title { font: 700 36px 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .subtitle { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #475569; }
+      .label { font: 700 17px 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .body { font: 400 14px 'Segoe UI', Arial, sans-serif; fill: #475569; }
+      .mini { font: 600 12px 'Segoe UI', Arial, sans-serif; fill: #0369A1; letter-spacing: 0.08em; text-transform: uppercase; }
+      .legend { font: 600 13px 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .badge { font: 700 12px 'Segoe UI', Arial, sans-serif; fill: white; }
+      .num { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: white; }
+    </style>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse">
+      <path d="M1.5 1.5L10.5 6L1.5 10.5V1.5Z" fill="#0F172A"/>
+    </marker>
+    <marker id="arrowSoft" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse">
+      <path d="M1.5 1.5L10.5 6L1.5 10.5V1.5Z" fill="#0369A1"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="980" rx="36" fill="url(#bg)"/>
+  <circle cx="150" cy="154" r="120" fill="#DBEAFE" opacity="0.65"/>
+  <circle cx="1450" cy="860" r="140" fill="#D1FAE5" opacity="0.7"/>
+  <circle cx="1360" cy="138" r="92" fill="#E2E8F0" opacity="0.8"/>
+
+  <g>
+    <text x="96" y="96" class="mini">HR Recruitment Workflow</text>
+    <text x="96" y="142" class="title">Alur Rekrutmen dari Kebutuhan sampai Hiring</text>
+    <text x="96" y="176" class="subtitle">Satu peta visual untuk bantu HR, owner, dan supervisor melihat langkah utama, keputusan, dan output proses.</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="92" y="224" width="174" height="118" rx="28" fill="#0F172A"/>
+    <circle cx="138" cy="271" r="21" fill="#1E293B"/>
+    <text x="131" y="278" class="num">1</text>
+    <text x="169" y="266" class="badge">Mulai</text>
+    <text x="124" y="304" class="label" fill="white">Kebutuhan</text>
+    <text x="124" y="326" class="label" fill="white">Karyawan</text>
+    <text x="124" y="354" class="body" fill="#CBD5E1">Posisi, jumlah, target masuk</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="314" y="224" width="214" height="118" rx="28" fill="white"/>
+    <rect x="336" y="244" width="72" height="28" rx="14" fill="#E0F2FE"/>
+    <text x="354" y="263" class="mini">Step 2</text>
+    <text x="336" y="304" class="label">Posting</text>
+    <text x="336" y="326" class="label">Lowongan</text>
+    <text x="336" y="354" class="body">Job portal, WhatsApp, Instagram, referral</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="568" y="224" width="232" height="118" rx="28" fill="white"/>
+    <rect x="590" y="244" width="82" height="28" rx="14" fill="#E0F2FE"/>
+    <text x="608" y="263" class="mini">Step 3</text>
+    <text x="590" y="304" class="label">Kandidat Isi</text>
+    <text x="590" y="326" class="label">Form Pelamar</text>
+    <text x="590" y="354" class="body">CV, kontak, domisili, pengalaman</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="842" y="224" width="220" height="118" rx="28" fill="white"/>
+    <rect x="864" y="244" width="88" height="28" rx="14" fill="#DCFCE7"/>
+    <text x="882" y="263" class="mini" fill="#059669">Step 4</text>
+    <text x="864" y="304" class="label">Database</text>
+    <text x="864" y="326" class="label">Pelamar</text>
+    <text x="864" y="354" class="body">Data masuk rapi dan siap diproses</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1104" y="224" width="230" height="118" rx="28" fill="white"/>
+    <rect x="1126" y="244" width="96" height="28" rx="14" fill="#FEF3C7"/>
+    <text x="1144" y="263" class="mini" fill="#B45309">Step 5</text>
+    <text x="1126" y="304" class="label">Seleksi Awal</text>
+    <text x="1126" y="326" class="label">dan Screening</text>
+    <text x="1126" y="354" class="body">Cek domisili, gaji, shift, pengalaman</text>
+  </g>
+
+  <path d="M266 283H314" stroke="#0F172A" stroke-width="6" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M528 283H568" stroke="#0F172A" stroke-width="6" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M800 283H842" stroke="#0F172A" stroke-width="6" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M1062 283H1104" stroke="#0F172A" stroke-width="6" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <path d="M738 462L879 398L1020 462L879 526L738 462Z" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="3"/>
+    <text x="836" y="447" class="mini">Decision</text>
+    <text x="799" y="475" class="label">Layak lanjut</text>
+    <text x="781" y="497" class="label">ke tahap berikutnya?</text>
+  </g>
+
+  <path d="M1219 342V394H964" stroke="#0F172A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="378" y="608" width="230" height="126" rx="28" fill="white"/>
+    <rect x="400" y="628" width="86" height="28" rx="14" fill="#E0F2FE"/>
+    <text x="418" y="647" class="mini">Step 6</text>
+    <text x="400" y="688" class="label">Tes Kerja</text>
+    <text x="400" y="716" class="body">DISC, ketelitian, typing, attitude</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="670" y="608" width="230" height="126" rx="28" fill="white"/>
+    <rect x="692" y="628" width="86" height="28" rx="14" fill="#E0F2FE"/>
+    <text x="710" y="647" class="mini">Step 7</text>
+    <text x="692" y="688" class="label">Wawancara</text>
+    <text x="692" y="716" class="body">HR dan user interview, catatan keputusan</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="962" y="608" width="230" height="126" rx="28" fill="white"/>
+    <rect x="984" y="628" width="102" height="28" rx="14" fill="#E0F2FE"/>
+    <text x="1002" y="647" class="mini">Step 8</text>
+    <text x="984" y="688" class="label">Penawaran</text>
+    <text x="984" y="710" class="label">Kerja</text>
+    <text x="984" y="738" class="body">Offer, negosiasi, tanggal mulai kerja</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1254" y="608" width="248" height="126" rx="28" fill="#059669"/>
+    <circle cx="1298" cy="655" r="21" fill="#047857"/>
+    <text x="1291" y="662" class="num">9</text>
+    <text x="1328" y="650" class="badge">Finish</text>
+    <text x="1328" y="688" class="label" fill="white">Diterima dan</text>
+    <text x="1328" y="710" class="label" fill="white">Onboarding</text>
+    <text x="1328" y="738" class="body" fill="#D1FAE5">Masuk ke data karyawan baru</text>
+  </g>
+
+  <path d="M879 526V570H493V608" stroke="#0369A1" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowSoft)"/>
+  <path d="M493 608H670" stroke="#0369A1" stroke-width="6" stroke-linecap="round" marker-end="url(#arrowSoft)"/>
+  <path d="M900 671H962" stroke="#0369A1" stroke-width="6" stroke-linecap="round" marker-end="url(#arrowSoft)"/>
+  <path d="M1192 671H1254" stroke="#0369A1" stroke-width="6" stroke-linecap="round" marker-end="url(#arrowSoft)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="84" y="608" width="236" height="126" rx="28" fill="#FFFBEB"/>
+    <rect x="106" y="628" width="116" height="28" rx="14" fill="#FDE68A"/>
+    <text x="124" y="647" class="mini" fill="#A16207">Decision output</text>
+    <text x="106" y="688" class="label">Talent Pool</text>
+    <text x="106" y="716" class="body">Kandidat potensial disimpan untuk kebutuhan berikutnya</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="84" y="792" width="236" height="104" rx="28" fill="#FEF2F2"/>
+    <rect x="106" y="812" width="106" height="28" rx="14" fill="#FECACA"/>
+    <text x="124" y="831" class="mini" fill="#B91C1C">Decision output</text>
+    <text x="106" y="872" class="label">Tidak Lanjut</text>
+    <text x="106" y="900" class="body">Status kandidat ditutup dengan alasan yang jelas</text>
+  </g>
+
+  <path d="M738 462H456V671H320" stroke="#B45309" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowSoft)"/>
+  <path d="M738 462H392V844H320" stroke="#DC2626" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowSoft)"/>
+  <text x="530" y="438" class="legend" fill="#B45309">Belum cocok sekarang, tapi masih potensial</text>
+  <text x="464" y="866" class="legend" fill="#B91C1C">Tidak sesuai kebutuhan / tidak merespons</text>
+
+  <g filter="url(#shadow)">
+    <rect x="1078" y="792" width="424" height="104" rx="28" fill="white"/>
+    <circle cx="1118" cy="844" r="9" fill="#0F172A"/>
+    <text x="1140" y="849" class="legend">Alur utama dari kebutuhan sampai kandidat diterima</text>
+    <circle cx="1118" cy="882" r="9" fill="#0369A1"/>
+    <text x="1140" y="887" class="legend">Tahap evaluasi dan perpindahan kandidat</text>
+    <rect x="1340" y="829" width="118" height="30" rx="15" fill="#EEF2FF"/>
+    <text x="1362" y="849" class="mini">Output</text>
+  </g>
+
+  <path d="M96 510H1504" stroke="url(#accent)" stroke-opacity="0.16" stroke-width="2" stroke-dasharray="10 12"/>
+</svg>

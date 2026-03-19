@@ -69,6 +69,7 @@ export default function WorkflowPage() {
   const [activeTab, setActiveTab] = useState("semua");
   const [filters, setFilters] = useState(emptyFilters);
   const [selectedFlow, setSelectedFlow] = useState(null);
+  const showRecruitmentWorkflowPreview = activeTab === "semua" || activeTab === "rekrutmen" || activeTab === "panduan-singkat";
 
   const filterOptions = useMemo(() => {
     const jenisProses = ["Semua jenis proses", ...new Set(workflowDirectory.map((item) => item.kategoriAlur))];
@@ -227,6 +228,46 @@ export default function WorkflowPage() {
           <SummaryCard key={item.label} {...item} />
         ))}
       </div>
+
+      {showRecruitmentWorkflowPreview ? (
+        <Card className="overflow-hidden rounded-[28px] border-slate-200 shadow-sm">
+          <CardContent className="grid gap-6 bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 p-0 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.45fr)]">
+            <div className="flex flex-col justify-between gap-5 p-6 lg:p-7">
+              <div className="space-y-4">
+                <div className="inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-100">
+                  Visual Workflow
+                </div>
+                <div>
+                  <div className="text-2xl font-semibold text-white lg:text-3xl">Gambar workflow HR rekrutmen</div>
+                  <div className="mt-3 max-w-xl text-sm leading-7 text-slate-300">
+                    Diagram ini merangkum alur inti dari kebutuhan karyawan, posting lowongan, form pelamar, screening, tes, wawancara,
+                    penawaran kerja, sampai kandidat diterima atau disimpan ke talent pool.
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-sm text-slate-200">
+                  Fokus utama: bantu HR cepat paham langkah, keputusan, dan output tiap tahap.
+                </div>
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">
+                  Bisa dipakai untuk presentasi, SOP internal, atau hero visual di modul rekrutmen.
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 lg:p-5">
+              <div className="rounded-[24px] border border-white/10 bg-white/95 p-3 shadow-2xl">
+                <img
+                  src="/workflows/hr-recruitment-workflow.svg"
+                  alt="Workflow HR rekrutmen dari kebutuhan karyawan hingga onboarding"
+                  className="h-auto w-full rounded-[18px]"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="rounded-2xl border-slate-200 shadow-sm">
         <CardContent className="flex flex-wrap gap-2 p-4">

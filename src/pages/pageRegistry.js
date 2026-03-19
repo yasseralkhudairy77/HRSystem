@@ -1,4 +1,5 @@
 import AlertCenterPage from "@/pages/AlertCenterPage";
+import ApprovalMatrixPage from "@/pages/ApprovalMatrixPage";
 import AssessmentPage from "@/pages/AssessmentPage";
 import BillingPage from "@/pages/BillingPage";
 import CandidatesPage from "@/pages/CandidatesPage";
@@ -14,6 +15,7 @@ import KebutuhanSupabaseTestPage from "@/pages/KebutuhanSupabaseTestPage";
 import LettersPage from "@/pages/LettersPage";
 import OffboardingPage from "@/pages/OffboardingPage";
 import OnboardingPage from "@/pages/OnboardingPage";
+import OrganizationStructurePage from "@/pages/OrganizationStructurePage";
 import PerformancePage from "@/pages/PerformancePage";
 import PipelinePage from "@/pages/PipelinePage";
 import PsychotestResultsPage from "@/pages/PsychotestResultsPage";
@@ -31,6 +33,7 @@ import WorkflowPage from "@/pages/WorkflowPage";
 export const pageComponents = {
   dashboard: DashboardPage,
   alerts: AlertCenterPage,
+  "approval-matrix": ApprovalMatrixPage,
   "hiring-plan": HiringPlanPage,
   jobs: JobsPage,
   "test-kebutuhan-supabase": KebutuhanSupabaseTestPage,
@@ -41,6 +44,7 @@ export const pageComponents = {
   pipeline: PipelinePage,
   interview: InterviewPage,
   employees: EmployeesPage,
+  "organization-structure": OrganizationStructurePage,
   onboarding: OnboardingPage,
   contracts: ContractsPage,
   letters: LettersPage,

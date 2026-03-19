@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import AppSidebar from "@/components/layout/AppSidebar";
 import TopHero from "@/components/layout/TopHero";
@@ -8,6 +8,18 @@ import { pageComponents } from "@/pages/pageRegistry";
 export default function App() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    function handleNavigate(event) {
+      const menu = event?.detail?.menu;
+      if (typeof menu === "string" && pageComponents[menu]) {
+        setActiveMenu(menu);
+      }
+    }
+
+    window.addEventListener("app:navigate", handleNavigate);
+    return () => window.removeEventListener("app:navigate", handleNavigate);
+  }, []);
 
   const visibleSidebarSections = useMemo(
     () =>

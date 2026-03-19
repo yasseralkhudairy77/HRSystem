@@ -73,4 +73,80 @@
   .enterprise-grid {
     @apply grid gap-4 xl:gap-5;
   }
+
+  .org-chart-shell {
+    background:
+      radial-gradient(circle at top center, rgba(22, 61, 112, 0.07), transparent 28%),
+      linear-gradient(180deg, rgba(247, 249, 252, 0.88), rgba(255, 255, 255, 0.96));
+    border: 1px solid rgba(214, 222, 234, 0.9);
+    border-radius: 14px;
+  }
+
+  .org-chart ul {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 18px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .org-chart-children-root {
+    width: max-content;
+  }
+
+  .org-chart li {
+    list-style: none;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 0;
+    text-align: center;
+  }
+
+  .org-chart-children-root > .org-chart-item {
+    padding-top: 0;
+  }
+
+  .org-chart li::before,
+  .org-chart li::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 50%;
+    width: 50%;
+    height: 24px;
+    border-top: 1px solid rgba(191, 204, 220, 0.95);
+  }
+
+  .org-chart li::after {
+    left: 50%;
+    right: auto;
+    border-left: 1px solid rgba(191, 204, 220, 0.95);
+  }
+
+  .org-chart li:only-child::before,
+  .org-chart li:only-child::after {
+    display: none;
+  }
+
+  .org-chart li:only-child {
+    padding-top: 0;
+  }
+
+  .org-chart li:first-child::before,
+  .org-chart li:last-child::after {
+    border: 0;
+  }
+
+  .org-chart li:last-child::before {
+    border-right: 1px solid rgba(191, 204, 220, 0.95);
+    border-radius: 0 10px 0 0;
+  }
+
+  .org-chart li:first-child::after {
+    border-radius: 10px 0 0 0;
+  }
 }

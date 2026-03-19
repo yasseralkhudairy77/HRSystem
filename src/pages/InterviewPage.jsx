@@ -251,7 +251,7 @@ function getInterviewStatus(item, hasValidInterviewDate, decision) {
 }
 
 function mapPelamarToInterview(item, activePackage = null) {
-  if (!item || (!item.interview_datetime && item.tahap_proses !== "Wawancara")) return null;
+  if (!item || item.tahap_proses !== "Wawancara") return null;
 
   const interviewDate = item.interview_datetime ? new Date(item.interview_datetime) : null;
   const hasValidInterviewDate = interviewDate && !Number.isNaN(interviewDate.getTime());

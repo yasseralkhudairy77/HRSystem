@@ -576,17 +576,23 @@
         return `${ONBOARDING_STORAGE_PREFIX}${token}`;
       }
 
-      function hasClaimedAccess() {
+      function getStoredAccessSecret() {
         try {
-          return window.sessionStorage.getItem(getClaimStorageKey()) === "1";
+          return window.sessionStorage.getItem(getClaimStorageKey()) || "";
         } catch {
-          return false;
+          return "";
         }
       }
 
-      function setClaimedAccess() {
+      function hasClaimedAccess() {
+        return Boolean(getStoredAccessSecret());
+      }
+
+      function setClaimedAccess(accessSecret) {
+        if (!accessSecret) return;
+
         try {
-          window.sessionStorage.setItem(getClaimStorageKey(), "1");
+          window.sessionStorage.setItem(getClaimStorageKey(), accessSecret);
         } catch {
           // sessionStorage unavailable; kandidat tetap bisa lanjut di tab ini
         }
@@ -752,6 +758,18 @@
         const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, "0");
         const remainder = String(safeSeconds % 60).padStart(2, "0");
         return `${minutes}:${remainder}`;
+      }
+
+      function getPublicInterviewAiRpcParams() {
+        return {
+          p_link_token: token,
+          p_access_secret: getStoredAccessSecret() || null,
+        };
+      }
+
+      function isAccessDeniedError(error) {
+        const message = String(error?.message || error?.details || "").toUpperCase();
+        return message.includes("INTERVIEW_AI_ACCESS_DENIED");
       }
 
       function getPreferredMimeType() {
@@ -989,43 +1007,32 @@
         return items[activeIndex] || null;
       }
 
-      async function updateCandidateStatus(statusLabelValue) {
-        if (!packageRow?.pelamar?.id) {
-          return;
-        }
-
-        await supabase
-          .from("pelamar")
-          .update({
-            tahap_proses: "Wawancara AI",
-            status_tindak_lanjut: statusLabelValue,
-          })
-          .eq("id", packageRow.pelamar.id);
-      }
-
-      async function markPackageOpened() {
-        if (!packageRow || packageRow.status !== "sent") {
-          return;
-        }
-
-        const now = new Date().toISOString();
-        const { error } = await supabase
-          .from("candidate_test_packages")
-          .update({
-            status: "opened",
-            opened_at: now,
-          })
-          .eq("id", packageRow.id);
+      async function savePublicSessionResponse(item, uploadResult) {
+        const { data, error } = await supabase.rpc("save_public_interview_ai_audio_answer", {
+          ...getPublicInterviewAiRpcParams(),
+          p_item_id: item.id,
+          p_audio_bucket: uploadResult.audioBucket,
+          p_audio_path: uploadResult.audioPath,
+          p_audio_url: uploadResult.audioUrl,
+          p_audio_duration_seconds: uploadResult.durationSeconds,
+          p_audio_mime_type: uploadResult.audioMimeType,
+        });
 
         if (error) {
-          console.error("Gagal membuka sesi Wawancara AI:", error);
-          return;
+          throw error;
         }
 
-        packageRow.status = "opened";
-        packageRow.opened_at = now;
-        setClaimedAccess();
-        await updateCandidateStatus("Sedang dikerjakan");
+        return data;
+      }
+
+      async function finishPublicInterviewSession() {
+        const { data, error } = await supabase.rpc("finish_public_interview_ai_session", getPublicInterviewAiRpcParams());
+
+        if (error) {
+          throw error;
+        }
+
+        return data;
       }
 
       function renderStepper() {
@@ -1114,49 +1121,37 @@
       }
 
       async function refreshPackage() {
-        const { data, error } = await supabase
-          .from("candidate_test_packages")
-          .select(`
-            *,
-            pelamar:pelamar_id (
-              id,
-              nama_lengkap,
-              posisi_dilamar,
-              no_hp,
-              email,
-              alamat_domisili,
-              tahap_proses,
-              status_tindak_lanjut
-            ),
-            candidate_test_package_items (*)
-          `)
-          .eq("link_token", token)
-          .single();
+        const { data, error } = await supabase.rpc("get_public_interview_ai_session", getPublicInterviewAiRpcParams());
 
-        if (error || !data || data.template_key !== INTERVIEW_AI_TEMPLATE_KEY) {
-          renderAccessClosed("Sesi Wawancara AI tidak ditemukan", "Pastikan link yang Anda buka benar atau hubungi recruiter.", "Tidak tersedia");
-          return false;
-        }
-
-        if (data.opened_at && !hasClaimedAccess()) {
+        if (isAccessDeniedError(error)) {
           renderAccessClosed(
             "Link wawancara sudah digunakan",
-            "Untuk alasan keamanan, undangan Wawancara AI ini hanya bisa dibuka satu kali. Silakan hubungi recruiter jika membutuhkan link baru.",
+            "Untuk alasan keamanan, undangan Wawancara AI ini hanya bisa dibuka pada sesi yang pertama kali mengklaim link. Silakan hubungi recruiter jika membutuhkan link baru.",
             "Sudah dipakai",
           );
           return false;
         }
 
-        packageRow = data;
-        items = [...(data.candidate_test_package_items || [])].sort((left, right) => left.test_order - right.test_order);
-        onboardingCompleted = hasCompletedOnboarding() || data.status === "completed" || data.status === "reviewed";
+        const sessionData = data?.session || null;
+        const accessSecret = data?.access_secret || getStoredAccessSecret();
 
-        candidateNameEl.textContent = data.pelamar?.nama_lengkap || "Kandidat";
-        candidateSubtitleEl.textContent = `${data.pelamar?.posisi_dilamar || "-"} / Jawab seluruh pertanyaan sebelum deadline berakhir.`;
-        metaPositionEl.textContent = data.pelamar?.posisi_dilamar || "-";
-        metaDeadlineEl.textContent = formatDateTime(data.deadline_at);
+        if (error || !sessionData || sessionData.template_key !== INTERVIEW_AI_TEMPLATE_KEY) {
+          renderAccessClosed("Sesi Wawancara AI tidak ditemukan", "Pastikan link yang Anda buka benar atau hubungi recruiter.", "Tidak tersedia");
+          return false;
+        }
 
-        if (data.status === "completed" || data.status === "reviewed") {
+        setClaimedAccess(accessSecret);
+
+        packageRow = sessionData;
+        items = [...(sessionData.candidate_test_package_items || [])].sort((left, right) => left.test_order - right.test_order);
+        onboardingCompleted = hasCompletedOnboarding() || sessionData.status === "completed" || sessionData.status === "reviewed";
+
+        candidateNameEl.textContent = sessionData.pelamar?.nama_lengkap || "Kandidat";
+        candidateSubtitleEl.textContent = `${sessionData.pelamar?.posisi_dilamar || "-"} / Jawab seluruh pertanyaan sebelum deadline berakhir.`;
+        metaPositionEl.textContent = sessionData.pelamar?.posisi_dilamar || "-";
+        metaDeadlineEl.textContent = formatDateTime(sessionData.deadline_at);
+
+        if (sessionData.status === "completed" || sessionData.status === "reviewed") {
           completionNoticeEl.style.display = "block";
           completionNoticeEl.textContent = "Sesi ini sudah selesai dikirim. Jika recruiter meminta revisi, silakan gunakan link baru dari recruiter.";
         } else {
@@ -1208,7 +1203,6 @@
         recordBtn.disabled = true;
         stopRecordBtn.disabled = true;
 
-        const now = new Date().toISOString();
         let uploadResult;
 
         try {
@@ -1224,29 +1218,11 @@
           return;
         }
 
-        const nextResultJson = {
-          ...(item.result_json || {}),
-          answer_mode: "audio",
-          answer_audio_bucket: uploadResult.audioBucket,
-          answer_audio_path: uploadResult.audioPath,
-          answer_audio_url: uploadResult.audioUrl,
-          answer_audio_duration_seconds: uploadResult.durationSeconds,
-          answer_audio_mime_type: uploadResult.audioMimeType,
-          answered_at: now,
-        };
+        let nextPackageData;
 
-        const { error: itemError } = await supabase
-          .from("candidate_test_package_items")
-          .update({
-            status: "completed",
-            started_at: item.started_at || now,
-            completed_at: now,
-            summary: `Jawaban audio kandidat${uploadResult.durationSeconds > 0 ? ` (${formatDuration(uploadResult.durationSeconds)})` : ""}`,
-            result_json: nextResultJson,
-          })
-          .eq("id", item.id);
-
-        if (itemError) {
+        try {
+          nextPackageData = await savePublicSessionResponse(item, uploadResult);
+        } catch (itemError) {
           console.error("Gagal menyimpan jawaban Wawancara AI:", itemError);
           window.alert("Jawaban belum berhasil disimpan. Coba lagi.");
           saveBtn.disabled = false;
@@ -1258,19 +1234,10 @@
           return;
         }
 
-        if (packageRow.status === "opened" || packageRow.status === "sent") {
-          await supabase
-            .from("candidate_test_packages")
-            .update({
-              status: "in_progress",
-            })
-            .eq("id", packageRow.id);
-          packageRow.status = "in_progress";
-        }
-
-        await updateCandidateStatus("Sedang dikerjakan");
         resetDraftAudio();
-        await refreshPackage();
+        packageRow = nextPackageData;
+        items = [...(nextPackageData?.candidate_test_package_items || [])].sort((left, right) => left.test_order - right.test_order);
+        onboardingCompleted = hasCompletedOnboarding() || nextPackageData?.status === "completed" || nextPackageData?.status === "reviewed";
 
         if (moveDirection === "next" && activeIndex < items.length - 1) {
           activeIndex += 1;
@@ -1302,26 +1269,21 @@
         }
 
         finishBtn.disabled = true;
-        const now = new Date().toISOString();
 
-        const { error } = await supabase
-          .from("candidate_test_packages")
-          .update({
-            status: "completed",
-            completed_at: now,
-            overall_summary: `Kandidat menyelesaikan ${items.length} pertanyaan Wawancara AI dan menunggu review recruiter.`,
-          })
-          .eq("id", packageRow.id);
+        let nextPackageData;
 
-        if (error) {
+        try {
+          nextPackageData = await finishPublicInterviewSession();
+        } catch (error) {
           console.error("Gagal menyelesaikan sesi Wawancara AI:", error);
           window.alert("Sesi belum berhasil dikirim. Coba lagi.");
           finishBtn.disabled = false;
           return;
         }
 
-        await updateCandidateStatus("Sudah selesai");
-        await refreshPackage();
+        packageRow = nextPackageData;
+        items = [...(nextPackageData?.candidate_test_package_items || [])].sort((left, right) => left.test_order - right.test_order);
+        onboardingCompleted = true;
         renderQuestion();
         finishBtn.disabled = false;
       }
@@ -1391,7 +1353,6 @@
 
       refreshPackage().then(async (loaded) => {
         if (!loaded) return;
-        await markPackageOpened();
         applyOnboardingVisibility();
         renderQuestion();
       });

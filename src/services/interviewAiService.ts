@@ -1,33 +1,20 @@
 import { supabase } from "@/lib/supabase";
-import { buildInterviewAiPackageItems, INTERVIEW_AI_TEMPLATE_KEY, INTERVIEW_AI_TEMPLATE_NAME } from "@/data/interviewAiQuestions";
-import { loadInterviewAiQuestionBank } from "@/services/interviewAiQuestionBankService";
 import type { InterviewAiPackage } from "@/types/interviewAi";
-
-const PACKAGE_TABLE = "candidate_test_packages";
-const PACKAGE_ITEM_TABLE = "candidate_test_package_items";
-
-function packageSelectQuery() {
-  return `
-    *,
-    pelamar:pelamar_id (
-      id,
-      nama_lengkap,
-      posisi_dilamar,
-      no_hp,
-      email,
-      alamat_domisili,
-      tanggal_lahir,
-      tahap_proses,
-      status_tindak_lanjut,
-      catatan_recruiter,
-      penilaian_singkat
-    ),
-    candidate_test_package_items (*)
-  `;
-}
 
 function sortPackageItems(items = []) {
   return [...items].sort((left, right) => left.test_order - right.test_order);
+}
+
+function normalizeInterviewAiPackage(row: unknown) {
+  if (!row || typeof row !== "object") {
+    return null;
+  }
+
+  const normalized = row as InterviewAiPackage;
+  return {
+    ...normalized,
+    candidate_test_package_items: sortPackageItems(normalized.candidate_test_package_items || []),
+  } as InterviewAiPackage;
 }
 
 export function buildInterviewAiLink(origin: string, token: string) {
@@ -67,12 +54,9 @@ export async function getInterviewAiPackageMapByPelamarIds(pelamarIds: number[])
     return {};
   }
 
-  const { data, error } = await supabase
-    .from(PACKAGE_TABLE)
-    .select(packageSelectQuery())
-    .eq("template_key", INTERVIEW_AI_TEMPLATE_KEY)
-    .in("pelamar_id", pelamarIds)
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.rpc("get_interview_ai_packages_by_pelamar_ids", {
+    p_pelamar_ids: pelamarIds,
+  });
 
   if (error) {
     console.error("Supabase gagal load map package Wawancara AI:", error);
@@ -81,12 +65,10 @@ export async function getInterviewAiPackageMapByPelamarIds(pelamarIds: number[])
 
   const map: Record<number, InterviewAiPackage> = {};
 
-  (data || []).forEach((item) => {
-    if (!map[item.pelamar_id]) {
-      map[item.pelamar_id] = {
-        ...item,
-        candidate_test_package_items: sortPackageItems(item.candidate_test_package_items || []),
-      } as InterviewAiPackage;
+  (Array.isArray(data) ? data : []).forEach((item) => {
+    const normalized = normalizeInterviewAiPackage(item);
+    if (normalized?.pelamar_id && !map[normalized.pelamar_id]) {
+      map[normalized.pelamar_id] = normalized;
     }
   });
 
@@ -101,63 +83,26 @@ export async function createInterviewAiPackage(payload: {
   linkToken: string;
   linkUrl: string;
 }) {
-  const { data: packageRow, error: packageError } = await supabase
-    .from(PACKAGE_TABLE)
-    .insert({
-      pelamar_id: payload.pelamarId,
-      template_key: INTERVIEW_AI_TEMPLATE_KEY,
-      template_name: INTERVIEW_AI_TEMPLATE_NAME,
-      status: "sent",
-      link_token: payload.linkToken,
-      link_url: payload.linkUrl,
-      sent_at: new Date().toISOString(),
-      deadline_at: payload.deadlineAt,
-      created_by: payload.createdBy ?? null,
-      catatan_recruiter: payload.catatanRecruiter ?? null,
-      overall_summary: null,
-      overall_recommendation: null,
-      is_active: false,
-    })
-    .select("*")
-    .single();
+  const { data, error } = await supabase.rpc("create_interview_ai_package", {
+    p_pelamar_id: payload.pelamarId,
+    p_deadline_at: payload.deadlineAt,
+    p_created_by: payload.createdBy ?? null,
+    p_catatan_recruiter: payload.catatanRecruiter ?? null,
+    p_link_token: payload.linkToken,
+    p_link_url: payload.linkUrl,
+  });
 
-  if (packageError) {
-    console.error("Supabase gagal buat package Wawancara AI:", packageError);
-    throw packageError;
+  if (error) {
+    console.error("Supabase gagal buat package Wawancara AI:", error);
+    throw error;
   }
 
-  const questionBank = await loadInterviewAiQuestionBank();
-  const itemPayload = buildInterviewAiPackageItems(questionBank).map((item) => ({
-    package_id: packageRow.id,
-    ...item,
-  }));
-
-  if (!itemPayload.length) {
-    throw new Error("Bank pertanyaan Interview AI belum punya pertanyaan aktif. Buka Editor Interview AI lalu aktifkan minimal satu pertanyaan.");
+  const normalized = normalizeInterviewAiPackage(data);
+  if (!normalized) {
+    throw new Error("Package Wawancara AI belum berhasil dibuat.");
   }
 
-  const { error: itemError } = await supabase.from(PACKAGE_ITEM_TABLE).insert(itemPayload);
-
-  if (itemError) {
-    console.error("Supabase gagal buat item Wawancara AI:", itemError);
-    throw itemError;
-  }
-
-  const { data: fullPackage, error: refetchError } = await supabase
-    .from(PACKAGE_TABLE)
-    .select(packageSelectQuery())
-    .eq("id", packageRow.id)
-    .single();
-
-  if (refetchError) {
-    console.error("Supabase gagal load ulang package Wawancara AI:", refetchError);
-    throw refetchError;
-  }
-
-  return {
-    ...fullPackage,
-    candidate_test_package_items: sortPackageItems(fullPackage.candidate_test_package_items || []),
-  } as InterviewAiPackage;
+  return normalized;
 }
 
 export async function updateInterviewAiPackageReview(
@@ -169,28 +114,23 @@ export async function updateInterviewAiPackageReview(
     status?: string | null;
   },
 ) {
-  const updatePayload: Record<string, string | null> = {};
-
-  if (payload.overallSummary !== undefined) updatePayload.overall_summary = payload.overallSummary;
-  if (payload.overallRecommendation !== undefined) updatePayload.overall_recommendation = payload.overallRecommendation;
-  if (payload.catatanRecruiter !== undefined) updatePayload.catatan_recruiter = payload.catatanRecruiter;
-  if (payload.status) updatePayload.status = payload.status;
-  if (payload.status === "reviewed") updatePayload.reviewed_at = new Date().toISOString();
-
-  const { data, error } = await supabase
-    .from(PACKAGE_TABLE)
-    .update(updatePayload)
-    .eq("id", packageId)
-    .select(packageSelectQuery())
-    .single();
+  const { data, error } = await supabase.rpc("update_interview_ai_package_review", {
+    p_package_id: packageId,
+    p_overall_summary: payload.overallSummary ?? null,
+    p_overall_recommendation: payload.overallRecommendation ?? null,
+    p_catatan_recruiter: payload.catatanRecruiter ?? null,
+    p_status: payload.status ?? null,
+  });
 
   if (error) {
     console.error("Supabase gagal update review Wawancara AI:", error);
     throw error;
   }
 
-  return {
-    ...data,
-    candidate_test_package_items: sortPackageItems(data.candidate_test_package_items || []),
-  } as InterviewAiPackage;
+  const normalized = normalizeInterviewAiPackage(data);
+  if (!normalized) {
+    throw new Error("Review Wawancara AI belum berhasil diperbarui.");
+  }
+
+  return normalized;
 }

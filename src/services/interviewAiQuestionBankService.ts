@@ -2,8 +2,6 @@ import { interviewAiQuestionBank } from "@/data/interviewAiQuestions";
 import { supabase } from "@/lib/supabase";
 
 const STORAGE_KEY = "hireumkm.interview_ai.question_bank.v1";
-const QUESTION_BANK_TABLE = "interview_ai_question_bank_configs";
-const DEFAULT_CONFIG_KEY = "default";
 
 function cloneQuestion(question: Record<string, unknown>, index: number) {
   const key = String(question.key || `q${index + 1}`).trim() || `q${index + 1}`;
@@ -65,18 +63,14 @@ export function getInterviewAiQuestionBank() {
 
 export async function loadInterviewAiQuestionBank() {
   try {
-    const { data, error } = await supabase
-      .from(QUESTION_BANK_TABLE)
-      .select("question_bank")
-      .eq("config_key", DEFAULT_CONFIG_KEY)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc("get_interview_ai_question_bank");
 
     if (error) {
       throw error;
     }
 
-    if (data?.question_bank) {
-      return writeQuestionBankToLocal(data.question_bank);
+    if (data) {
+      return writeQuestionBankToLocal(data);
     }
   } catch (error) {
     console.warn("Question bank Wawancara AI belum berhasil dimuat dari Supabase, sistem memakai salinan lokal.", error);
@@ -92,14 +86,9 @@ export function saveInterviewAiQuestionBank(questionBank: unknown) {
 export async function saveInterviewAiQuestionBankToSupabase(questionBank: unknown, options?: { updatedBy?: string | null }) {
   const normalized = writeQuestionBankToLocal(questionBank);
 
-  const payload = {
-    config_key: DEFAULT_CONFIG_KEY,
-    question_bank: normalized,
-    updated_by: options?.updatedBy ?? null,
-  };
-
-  const { error } = await supabase.from(QUESTION_BANK_TABLE).upsert(payload, {
-    onConflict: "config_key",
+  const { error } = await supabase.rpc("save_interview_ai_question_bank", {
+    p_question_bank: normalized,
+    p_updated_by: options?.updatedBy ?? null,
   });
 
   if (error) {
