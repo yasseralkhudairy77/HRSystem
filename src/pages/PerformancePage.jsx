@@ -16,6 +16,7 @@ const quickTabs = [
   { key: "selesai", label: "Selesai" },
 ];
 const scoreOptions = ["Kurang", "Cukup", "Baik", "Sangat baik"];
+const PERFORMANCE_PROBATION_TARGET_KEY = "performance:probation-target";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -123,6 +124,18 @@ export default function PerformancePage() {
         };
       }).filter(Boolean);
       setRows(mapped);
+      const targetRaw = window.sessionStorage.getItem(PERFORMANCE_PROBATION_TARGET_KEY);
+      if (targetRaw) {
+        try {
+          const target = JSON.parse(targetRaw);
+          const matched = mapped.find((item) => item.employee.id === target.employeeId);
+          if (matched) setSelected(matched);
+        } catch (error) {
+          console.warn("Target probation navigation tidak valid:", error);
+        } finally {
+          window.sessionStorage.removeItem(PERFORMANCE_PROBATION_TARGET_KEY);
+        }
+      }
     } catch (error) {
       console.error("Load probation page gagal:", error);
       setErrorMessage(error instanceof Error ? error.message : "Gagal memuat evaluasi probation.");

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { employeeDetailTabs, employeeProfileRecords, roleAccessBlueprint, rolePreviewOptions } from "@/data/employeeProfiles";
 import { mapEmployeeRecordToProfile } from "@/lib/employeeRecordMapper";
 import { createManualEmployee, getEmployeeList, updateEmployee } from "@/services/employeeService";
+import { ensureProbationReviewForEmployee, getProbationReviewByEmployeeId } from "@/services/probationReviewService";
 import type {
   EmployeeDocumentRecord,
   EmployeeEducationRecord,
@@ -24,6 +25,7 @@ import type {
   EmployeeTabKey,
 } from "@/types/employeeProfile";
 import type { EmployeeRecord, ManualEmployeeFormInput } from "@/types/employee";
+import type { ProbationReview } from "@/types/probation";
 
 type StructuredTableColumn<T extends Record<string, string>> = {
   key: keyof T;
@@ -40,6 +42,12 @@ const manualGenderOptions = ["Laki-laki", "Perempuan"];
 const manualMaritalOptions = ["Belum menikah", "Menikah", "Cerai"];
 const jobLevelOptions = ["Director", "Head", "Manager", "Supervisor", "Senior Staff", "Staff"];
 const EMPLOYEE_NAVIGATION_TARGET_KEY = "employees:navigation-target";
+const PERFORMANCE_PROBATION_TARGET_KEY = "performance:probation-target";
+
+function formatShortDate(value: string | null | undefined) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 function defaultManualForm(): ManualEmployeeFormInput {
   return {
@@ -449,6 +457,8 @@ export default function EmployeesPage() {
   const [manualForm, setManualForm] = useState<ManualEmployeeFormInput>(defaultManualForm());
   const [isCreatingManualEmployee, setIsCreatingManualEmployee] = useState(false);
   const [isSavingOrgSettings, setIsSavingOrgSettings] = useState(false);
+  const [selectedProbationReview, setSelectedProbationReview] = useState<ProbationReview | null>(null);
+  const [isLoadingProbation, setIsLoadingProbation] = useState(false);
 
   useEffect(() => {
     void loadEmployees();
@@ -480,6 +490,40 @@ export default function EmployeesPage() {
       window.sessionStorage.removeItem(EMPLOYEE_NAVIGATION_TARGET_KEY);
     }
   }, [employeeRecords]);
+
+  useEffect(() => {
+    async function loadProbationReview() {
+      if (!selectedEmployeeRaw) {
+        setSelectedProbationReview(null);
+        return;
+      }
+
+      if (String(selectedEmployeeRaw.status_kerja || "").trim().toLowerCase() !== "probation") {
+        setSelectedProbationReview(null);
+        return;
+      }
+
+      setIsLoadingProbation(true);
+      try {
+        await ensureProbationReviewForEmployee({
+          employeeId: selectedEmployeeRaw.id,
+          statusKerja: selectedEmployeeRaw.status_kerja,
+          startDate: selectedEmployeeRaw.tanggal_masuk,
+          evaluatorName: selectedEmployeeRaw.atasan,
+          evaluatorRole: "Atasan langsung",
+        });
+        const review = await getProbationReviewByEmployeeId(selectedEmployeeRaw.id);
+        setSelectedProbationReview(review);
+      } catch (error) {
+        console.warn("Load probation review employee belum berhasil:", error);
+        setSelectedProbationReview(null);
+      } finally {
+        setIsLoadingProbation(false);
+      }
+    }
+
+    void loadProbationReview();
+  }, [selectedEmployeeRaw]);
 
   async function loadEmployees() {
     setLoading(true);
@@ -683,6 +727,44 @@ export default function EmployeesPage() {
     </Card>
   ) : null;
 
+  const probationSection = selectedEmployeeRaw && String(selectedEmployeeRaw.status_kerja || "").trim().toLowerCase() === "probation" ? (
+    <Card className={employeeDensity.cardFlat}>
+      <CardContent className={employeeDensity.mainPadding}>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className={employeeDensity.sectionTitle}>Evaluasi Probation</div>
+            <div className={employeeDensity.sectionDescription}>Status probation karyawan ini tersambung ke modul Penilaian Kerja agar HR dan atasan bisa lanjut menilai tanpa pindah alur.</div>
+          </div>
+          {selectedProbationReview ? <StatusBadge value={selectedProbationReview.decision || selectedProbationReview.status_review} /> : null}
+        </div>
+
+        {isLoadingProbation ? (
+          <div className="mt-4 flex items-center gap-2 rounded-[10px] border border-[var(--border-soft)] bg-[var(--surface-0)] px-3.5 py-3 text-[13px] text-[var(--text-muted)]">
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+            Memuat status probation...
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className={`${employeeDensity.inset} p-3`}>
+              <div className={employeeDensity.fieldLabel}>Evaluator</div>
+              <div className="mt-1.5 font-medium text-[var(--text-main)]">{selectedProbationReview?.evaluator_name || selectedEmployeeRaw.atasan || "Atasan langsung"}</div>
+            </div>
+            <div className={`${employeeDensity.inset} p-3`}>
+              <div className={employeeDensity.fieldLabel}>Tanggal evaluasi</div>
+              <div className="mt-1.5 font-medium text-[var(--text-main)]">{formatShortDate(selectedProbationReview?.evaluation_date || selectedProbationReview?.end_date)}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button className="rounded-[10px]" onClick={openProbationEvaluation}>
+            Buka Evaluasi Probation
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  ) : null;
+
   function handleQuickAction(actionId: string) {
     if (actionId === "documents") setActiveTab("documents");
     if (actionId === "history") setActiveTab("history");
@@ -696,6 +778,17 @@ export default function EmployeesPage() {
         document.getElementById("organization-settings-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 80);
     });
+  }
+
+  function openProbationEvaluation() {
+    if (!selectedEmployeeRaw) return;
+    window.sessionStorage.setItem(
+      PERFORMANCE_PROBATION_TARGET_KEY,
+      JSON.stringify({
+        employeeId: selectedEmployeeRaw.id,
+      }),
+    );
+    window.dispatchEvent(new CustomEvent("app:navigate", { detail: { menu: "performance" } }));
   }
 
   if (!selectedEmployee) return null;
@@ -868,6 +961,7 @@ export default function EmployeesPage() {
 
         <div className="space-y-4">
           <EmployeeDataStatusCard status={selectedEmployee.statusOverview} />
+          {probationSection}
           {activeTab !== "job" ? organizationSettingsSection : null}
           {activeTab !== "job" ? organizationValidationSection : null}
 
