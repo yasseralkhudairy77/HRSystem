@@ -1336,6 +1336,407 @@ function SpmDetailedResult({ item, candidate, packageName }) {
   );
 }
 
+function clamp(value, min = 0, max = 100) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function formatKraepelinNumber(value, fractionDigits = 0) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "-";
+  return value.toLocaleString("id-ID", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
+function formatKraepelinDurationMinutes(minutes) {
+  if (typeof minutes !== "number" || Number.isNaN(minutes) || minutes <= 0) return "-";
+  if (minutes < 60) return `${Math.round(minutes)} menit`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = Math.round(minutes % 60);
+  return remainder > 0 ? `${hours} jam ${remainder} menit` : `${hours} jam`;
+}
+
+function getKraepelinResultData(item) {
+  const resultJson = asObject(item?.result_json);
+  const score = asObject(resultJson.score);
+  const performance = asObject(resultJson.performance);
+  const indicatorsSource = asObject(resultJson.indicators);
+  const summarySource = typeof resultJson.summary === "string" ? resultJson.summary : item?.summary;
+  const strengthsSource = Array.isArray(resultJson.strengths) ? resultJson.strengths.filter(Boolean) : [];
+  const concernsSource = Array.isArray(resultJson.concerns) ? resultJson.concerns.filter(Boolean) : [];
+  const placementSuggestionSource =
+    typeof resultJson.placementSuggestion === "string" && resultJson.placementSuggestion.trim()
+      ? resultJson.placementSuggestion.trim()
+      : "";
+  const recommendationSource =
+    typeof resultJson.recommendation === "string" && resultJson.recommendation.trim()
+      ? resultJson.recommendation.trim()
+      : "";
+
+  const perMinuteSource = Array.isArray(resultJson.perMinute)
+    ? resultJson.perMinute
+    : Array.isArray(resultJson.minute_stats)
+      ? resultJson.minute_stats
+      : [];
+
+  const perMinute = perMinuteSource
+    .map((entry, index) => {
+      const minute = coerceNumber(entry?.minute) ?? index + 1;
+      const correct = coerceNumber(entry?.correct) ?? coerceNumber(entry?.right) ?? null;
+      const wrong = coerceNumber(entry?.wrong) ?? coerceNumber(entry?.incorrect) ?? coerceNumber(entry?.errors) ?? 0;
+      const total = coerceNumber(entry?.total) ?? coerceNumber(entry?.responses) ?? null;
+      const safeCorrect = correct ?? Math.max(0, (total ?? 0) - wrong);
+      const safeTotal = total ?? safeCorrect + wrong;
+      return {
+        minute,
+        correct: Math.max(0, safeCorrect),
+        wrong: Math.max(0, wrong),
+        total: Math.max(0, safeTotal),
+      };
+    })
+    .filter((entry) => typeof entry.minute === "number")
+    .sort((left, right) => left.minute - right.minute);
+
+  const totalResponses = coerceNumber(score.total_attempts) ?? perMinute.reduce((sum, entry) => sum + entry.total, 0);
+  const correct = coerceNumber(score.correct) ?? perMinute.reduce((sum, entry) => sum + entry.correct, 0);
+  const wrong = coerceNumber(score.wrong) ?? perMinute.reduce((sum, entry) => sum + entry.wrong, 0);
+  const scoreValue = coerceNumber(score.score) ?? coerceNumber(item?.score_numeric) ?? correct;
+  const accuracy = coerceNumber(score.accuracy_percent) ?? (totalResponses > 0 ? Math.round((correct / totalResponses) * 100) : 0);
+  const averagePerMinute =
+    coerceNumber(score.average_per_minute) ?? (perMinute.length ? Number((totalResponses / perMinute.length).toFixed(1)) : 0);
+  const peakMinute =
+    coerceNumber(performance.peak_total) ??
+    (perMinute.length ? Math.max(...perMinute.map((entry) => entry.total)) : 0);
+  const weakestMinute =
+    coerceNumber(performance.lowest_total) ??
+    (perMinute.length ? Math.min(...perMinute.map((entry) => entry.total)) : 0);
+  const startedAt = item?.started_at;
+  const finishedAt = item?.completed_at;
+  const durationMinutes =
+    coerceNumber(resultJson.durationMinutes) ??
+    coerceNumber(resultJson.duration_minutes) ??
+    coerceNumber(performance.duration_minutes) ??
+    (() => {
+      if (!startedAt || !finishedAt) return null;
+      const diffMinutes = Math.round((new Date(finishedAt).getTime() - new Date(startedAt).getTime()) / 60000);
+      return Number.isFinite(diffMinutes) && diffMinutes > 0 ? diffMinutes : null;
+    })();
+
+  const totals = perMinute.map((entry) => entry.total).filter((value) => typeof value === "number");
+  const avgTotal = totals.length ? totals.reduce((sum, value) => sum + value, 0) / totals.length : 0;
+  const variance =
+    totals.length > 1 ? totals.reduce((sum, value) => sum + (value - avgTotal) ** 2, 0) / totals.length : 0;
+  const stdDev = Math.sqrt(variance);
+  const consistencyBase = avgTotal > 0 ? 100 - (stdDev / avgTotal) * 100 * 1.4 : 0;
+  const middlePhase = perMinute.filter((entry) => entry.minute >= 6 && entry.minute <= 20);
+  const finalPhase = perMinute.filter((entry) => entry.minute >= 21);
+  const middleAverage = middlePhase.length ? middlePhase.reduce((sum, entry) => sum + entry.total, 0) / middlePhase.length : averagePerMinute;
+  const finalAverage = finalPhase.length ? finalPhase.reduce((sum, entry) => sum + entry.total, 0) / finalPhase.length : averagePerMinute;
+  const endRatio = middleAverage > 0 ? finalAverage / middleAverage : 1;
+
+  const indicators = {
+    focus: clamp(coerceNumber(indicatorsSource.focus) ?? accuracy * 0.55 + clamp(consistencyBase, 0, 100) * 0.45),
+    speed: clamp(coerceNumber(indicatorsSource.speed) ?? ((averagePerMinute / Math.max(peakMinute || 1, 45)) * 100 + 18)),
+    accuracy: clamp(coerceNumber(indicatorsSource.accuracy) ?? accuracy),
+    stressTolerance: clamp(coerceNumber(indicatorsSource.stressTolerance) ?? accuracy * 0.35 + endRatio * 65),
+    consistency: clamp(coerceNumber(indicatorsSource.consistency) ?? consistencyBase),
+  };
+
+  const endurance = clamp((indicators.consistency + indicators.stressTolerance) / 2);
+  const errorTendency = clamp(100 - accuracy);
+  const rhythmStability = clamp(indicators.consistency);
+  const phaseInsight =
+    finalAverage >= middleAverage * 0.95
+      ? "Performa cenderung stabil sampai akhir sesi, dengan ketelitian yang tetap terjaga."
+      : finalAverage >= middleAverage * 0.85
+        ? "Performa cenderung stabil di tengah sesi, lalu sedikit menurun di akhir. Tingkat ketelitian tetap baik."
+        : "Performa cukup baik di awal hingga tengah sesi, lalu penurunan mulai terlihat pada fase akhir sehingga perlu perhatian pada stamina kerja.";
+
+  const recommendation =
+    recommendationSource ||
+    (() => {
+      const overall = (indicators.focus + indicators.speed + indicators.accuracy + indicators.stressTolerance + indicators.consistency) / 5;
+      if (overall >= 84 && accuracy >= 90) return "Disarankan";
+      if (overall >= 74 && accuracy >= 84) return "Dipertimbangkan";
+      return "Perlu Pendampingan";
+    })();
+
+  const summary =
+    summarySource ||
+    "Kandidat menunjukkan ritme kerja yang cukup stabil dengan ketelitian yang baik. Terdapat sedikit penurunan performa di fase akhir, namun masih dalam batas wajar untuk sesi kerja berulang.";
+
+  const strengths = strengthsSource.length
+    ? strengthsSource
+    : [
+        indicators.accuracy >= 88 ? "Ketelitian kerja tergolong baik" : "Respons kerja cukup terjaga",
+        indicators.consistency >= 80 ? "Ritme kerja relatif stabil" : "Masih mampu menjaga tempo kerja",
+        indicators.focus >= 84 ? "Fokus kerja cukup kuat pada tugas berulang" : "Cukup cepat beradaptasi pada pola kerja rutin",
+      ];
+
+  const concerns = concernsSource.length
+    ? concernsSource
+    : [
+        endRatio < 0.9 ? "Stamina kerja sedikit turun di fase akhir" : "Perlu dipantau pada beban kerja yang sangat monoton",
+      ];
+
+  const placementSuggestion =
+    placementSuggestionSource ||
+    (indicators.accuracy >= 88
+      ? "Cocok untuk peran operasional dan administrasi yang membutuhkan ketelitian serta target harian."
+      : "Lebih cocok untuk peran yang ritmenya terstruktur dengan pendampingan target di awal masa kerja.");
+
+  return {
+    testName: item?.test_name_snapshot || "Tes Koran / Kraepelin",
+    status: formatPackageItemStatusLabel(item?.status || "completed"),
+    startedAt,
+    finishedAt,
+    durationMinutes,
+    totalResponses,
+    correct,
+    wrong,
+    accuracy,
+    score: scoreValue,
+    averagePerMinute,
+    peakMinute,
+    weakestMinute,
+    recommendation,
+    indicators,
+    summary,
+    strengths,
+    concerns,
+    placementSuggestion,
+    perMinute,
+    endurance,
+    errorTendency,
+    rhythmStability,
+    phaseInsight,
+  };
+}
+
+function KraepelinStatCard({ label, value, note, tone = "default" }) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50/80"
+      : tone === "danger"
+        ? "border-rose-200 bg-rose-50/80"
+        : "border-[var(--border-soft)] bg-white";
+
+  return (
+    <div className={`rounded-2xl border px-3.5 py-3 ${toneClass}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">{label}</div>
+      <div className="mt-1.5 text-[1.35rem] font-bold tracking-[-0.03em] text-[var(--text-main)]">{value}</div>
+      {note ? <div className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{note}</div> : null}
+    </div>
+  );
+}
+
+function KraepelinHeaderMetric({ label, value }) {
+  return (
+    <div className="rounded-full border border-[var(--border-soft)] bg-white/90 px-3 py-2 text-right shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">{label}</div>
+      <div className="mt-1 text-sm font-bold text-[var(--text-main)]">{value}</div>
+    </div>
+  );
+}
+
+function KraepelinIndicatorRow({ label, value }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-medium text-[var(--text-main)]">{label}</div>
+        <div className="text-sm font-semibold text-[var(--brand-900)]">{formatKraepelinNumber(value)}</div>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${clamp(value)}%`, background: "linear-gradient(90deg, rgba(23,58,107,0.95), rgba(54,147,132,0.9))" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function KraepelinPerformanceChart({ perMinute, insight }) {
+  const maxTotal = Math.max(...perMinute.map((entry) => entry.total || entry.correct + entry.wrong), 1);
+
+  return (
+    <section className="rounded-[22px] border border-[var(--border-soft)] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-[var(--text-main)]">Grafik Kinerja Utama</div>
+          <div className="mt-1 text-xs leading-5 text-[var(--text-muted)]">Ringkasan performa 30 menit untuk membaca ritme kerja, ketelitian, dan penurunan tempo.</div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            ["Adaptasi (1-5)", "border-sky-200 bg-sky-50 text-sky-700"],
+            ["Stabil (6-20)", "border-emerald-200 bg-emerald-50 text-emerald-700"],
+            ["Lelah (21-30)", "border-amber-200 bg-amber-50 text-amber-700"],
+          ].map(([label, tone]) => (
+            <div key={label} className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${tone}`}>
+              {label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 overflow-x-auto">
+        <div className="min-w-[720px] rounded-2xl border border-[var(--border-soft)] bg-[linear-gradient(180deg,#f8fbff_0%,#ffffff_100%)] px-3 py-4">
+          <div className="flex items-end gap-1.5">
+            {perMinute.map((entry) => {
+              const total = entry.total || entry.correct + entry.wrong;
+              const correctHeight = Math.max(6, Math.round((entry.correct / maxTotal) * 118));
+              const wrongHeight = entry.wrong > 0 ? Math.max(4, Math.round((entry.wrong / maxTotal) * 118)) : 0;
+
+              return (
+                <div key={entry.minute} className="flex min-w-[20px] flex-1 flex-col items-center gap-1">
+                  <div className="relative flex h-32 w-full items-end justify-center rounded-full bg-slate-100/90">
+                    <div className="absolute bottom-0 w-[68%] rounded-full bg-emerald-500/90" style={{ height: `${correctHeight}px` }} />
+                    {wrongHeight ? <div className="absolute w-[68%] rounded-full bg-rose-400/95" style={{ bottom: `${correctHeight}px`, height: `${wrongHeight}px` }} /> : null}
+                  </div>
+                  <div className="text-[10px] font-medium text-[var(--text-soft)]">{entry.minute}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-muted)]">
+        <div className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          Hijau = benar
+        </div>
+        <div className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
+          Merah = salah
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-4 py-3 text-sm leading-6 text-[var(--text-main)]">
+        {insight}
+      </div>
+    </section>
+  );
+}
+
+function KraepelinSummaryBox({ recommendation, summary, strengths, concerns, placementSuggestion }) {
+  const tone =
+    recommendation === "Disarankan"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : recommendation === "Dipertimbangkan"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-rose-200 bg-rose-50 text-rose-700";
+
+  return (
+    <section className="rounded-[22px] border border-[var(--border-soft)] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-[var(--text-main)]">Kesimpulan HR</div>
+        <div className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${tone}`}>{recommendation}</div>
+      </div>
+      <p className="mt-3 text-sm leading-7 text-[var(--text-main)]">{summary}</p>
+      <div className="mt-4 space-y-3">
+        <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-4 py-3">
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">Kekuatan utama</div>
+          <div className="mt-2 text-sm leading-6 text-[var(--text-main)]">{strengths[0] || "-"}</div>
+        </div>
+        <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-4 py-3">
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">Area perhatian</div>
+          <div className="mt-2 text-sm leading-6 text-[var(--text-main)]">{concerns[0] || "-"}</div>
+        </div>
+        <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-4 py-3">
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">Saran penempatan</div>
+          <div className="mt-2 text-sm leading-6 text-[var(--text-main)]">{placementSuggestion}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function KraepelinPreviewCard({ item }) {
+  const kraepelin = getKraepelinResultData(item);
+
+  return (
+    <div className="mt-4">
+      <section className="overflow-hidden rounded-[28px] border border-[var(--border-soft)] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+        <div className="border-b border-[var(--border-soft)] bg-[linear-gradient(135deg,rgba(18,52,93,0.06),rgba(66,124,166,0.05)_45%,rgba(203,240,231,0.18))] px-5 py-4">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:items-start">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-[1.1rem] font-semibold tracking-[-0.02em] text-[var(--text-main)]">{kraepelin.testName}</div>
+                <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                  {kraepelin.status}
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-3">
+                <div>
+                  <div className="font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">Waktu mulai</div>
+                  <div className="mt-1 text-sm font-medium text-[var(--text-main)]">{formatDateTime(kraepelin.startedAt)}</div>
+                </div>
+                <div>
+                  <div className="font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">Waktu selesai</div>
+                  <div className="mt-1 text-sm font-medium text-[var(--text-main)]">{formatDateTime(kraepelin.finishedAt)}</div>
+                </div>
+                <div>
+                  <div className="font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">Durasi pengerjaan</div>
+                  <div className="mt-1 text-sm font-medium text-[var(--text-main)]">{formatKraepelinDurationMinutes(kraepelin.durationMinutes)}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <KraepelinHeaderMetric label="Total Respons" value={formatKraepelinNumber(kraepelin.totalResponses)} />
+              <KraepelinHeaderMetric label="Akurasi" value={`${formatKraepelinNumber(kraepelin.accuracy)}%`} />
+              <KraepelinHeaderMetric label="Skor" value={formatKraepelinNumber(kraepelin.score)} />
+              <KraepelinHeaderMetric label="Puncak per Menit" value={formatKraepelinNumber(kraepelin.peakMinute)} />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <KraepelinStatCard label="Total Respons" value={formatKraepelinNumber(kraepelin.totalResponses)} note="Jumlah respons sepanjang sesi." />
+            <KraepelinStatCard label="Jawaban Benar" value={formatKraepelinNumber(kraepelin.correct)} note="Respons tepat yang terekam." tone="success" />
+            <KraepelinStatCard label="Jawaban Salah" value={formatKraepelinNumber(kraepelin.wrong)} note="Kecenderungan salah masih rendah." tone="danger" />
+            <KraepelinStatCard label="Akurasi" value={`${formatKraepelinNumber(kraepelin.accuracy)}%`} note={`Kecenderungan salah ${formatKraepelinNumber(kraepelin.errorTendency)}%`} />
+            <KraepelinStatCard label="Rata-rata per Menit" value={formatKraepelinNumber(kraepelin.averagePerMinute, 1)} note="Kecepatan kerja rata-rata." />
+            <KraepelinStatCard label="Puncak Performa" value={formatKraepelinNumber(kraepelin.peakMinute)} note="Output tertinggi dalam 1 menit." />
+            <KraepelinStatCard label="Menit Terlemah" value={formatKraepelinNumber(kraepelin.weakestMinute)} note="Output terendah dalam 1 menit." />
+            <KraepelinStatCard label="Skor Akhir" value={formatKraepelinNumber(kraepelin.score)} note={`Stabilitas ritme kerja ${formatKraepelinNumber(kraepelin.rhythmStability)}.`} />
+          </section>
+
+          <KraepelinPerformanceChart perMinute={kraepelin.perMinute} insight={kraepelin.phaseInsight} />
+
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]">
+            <section className="rounded-[22px] border border-[var(--border-soft)] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-[var(--text-main)]">Indikator HR</div>
+                <div className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-0)] px-3 py-1 text-[11px] font-semibold text-[var(--text-main)]">
+                  Daya Tahan Kerja {formatKraepelinNumber(kraepelin.endurance)}
+                </div>
+              </div>
+              <div className="mt-4 space-y-4">
+                <KraepelinIndicatorRow label="Fokus Kerja" value={kraepelin.indicators.focus} />
+                <KraepelinIndicatorRow label="Kecepatan Kerja" value={kraepelin.indicators.speed} />
+                <KraepelinIndicatorRow label="Ketelitian" value={kraepelin.indicators.accuracy} />
+                <KraepelinIndicatorRow label="Tahan Tekanan" value={kraepelin.indicators.stressTolerance} />
+                <KraepelinIndicatorRow label="Konsistensi" value={kraepelin.indicators.consistency} />
+              </div>
+            </section>
+
+            <KraepelinSummaryBox
+              recommendation={kraepelin.recommendation}
+              summary={kraepelin.summary}
+              strengths={kraepelin.strengths}
+              concerns={kraepelin.concerns}
+              placementSuggestion={kraepelin.placementSuggestion}
+            />
+          </section>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function normalizePdfText(value) {
   return String(value ?? "-")
     .replace(/[•]/g, "-")
@@ -2456,6 +2857,7 @@ export default function PsychotestResultsPage() {
                       const isDisc = item.test_key === "disc";
                       const isBigFive = item.test_key === "big_five";
                       const isHolland = item.test_key === "holland";
+                      const isKoran = item.test_key === "koran";
                       const isExpanded = expandedTestItemId === item.id;
 
                       return (
@@ -2494,7 +2896,8 @@ export default function PsychotestResultsPage() {
                             {isDisc ? <DiscDetailedResult item={item} candidate={selectedPackage.pelamar} /> : null}
                             {isBigFive ? <BigFiveDetailedResult item={item} candidate={selectedPackage.pelamar} packageName={selectedPackage.template_name} /> : null}
                             {isHolland ? <HollandDetailedResult item={item} candidate={selectedPackage.pelamar} packageName={selectedPackage.template_name} /> : null}
-                            {!isSpm && !isDisc && !isBigFive && !isHolland && insight ? (
+                            {isKoran ? <KraepelinPreviewCard item={item} /> : null}
+                            {!isSpm && !isDisc && !isBigFive && !isHolland && !isKoran && insight ? (
                               <div className="rounded-xl border border-[var(--border-soft)] bg-white px-3 py-3">
                                 <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">{insight.heading}</div>
                                 <div className="mt-2 flex flex-wrap gap-2">
@@ -2506,8 +2909,8 @@ export default function PsychotestResultsPage() {
                                 </div>
                               </div>
                             ) : null}
-                            {!isSpm && !isDisc && !isBigFive && !isHolland && item.summary ? <div className="mt-3 text-sm leading-6 text-[var(--text-main)]">{item.summary}</div> : null}
-                            {!isSpm && !isDisc && !isBigFive && !isHolland && traitRows.length ? (
+                            {!isSpm && !isDisc && !isBigFive && !isHolland && !isKoran && item.summary ? <div className="mt-3 text-sm leading-6 text-[var(--text-main)]">{item.summary}</div> : null}
+                            {!isSpm && !isDisc && !isBigFive && !isHolland && !isKoran && traitRows.length ? (
                               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                                 {traitRows.map((trait) => (
                                   <div key={trait.key || trait.label} className="rounded-lg border border-[var(--border-soft)] bg-white px-3 py-3">
@@ -2517,7 +2920,7 @@ export default function PsychotestResultsPage() {
                                 ))}
                               </div>
                             ) : null}
-                            {!isSpm && !isDisc && !isBigFive && !isHolland && discGraph3 ? (
+                            {!isSpm && !isDisc && !isBigFive && !isHolland && !isKoran && discGraph3 ? (
                               <div className="mt-4">
                                 <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">Grafik 3 DISC</div>
                                 <div className="mt-2 grid gap-2 sm:grid-cols-4">
@@ -2530,7 +2933,7 @@ export default function PsychotestResultsPage() {
                                 </div>
                               </div>
                             ) : null}
-                            {!isSpm && !isDisc && !isBigFive && !isHolland && minuteStats.length ? (
+                            {!isSpm && !isDisc && !isBigFive && !isHolland && !isKoran && minuteStats.length ? (
                               <div className="mt-4">
                                 <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-soft)]">Grafik Kinerja Per Menit</div>
                                 <div className="mt-3 flex items-end gap-1 overflow-x-auto rounded-lg border border-[var(--border-soft)] bg-white px-3 py-4">
