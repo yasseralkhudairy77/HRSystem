@@ -516,8 +516,7 @@
 
               <div class="actions">
                 <button id="prev-btn">Sebelumnya</button>
-                <button id="save-btn" class="primary">Simpan audio</button>
-                <button id="next-btn">Simpan & lanjut</button>
+                <button id="next-btn" class="primary">Simpan & lanjut</button>
                 <button id="finish-btn" class="primary" style="display:none;">Simpan & kirim semua</button>
               </div>
             </div>
@@ -608,7 +607,6 @@
       const questionBadgeEl = document.getElementById("question-badge");
       const stepperEl = document.getElementById("question-stepper");
       const prevBtn = document.getElementById("prev-btn");
-      const saveBtn = document.getElementById("save-btn");
       const nextBtn = document.getElementById("next-btn");
       const finishBtn = document.getElementById("finish-btn");
       const offboardingCardEl = document.getElementById("offboarding-card");
@@ -1337,7 +1335,6 @@
           return;
         }
 
-        saveBtn.disabled = true;
         nextBtn.disabled = true;
         finishBtn.disabled = true;
         recordBtn.disabled = true;
@@ -1349,7 +1346,6 @@
           uploadResult = await uploadAnswerAudio(item);
         } catch (uploadError) {
           window.alert("Audio belum berhasil diunggah. Coba lagi beberapa saat lagi.");
-          saveBtn.disabled = false;
           nextBtn.disabled = false;
           finishBtn.disabled = false;
           recordBtn.disabled = false;
@@ -1365,7 +1361,6 @@
         } catch (itemError) {
           console.error("Gagal menyimpan jawaban Wawancara AI:", itemError);
           window.alert("Jawaban belum berhasil disimpan. Coba lagi.");
-          saveBtn.disabled = false;
           nextBtn.disabled = false;
           finishBtn.disabled = false;
           recordBtn.disabled = false;
@@ -1385,7 +1380,6 @@
 
         if (moveDirection === "finish") {
           await finishInterview();
-          saveBtn.disabled = false;
           nextBtn.disabled = false;
           finishBtn.disabled = false;
           renderAnswerAudioState();
@@ -1394,7 +1388,6 @@
         }
 
         renderQuestion();
-        saveBtn.disabled = false;
         nextBtn.disabled = false;
         finishBtn.disabled = false;
         renderAnswerAudioState();
@@ -1441,10 +1434,6 @@
 
       nextBtn.addEventListener("click", () => {
         void saveCurrentAnswer("next");
-      });
-
-      saveBtn.addEventListener("click", () => {
-        void saveCurrentAnswer();
       });
 
       recordBtn.addEventListener("click", () => {
