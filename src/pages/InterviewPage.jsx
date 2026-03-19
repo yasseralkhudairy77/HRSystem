@@ -8,15 +8,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getActiveCandidateTestPackageMap, isCandidateTestPackageFeatureUnavailable } from "@/services/candidateTestPackageService";
+import { getLowonganList } from "@/services/lowonganService";
 import { getPelamarList, updatePelamar } from "@/services/pelamarService";
 import { createInterviewSchedule } from "@/services/recruitmentWorkflowService";
 
 const scoreOptions = ["Kurang", "Cukup", "Baik", "Sangat baik"];
+const userInterviewRecommendationOptions = ["Cocok", "Dipertimbangkan", "Tidak cocok"];
+const userInterviewModeLabels = {
+  none: "Tidak perlu",
+  optional: "Opsional",
+  required: "Wajib",
+};
 const decisionToneClasses = {
   Lanjut: "border-emerald-200 bg-emerald-50 text-emerald-700",
   Pertimbangkan: "border-sky-200 bg-sky-50 text-sky-700",
   "Simpan dulu": "border-slate-200 bg-slate-100 text-slate-700",
   "Tidak lanjut": "border-rose-200 bg-rose-50 text-rose-700",
+  "Interview User": "border-indigo-200 bg-indigo-50 text-indigo-700",
 };
 const INTERVIEW_FORM_MARKER_START = "[[INTERVIEW_FORM]]";
 const INTERVIEW_FORM_MARKER_END = "[[/INTERVIEW_FORM]]";
@@ -134,6 +142,14 @@ function createDefaultInterviewForm() {
   };
 }
 
+function createDefaultUserInterviewForm() {
+  return {
+    recommendation: "Dipertimbangkan",
+    summary: "",
+    notes: "",
+  };
+}
+
 function buildInterviewFormFromInterview(interview) {
   if (!interview) return createDefaultInterviewForm();
   return {
@@ -150,6 +166,15 @@ function buildInterviewFormFromInterview(interview) {
     keraguan: interview.keraguan || "",
     catatanUntukOwner: interview.catatanUntukOwner || "",
     kesanUmum: interview.kesanUmum || "",
+  };
+}
+
+function buildUserInterviewFormFromInterview(interview) {
+  if (!interview) return createDefaultUserInterviewForm();
+  return {
+    recommendation: interview.userInterviewRecommendation || "Dipertimbangkan",
+    summary: interview.userInterviewSummary || "",
+    notes: interview.userInterviewNotes || "",
   };
 }
 
@@ -237,6 +262,7 @@ function getInterviewDecision(item) {
   if (!item) return "Pertimbangkan";
   if (item.status_tindak_lanjut === "Tidak lanjut" || item.tahap_proses === "Tidak lanjut") return "Tidak lanjut";
   if (item.status_tindak_lanjut === "Disimpan" || item.tahap_proses === "Disimpan") return "Simpan dulu";
+  if (item.tahap_proses === "Wawancara User") return "Interview User";
   if (item.status_tindak_lanjut === "Lanjut" || item.status_tindak_lanjut === "Masuk tahap akhir" || ["Tahap akhir", "Penawaran kerja", "Siap masuk"].includes(item.tahap_proses))
     return "Lanjut";
   if (item.status_tindak_lanjut === "Pertimbangkan") return "Pertimbangkan";
@@ -245,19 +271,26 @@ function getInterviewDecision(item) {
 
 function getInterviewStatus(item, hasValidInterviewDate, decision) {
   if (decision === "Tidak lanjut") return "Tidak lanjut";
+  if (item?.tahap_proses === "Wawancara User" && item?.user_interview_status === "scheduled") return "Terjadwal interview user";
+  if (item?.tahap_proses === "Wawancara User" && item?.user_interview_status === "completed") return "Interview user selesai";
   if (!hasValidInterviewDate) return "Perlu dijadwalkan";
   if (["Lanjut", "Pertimbangkan", "Simpan dulu"].includes(decision) && item.status_tindak_lanjut !== "Sedang diproses") return "Sudah diwawancara";
   return "Menunggu hasil";
 }
 
-function mapPelamarToInterview(item, activePackage = null) {
-  if (!item || item.tahap_proses !== "Wawancara") return null;
+function mapPelamarToInterview(item, activePackage = null, lowonganMap = {}) {
+  if (!item || !["Wawancara", "Wawancara User"].includes(item.tahap_proses)) return null;
 
-  const interviewDate = item.interview_datetime ? new Date(item.interview_datetime) : null;
+  const interviewType = item.tahap_proses === "Wawancara User" ? "user" : "hrd";
+  const lowongan = item.lowongan_id ? lowonganMap[item.lowongan_id] || null : null;
+  const userInterviewMode = lowongan?.user_interview_mode || "none";
+  const interviewDate = interviewType === "user" ? (item.user_interview_datetime ? new Date(item.user_interview_datetime) : null) : item.interview_datetime ? new Date(item.interview_datetime) : null;
   const hasValidInterviewDate = interviewDate && !Number.isNaN(interviewDate.getTime());
   const scheduleIso = hasValidInterviewDate ? interviewDate.toISOString() : "";
   const parsedInterviewNotes = parseInterviewNoteDocument(item.interview_notes);
-  const keputusanAkhir = getInterviewDecision(item);
+  const userInterviewRecommendation = item.user_interview_recommendation === "fit" ? "Cocok" : item.user_interview_recommendation === "not_fit" ? "Tidak cocok" : "Dipertimbangkan";
+  const userInterviewSummary = typeof item.user_interview_notes === "string" ? item.user_interview_notes.split("\n\n")[0].trim() : "";
+  const keputusanAkhir = interviewType === "user" ? (item.status_tindak_lanjut === "Masuk tahap akhir" ? "Lanjut" : item.status_tindak_lanjut === "Tidak lanjut" ? "Tidak lanjut" : item.status_tindak_lanjut === "Disimpan" ? "Simpan dulu" : "Interview User") : getInterviewDecision(item);
   const statusHasil = getInterviewStatus(item, hasValidInterviewDate, keputusanAkhir);
   const education = [item.jenjang_pendidikan, item.jurusan].filter(Boolean).join(" / ") || "-";
   const spmSummary = getSpmInterviewSummary(activePackage);
@@ -268,13 +301,18 @@ function mapPelamarToInterview(item, activePackage = null) {
     namaPelamar: item.nama_lengkap,
     usia: getAgeLabel(item.tanggal_lahir),
     posisiDilamar: item.posisi_dilamar,
+    lowonganId: item.lowongan_id || null,
+    userInterviewMode,
+    interviewStageType: interviewType,
+    interviewStageLabel: interviewType === "user" ? "Interview User" : "Interview HRD",
     namaUsaha: "HireUMKM Demo",
     namaCabang: "-",
     tanggalWawancara: hasValidInterviewDate ? interviewDate.toISOString().slice(0, 10) : "",
     jamWawancara: hasValidInterviewDate ? interviewDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false }) : "",
     interviewDatetime: scheduleIso,
-    interviewer: item.interview_interviewer || "-",
-    metodeWawancara: hasValidInterviewDate ? detectInterviewMethod(item.interview_location, item.interview_notes) : "Belum ditentukan",
+    interviewer: interviewType === "user" ? item.user_interview_interviewer || "-" : item.interview_interviewer || "-",
+    interviewerRole: interviewType === "user" ? item.user_interview_interviewer_role || "-" : "HRD",
+    metodeWawancara: hasValidInterviewDate ? detectInterviewMethod(interviewType === "user" ? item.user_interview_location : item.interview_location, interviewType === "user" ? item.user_interview_notes : item.interview_notes) : "Belum ditentukan",
     statusHasil,
     keputusanAkhir,
     tahapProses: item.tahap_proses || "Wawancara",
@@ -295,10 +333,12 @@ function mapPelamarToInterview(item, activePackage = null) {
     catatanSingkat:
       parsedInterviewNotes.scheduleContext ||
       item.catatan_recruiter ||
-      (hasValidInterviewDate ? `Jadwal wawancara ${formatDateTime(scheduleIso)}.` : "Kandidat sudah masuk tahap wawancara dan menunggu penjadwalan."),
+      (hasValidInterviewDate
+        ? `Jadwal ${interviewType === "user" ? "interview user" : "wawancara HRD"} ${formatDateTime(scheduleIso)}.`
+        : `Kandidat sudah masuk tahap ${interviewType === "user" ? "Interview User" : "Wawancara HRD"} dan menunggu penjadwalan.`),
     catatanRecruiter: item.catatan_recruiter || "",
-    interviewLocation: item.interview_location || "",
-    scheduleContext: parsedInterviewNotes.scheduleContext,
+    interviewLocation: interviewType === "user" ? item.user_interview_location || "" : item.interview_location || "",
+    scheduleContext: interviewType === "user" ? item.user_interview_notes || "" : parsedInterviewNotes.scheduleContext,
     noWhatsapp: item.no_hp || "-",
     email: item.email || "-",
     domisili: item.alamat_domisili || "-",
@@ -309,6 +349,10 @@ function mapPelamarToInterview(item, activePackage = null) {
     iqHeadline: spmSummary.headline,
     iqMeta: spmSummary.meta,
     cvFile: item.cv_file_name || "-",
+    userInterviewStatus: item.user_interview_status || "pending",
+    userInterviewRecommendation,
+    userInterviewSummary,
+    userInterviewNotes: item.user_interview_notes || "",
   };
 }
 
@@ -406,6 +450,22 @@ function ActionModal({ title, subtitle, children, onClose }) {
   );
 }
 
+function canAdvanceFromHrd(interview) {
+  if (!interview || interview.interviewStageType !== "hrd") return true;
+  return interview.userInterviewMode !== "required";
+}
+
+function shouldShowScheduleUserButton(interview) {
+  return interview?.interviewStageType === "hrd" && ["optional", "required"].includes(interview?.userInterviewMode);
+}
+
+function getInterviewModeHelper(interview) {
+  if (!interview || interview.interviewStageType !== "hrd") return "";
+  if (interview.userInterviewMode === "required") return "Lowongan ini mewajibkan interview user sebelum kandidat bisa masuk ke penawaran kerja.";
+  if (interview.userInterviewMode === "optional") return "Lowongan ini memberi opsi lanjut ke interview user atau langsung ke penawaran kerja.";
+  return "Lowongan ini cukup sampai wawancara HRD tanpa interview user.";
+}
+
 export default function InterviewPage() {
   const [interviewRows, setInterviewRows] = useState(interviewRecords);
   const [isLoading, setIsLoading] = useState(false);
@@ -419,9 +479,11 @@ export default function InterviewPage() {
   const [dateFilter, setDateFilter] = useState("");
   const [selectedInterview, setSelectedInterview] = useState(null);
   const [interviewForm, setInterviewForm] = useState(createDefaultInterviewForm());
+  const [userInterviewForm, setUserInterviewForm] = useState(createDefaultUserInterviewForm());
   const [activePackageMapByCandidate, setActivePackageMapByCandidate] = useState({});
+  const [lowonganMapById, setLowonganMapById] = useState({});
   const [scheduleModalInterview, setScheduleModalInterview] = useState(null);
-  const [scheduleForm, setScheduleForm] = useState({ date: "", time: "", interviewer: "", location: "", notes: "" });
+  const [scheduleForm, setScheduleForm] = useState({ date: "", time: "", interviewer: "", interviewerRole: "", location: "", notes: "" });
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
   
   useEffect(() => {
@@ -430,6 +492,7 @@ export default function InterviewPage() {
 
   useEffect(() => {
     setInterviewForm(selectedInterview ? buildInterviewFormFromInterview(selectedInterview) : createDefaultInterviewForm());
+    setUserInterviewForm(selectedInterview ? buildUserInterviewFormFromInterview(selectedInterview) : createDefaultUserInterviewForm());
   }, [selectedInterview]);
 
   async function loadInterviews() {
@@ -437,7 +500,7 @@ export default function InterviewPage() {
     setErrorMessage("");
 
     try {
-      const [pelamarRows, activePackageMap] = await Promise.all([
+      const [pelamarRows, activePackageMap, lowonganRows] = await Promise.all([
         getPelamarList(),
         getActiveCandidateTestPackageMap().catch((error) => {
           if (isCandidateTestPackageFeatureUnavailable(error)) {
@@ -447,13 +510,16 @@ export default function InterviewPage() {
 
           throw error;
         }),
+        getLowonganList(),
       ]);
 
       setActivePackageMapByCandidate(activePackageMap);
+      const nextLowonganMap = Object.fromEntries(lowonganRows.map((row) => [row.id, row]));
+      setLowonganMapById(nextLowonganMap);
       const mappedRows = pelamarRows
         .filter((item) => !item.archived)
-        .filter((item) => item.interview_datetime || item.tahap_proses === "Wawancara")
-        .map((item) => mapPelamarToInterview(item, activePackageMap[item.id] || null))
+        .filter((item) => item.interview_datetime || item.user_interview_datetime || ["Wawancara", "Wawancara User"].includes(item.tahap_proses))
+        .map((item) => mapPelamarToInterview(item, activePackageMap[item.id] || null, nextLowonganMap))
         .filter(Boolean)
         .sort((left, right) => {
           const leftStamp = left.interviewDatetime || "9999-12-31T23:59:59.000Z";
@@ -476,7 +542,7 @@ export default function InterviewPage() {
   }
 
   function syncInterviewInState(updatedRow) {
-    const mappedInterview = mapPelamarToInterview(updatedRow, activePackageMapByCandidate[updatedRow.id] || null);
+    const mappedInterview = mapPelamarToInterview(updatedRow, activePackageMapByCandidate[updatedRow.id] || null, lowonganMapById);
 
     if (!mappedInterview) {
       setInterviewRows((currentRows) => currentRows.filter((item) => item.candidateId !== updatedRow.id));
@@ -505,6 +571,7 @@ export default function InterviewPage() {
       date: toDateInputValue(interview?.interviewDatetime),
       time: toTimeInputValue(interview?.interviewDatetime),
       interviewer: interview?.interviewer && interview.interviewer !== "-" ? interview.interviewer : "",
+      interviewerRole: interview?.interviewStageType === "user" && interview?.interviewerRole !== "-" ? interview.interviewerRole : "",
       location: interview?.interviewLocation || "",
       notes: interview?.scheduleContext || "",
     });
@@ -540,20 +607,27 @@ export default function InterviewPage() {
     const interviewDatetime = new Date(`${scheduleForm.date}T${scheduleForm.time}:00`).toISOString();
     const formState =
       selectedInterview?.candidateId === scheduleModalInterview.candidateId ? interviewForm : buildInterviewFormFromInterview(scheduleModalInterview);
+    const isUserInterview = scheduleModalInterview.interviewStageType === "user";
 
     setIsSubmittingAction(true);
 
     try {
       const updatedRow = await updatePelamar(scheduleModalInterview.candidateId, {
-        tahap_proses: "Wawancara",
+        tahap_proses: isUserInterview ? "Wawancara User" : "Wawancara",
         status_tindak_lanjut: "Sedang diproses",
-        interview_datetime: interviewDatetime,
-        interview_interviewer: scheduleForm.interviewer.trim(),
-        interview_location: scheduleForm.location.trim(),
-        interview_notes: buildInterviewNoteDocument(formState, scheduleForm.notes.trim()),
+        interview_datetime: isUserInterview ? undefined : interviewDatetime,
+        interview_interviewer: isUserInterview ? undefined : scheduleForm.interviewer.trim(),
+        interview_location: isUserInterview ? undefined : scheduleForm.location.trim(),
+        interview_notes: isUserInterview ? undefined : buildInterviewNoteDocument(formState, scheduleForm.notes.trim()),
+        user_interview_status: isUserInterview ? "scheduled" : undefined,
+        user_interview_datetime: isUserInterview ? interviewDatetime : undefined,
+        user_interview_interviewer: isUserInterview ? scheduleForm.interviewer.trim() : undefined,
+        user_interview_interviewer_role: isUserInterview ? scheduleForm.interviewerRole.trim() || null : undefined,
+        user_interview_location: isUserInterview ? scheduleForm.location.trim() : undefined,
+        user_interview_notes: isUserInterview ? scheduleForm.notes.trim() || null : undefined,
         catatan_recruiter: appendRecruiterNote(
           scheduleModalInterview.catatanRecruiter,
-          `Jadwal wawancara diatur untuk ${formatDateTime(interviewDatetime)} dengan interviewer ${scheduleForm.interviewer.trim()}.`,
+          `Jadwal ${isUserInterview ? "interview user" : "wawancara HRD"} diatur untuk ${formatDateTime(interviewDatetime)} dengan interviewer ${scheduleForm.interviewer.trim()}.`,
         ),
       });
 
@@ -564,8 +638,10 @@ export default function InterviewPage() {
           pelamar_id: scheduleModalInterview.candidateId,
           interview_datetime: interviewDatetime,
           interviewer: scheduleForm.interviewer.trim(),
+          interviewer_role: isUserInterview ? scheduleForm.interviewerRole.trim() || null : null,
           location: scheduleForm.location.trim(),
           notes: scheduleForm.notes.trim() || null,
+          interview_type: isUserInterview ? "user" : "hrd",
         });
       } catch (scheduleError) {
         console.warn("Log jadwal wawancara belum berhasil disimpan:", scheduleError);
@@ -573,7 +649,7 @@ export default function InterviewPage() {
       }
 
       syncInterviewInState(updatedRow);
-      showFeedback("success", `Jadwal wawancara ${scheduleModalInterview.namaPelamar} berhasil diperbarui.`);
+      showFeedback("success", `Jadwal ${isUserInterview ? "interview user" : "wawancara HRD"} ${scheduleModalInterview.namaPelamar} berhasil diperbarui.`);
       setScheduleModalInterview(null);
     } catch (error) {
       console.error("Simpan jadwal wawancara gagal:", error);
@@ -587,14 +663,25 @@ export default function InterviewPage() {
     if (!interview) return null;
 
     const previousStage = interview.tahapProses || "Wawancara";
+    const isUserInterview = interview.interviewStageType === "user";
     const payload = {
-      interview_notes: options.interview_notes ?? buildInterviewNoteDocument(interviewForm, interview.scheduleContext),
+      interview_notes: isUserInterview ? undefined : options.interview_notes ?? buildInterviewNoteDocument(interviewForm, interview.scheduleContext),
+      user_interview_notes: isUserInterview ? ((options.user_interview_notes ?? userInterviewForm.notes.trim()) || null) : undefined,
+      user_interview_recommendation: isUserInterview
+        ? options.user_interview_recommendation ??
+          (userInterviewForm.recommendation === "Cocok" ? "fit" : userInterviewForm.recommendation === "Tidak cocok" ? "not_fit" : "consider")
+        : undefined,
+      user_interview_status: isUserInterview ? options.user_interview_status ?? "completed" : undefined,
       catatan_recruiter: appendRecruiterNote(interview.catatanRecruiter, options.note || `Hasil wawancara disimpan dengan keputusan "${decision}".`),
       alasan_tidak_lanjut: decision === "Tidak lanjut" ? "Belum sesuai dengan kebutuhan posisi pada tahap wawancara saat ini." : null,
     };
     let nextStage = previousStage;
 
-    if (decision === "Lanjut") {
+    if (decision === "Interview User") {
+      payload.tahap_proses = "Wawancara User";
+      payload.status_tindak_lanjut = "Sedang diproses";
+      nextStage = "Wawancara User";
+    } else if (decision === "Lanjut") {
       payload.tahap_proses = options.advanceStage ? "Penawaran kerja" : "Wawancara";
       payload.status_tindak_lanjut = options.advanceStage ? "Masuk tahap akhir" : "Lanjut";
       nextStage = payload.tahap_proses;
@@ -646,6 +733,18 @@ export default function InterviewPage() {
 
   async function handleSaveInterviewResult() {
     if (!selectedInterview) return;
+    if (selectedInterview.interviewStageType === "user") {
+      await persistInterviewDecision(selectedInterview, selectedInterview.keputusanAkhir || "Interview User", {
+        user_interview_notes: `${userInterviewForm.summary.trim() || "Ringkasan interview user belum diisi."}\n\n${userInterviewForm.notes.trim() || ""}`.trim(),
+        user_interview_recommendation:
+          userInterviewForm.recommendation === "Cocok" ? "fit" : userInterviewForm.recommendation === "Tidak cocok" ? "not_fit" : "consider",
+        user_interview_status: "completed",
+        note: "Form interview user diperbarui.",
+        successMessage: `Form interview user ${selectedInterview.namaPelamar} berhasil disimpan.`,
+      });
+      return;
+    }
+
     await persistInterviewDecision(selectedInterview, selectedInterview.keputusanAkhir || "Pertimbangkan", {
       interview_notes: buildInterviewNoteDocument(interviewForm, selectedInterview.scheduleContext),
       note: "Form wawancara recruiter diperbarui.",
@@ -655,13 +754,46 @@ export default function InterviewPage() {
 
   async function handleAdvanceCandidate() {
     if (!selectedInterview) return;
+    if (!canAdvanceFromHrd(selectedInterview)) {
+      showFeedback("error", "Lowongan ini mewajibkan interview user sebelum kandidat bisa masuk ke penawaran kerja.");
+      return;
+    }
     const nextInterview = await persistInterviewDecision(selectedInterview, "Lanjut", {
       advanceStage: true,
-      interview_notes: buildInterviewNoteDocument(interviewForm, selectedInterview.scheduleContext),
-      note: "Kandidat dinyatakan lanjut dari tahap wawancara ke penawaran kerja.",
+      interview_notes: selectedInterview.interviewStageType === "user" ? undefined : buildInterviewNoteDocument(interviewForm, selectedInterview.scheduleContext),
+      user_interview_notes:
+        selectedInterview.interviewStageType === "user"
+          ? `${userInterviewForm.summary.trim() || "Ringkasan interview user belum diisi."}\n\n${userInterviewForm.notes.trim() || ""}`.trim()
+          : undefined,
+      user_interview_recommendation:
+        selectedInterview.interviewStageType === "user"
+          ? userInterviewForm.recommendation === "Cocok"
+            ? "fit"
+            : userInterviewForm.recommendation === "Tidak cocok"
+              ? "not_fit"
+              : "consider"
+          : undefined,
+      user_interview_status: selectedInterview.interviewStageType === "user" ? "completed" : undefined,
+      note:
+        selectedInterview.interviewStageType === "user"
+          ? "Kandidat dinyatakan lanjut dari interview user ke penawaran kerja."
+          : "Kandidat dinyatakan lanjut dari tahap wawancara ke penawaran kerja.",
       successMessage: `${selectedInterview.namaPelamar} dilanjutkan ke penawaran kerja.`,
     });
     if (nextInterview) setSelectedInterview(nextInterview);
+  }
+
+  async function handleMoveToUserInterview() {
+    if (!selectedInterview) return;
+    const nextInterview = await persistInterviewDecision(selectedInterview, "Interview User", {
+      interview_notes: buildInterviewNoteDocument(interviewForm, selectedInterview.scheduleContext),
+      note: "HRD memutuskan kandidat perlu lanjut ke interview user.",
+      successMessage: `${selectedInterview.namaPelamar} dipindahkan ke tahap Interview User.`,
+    });
+    if (nextInterview) {
+      setSelectedInterview(nextInterview);
+      openScheduleModal(nextInterview);
+    }
   }
 
   async function handleSaveForTalentPool() {
@@ -741,7 +873,7 @@ export default function InterviewPage() {
 
   return (
     <div className="space-y-6">
-      <SectionTitle title="Wawancara HRD" subtitle="Pantau jadwal, isi formulir wawancara, dan ambil keputusan kandidat dari satu halaman yang rapi." />
+      <SectionTitle title="Wawancara HRD" subtitle="Pantau wawancara HRD dan Interview User dalam satu alur yang rapi, dengan keputusan yang menyesuaikan setting lowongan." />
 
       <section className="border-b border-[var(--border-soft)] pb-6">
         <div className="max-w-3xl">
@@ -817,7 +949,7 @@ export default function InterviewPage() {
         {isLoading ? (
           <div className="flex items-center gap-3 border-b border-[var(--border-soft)] px-5 py-4 text-sm text-[var(--text-muted)]">
             <LoaderCircle className="h-4 w-4 animate-spin" />
-            Memuat jadwal wawancara...
+            Memuat data wawancara...
           </div>
         ) : null}
 
@@ -846,6 +978,11 @@ export default function InterviewPage() {
                     {item.usia ? `${item.usia} / ` : ""}
                     {item.posisiDilamar}
                   </div>
+                  <div className="mt-1">
+                    <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[10px]">
+                      {item.interviewStageLabel}
+                    </Badge>
+                  </div>
                   <div className="mt-1 text-[var(--text-soft)]">{item.domisili}</div>
                   <div className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--text-muted)]">{item.catatanSingkat}</div>
                 </div>
@@ -855,7 +992,10 @@ export default function InterviewPage() {
                   <div className="mt-1 text-[var(--text-muted)]">{item.jamWawancara || "Atur jadwal di menu wawancara HRD"}</div>
                 </div>
 
-                <div className="pr-4 font-medium text-[var(--text-main)]">{item.interviewer}</div>
+                <div className="pr-4">
+                  <div className="font-medium text-[var(--text-main)]">{item.interviewer}</div>
+                  <div className="mt-1 text-xs text-[var(--text-muted)]">{item.interviewerRole || "-"}</div>
+                </div>
                 <div className="pr-4 text-[var(--text-main)]">{item.metodeWawancara}</div>
 
                 <div className="pr-4">
@@ -891,7 +1031,7 @@ export default function InterviewPage() {
           <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[24px] border border-[var(--border-soft)] bg-white shadow-2xl">
             <div className="sticky top-0 flex items-start justify-between border-b border-[var(--border-soft)] bg-white px-6 py-5">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-soft)]">Form Wawancara</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-soft)]">{selectedInterview.interviewStageLabel}</div>
                 <div className="mt-2 text-[1.9rem] font-semibold tracking-[-0.03em] text-[var(--text-main)]">{selectedInterview.namaPelamar}</div>
                 <div className="mt-1 text-sm text-[var(--text-muted)]">
                   {selectedInterview.usia ? `${selectedInterview.usia} / ` : ""}
@@ -909,6 +1049,11 @@ export default function InterviewPage() {
                 <Badge variant="outline" className="rounded-full px-3 py-1.5">{selectedInterview.metodeWawancara}</Badge>
                 <Badge variant="outline" className="rounded-full px-3 py-1.5">{selectedInterview.interviewer}</Badge>
                 <DecisionBadge value={selectedInterview.keputusanAkhir} />
+                {selectedInterview.interviewStageType === "hrd" ? (
+                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
+                    Interview User: {userInterviewModeLabels[selectedInterview.userInterviewMode] || "Tidak perlu"}
+                  </Badge>
+                ) : null}
               </div>
 
               <section className="space-y-4">
@@ -953,11 +1098,11 @@ export default function InterviewPage() {
                     ["Tanggal wawancara", selectedInterview.tanggalWawancara ? formatDate(selectedInterview.tanggalWawancara) : "Belum dijadwalkan"],
                     ["Jam wawancara", selectedInterview.jamWawancara || "-"],
                     ["Interviewer", selectedInterview.interviewer],
+                    ["Jabatan interviewer", selectedInterview.interviewerRole || "-"],
                     ["Metode", selectedInterview.metodeWawancara],
                     ["Status hasil", selectedInterview.statusHasil],
                     ["Keputusan saat ini", selectedInterview.keputusanAkhir],
                     ["Lokasi / link", selectedInterview.interviewLocation || "-"],
-                    ["Usia kandidat", selectedInterview.usia || "-"],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <div className="text-sm text-[var(--text-soft)]">{label}</div>
@@ -965,61 +1110,93 @@ export default function InterviewPage() {
                     </div>
                   ))}
                 </div>
+                {selectedInterview.interviewStageType === "hrd" ? (
+                  <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-4 py-4 text-sm leading-6 text-[var(--text-main)]">
+                    {getInterviewModeHelper(selectedInterview)}
+                  </div>
+                ) : null}
                 {selectedInterview.scheduleContext ? (
                   <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-4 py-4">
-                    <div className="text-sm text-[var(--text-soft)]">Catatan konteks awal wawancara</div>
+                    <div className="text-sm text-[var(--text-soft)]">{selectedInterview.interviewStageType === "user" ? "Catatan interview user" : "Catatan konteks awal wawancara"}</div>
                     <div className="mt-2 whitespace-pre-line text-sm leading-7 text-[var(--text-main)]">{selectedInterview.scheduleContext}</div>
                   </div>
                 ) : null}
               </section>
 
-              <section className="space-y-4">
-                <div className="border-b border-[var(--border-soft)] pb-2 text-sm font-semibold text-[var(--text-main)]">Form penilaian interviewer</div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <InterviewRatingField label="Sikap saat wawancara" value={interviewForm.nilaiSikap} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiSikap: value }))} />
-                  <InterviewRatingField label="Cara bicara dan komunikasi" value={interviewForm.nilaiKomunikasi} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKomunikasi: value }))} />
-                  <InterviewRatingField label="Kerapihan jawaban" value={interviewForm.nilaiJawaban} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiJawaban: value }))} />
-                  <InterviewRatingField label="Semangat kerja" value={interviewForm.nilaiSemangatKerja} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiSemangatKerja: value }))} />
-                  <InterviewRatingField label="Pengalaman yang relevan" value={interviewForm.nilaiPengalaman} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiPengalaman: value }))} />
-                  <InterviewRatingField label="Kesiapan kerja" value={interviewForm.nilaiKesiapanKerja} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKesiapanKerja: value }))} />
-                  <InterviewRatingField label="Kecocokan dengan posisi" value={interviewForm.nilaiKecocokanPosisi} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKecocokanPosisi: value }))} />
-                  <InterviewRatingField label="Komitmen kerja" value={interviewForm.nilaiKomitmen} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKomitmen: value }))} />
-                  <InterviewRatingField label="Kesesuaian harapan gaji" value={interviewForm.nilaiKesesuaianGaji} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKesesuaianGaji: value }))} />
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <div className="border-b border-[var(--border-soft)] pb-2 text-sm font-semibold text-[var(--text-main)]">Catatan recruiter</div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Kelebihan pelamar</div>
-                    <TextAreaField value={interviewForm.kelebihan} onChange={(value) => setInterviewForm((current) => ({ ...current, kelebihan: value }))} placeholder="Tuliskan kekuatan utama kandidat yang terlihat saat wawancara." />
-                  </div>
-                  <div>
-                    <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Hal yang masih meragukan</div>
-                    <TextAreaField value={interviewForm.keraguan} onChange={(value) => setInterviewForm((current) => ({ ...current, keraguan: value }))} placeholder="Tuliskan concern recruiter atau hal yang masih perlu dicek lagi." />
-                  </div>
-                  <div>
-                    <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Catatan untuk owner / user</div>
-                    <TextAreaField value={interviewForm.catatanUntukOwner} onChange={(value) => setInterviewForm((current) => ({ ...current, catatanUntukOwner: value }))} placeholder="Tuliskan poin penting untuk owner atau user sebelum keputusan akhir." />
-                  </div>
-                  <div>
-                    <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Kesan umum interviewer</div>
-                    <TextAreaField value={interviewForm.kesanUmum} onChange={(value) => setInterviewForm((current) => ({ ...current, kesanUmum: value }))} placeholder="Ringkas kesan keseluruhan recruiter setelah interview berlangsung." />
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <div className="border-b border-[var(--border-soft)] pb-2 text-sm font-semibold text-[var(--text-main)]">Panduan fokus interviewer</div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {interviewAssessmentItems.map((item) => (
-                    <div key={item} className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-3 py-3 text-sm leading-6 text-[var(--text-muted)]">
-                      {item}
+              {selectedInterview.interviewStageType === "hrd" ? (
+                <>
+                  <section className="space-y-4">
+                    <div className="border-b border-[var(--border-soft)] pb-2 text-sm font-semibold text-[var(--text-main)]">Form penilaian interviewer</div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <InterviewRatingField label="Sikap saat wawancara" value={interviewForm.nilaiSikap} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiSikap: value }))} />
+                      <InterviewRatingField label="Cara bicara dan komunikasi" value={interviewForm.nilaiKomunikasi} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKomunikasi: value }))} />
+                      <InterviewRatingField label="Kerapihan jawaban" value={interviewForm.nilaiJawaban} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiJawaban: value }))} />
+                      <InterviewRatingField label="Semangat kerja" value={interviewForm.nilaiSemangatKerja} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiSemangatKerja: value }))} />
+                      <InterviewRatingField label="Pengalaman yang relevan" value={interviewForm.nilaiPengalaman} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiPengalaman: value }))} />
+                      <InterviewRatingField label="Kesiapan kerja" value={interviewForm.nilaiKesiapanKerja} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKesiapanKerja: value }))} />
+                      <InterviewRatingField label="Kecocokan dengan posisi" value={interviewForm.nilaiKecocokanPosisi} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKecocokanPosisi: value }))} />
+                      <InterviewRatingField label="Komitmen kerja" value={interviewForm.nilaiKomitmen} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKomitmen: value }))} />
+                      <InterviewRatingField label="Kesesuaian harapan gaji" value={interviewForm.nilaiKesesuaianGaji} onChange={(value) => setInterviewForm((current) => ({ ...current, nilaiKesesuaianGaji: value }))} />
                     </div>
-                  ))}
-                </div>
-              </section>
+                  </section>
+
+                  <section className="space-y-4">
+                    <div className="border-b border-[var(--border-soft)] pb-2 text-sm font-semibold text-[var(--text-main)]">Catatan recruiter</div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Kelebihan pelamar</div>
+                        <TextAreaField value={interviewForm.kelebihan} onChange={(value) => setInterviewForm((current) => ({ ...current, kelebihan: value }))} placeholder="Tuliskan kekuatan utama kandidat yang terlihat saat wawancara." />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Hal yang masih meragukan</div>
+                        <TextAreaField value={interviewForm.keraguan} onChange={(value) => setInterviewForm((current) => ({ ...current, keraguan: value }))} placeholder="Tuliskan concern recruiter atau hal yang masih perlu dicek lagi." />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Catatan untuk owner / user</div>
+                        <TextAreaField value={interviewForm.catatanUntukOwner} onChange={(value) => setInterviewForm((current) => ({ ...current, catatanUntukOwner: value }))} placeholder="Tuliskan poin penting untuk owner atau user sebelum keputusan akhir." />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Kesan umum interviewer</div>
+                        <TextAreaField value={interviewForm.kesanUmum} onChange={(value) => setInterviewForm((current) => ({ ...current, kesanUmum: value }))} placeholder="Ringkas kesan keseluruhan recruiter setelah interview berlangsung." />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <div className="border-b border-[var(--border-soft)] pb-2 text-sm font-semibold text-[var(--text-main)]">Panduan fokus interviewer</div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {interviewAssessmentItems.map((item) => (
+                        <div key={item} className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-3 py-3 text-sm leading-6 text-[var(--text-muted)]">
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </>
+              ) : (
+                <section className="space-y-4">
+                  <div className="border-b border-[var(--border-soft)] pb-2 text-sm font-semibold text-[var(--text-main)]">Form hasil interview user</div>
+                  <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+                    <div>
+                      <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Rekomendasi user</div>
+                      <FilterSelect
+                        value={userInterviewForm.recommendation}
+                        onChange={(value) => setUserInterviewForm((current) => ({ ...current, recommendation: value }))}
+                        options={userInterviewRecommendationOptions}
+                        placeholder="Pilih rekomendasi"
+                      />
+                    </div>
+                    <div>
+                      <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Ringkasan interview user</div>
+                      <TextAreaField value={userInterviewForm.summary} onChange={(value) => setUserInterviewForm((current) => ({ ...current, summary: value }))} placeholder="Ringkas kesesuaian kandidat dengan kebutuhan kerja harian, ritme tim, dan eksekusi lapangan." />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Catatan user</div>
+                    <TextAreaField value={userInterviewForm.notes} onChange={(value) => setUserInterviewForm((current) => ({ ...current, notes: value }))} placeholder="Catatan tambahan dari user, misalnya area perhatian, kecocokan kerja tim, atau kebutuhan pendampingan." />
+                  </div>
+                </section>
+              )}
 
               <div className="flex flex-wrap gap-2 border-t border-[var(--border-soft)] pt-5">
                 <Button className="rounded-xl" onClick={() => void handleSaveInterviewResult()} disabled={isSubmittingAction}>Simpan hasil</Button>
@@ -1029,12 +1206,17 @@ export default function InterviewPage() {
                 </Button>
                 <Button variant="outline" className="rounded-xl" onClick={() => openScheduleModal(selectedInterview)}>
                   <CalendarDays className="mr-2 h-4 w-4" />
-                  {selectedInterview.interviewDatetime ? "Ubah jadwal" : "Atur jadwal"}
+                  {selectedInterview.interviewDatetime ? "Ubah jadwal" : `Atur ${selectedInterview.interviewStageType === "user" ? "Interview User" : "jadwal"}`}
                 </Button>
                 <Button variant="outline" className="rounded-xl" onClick={() => void handleSaveForTalentPool()} disabled={isSubmittingAction}>
                   Simpan cadangan
                 </Button>
-                <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-700" onClick={() => void handleAdvanceCandidate()} disabled={isSubmittingAction}>
+                {shouldShowScheduleUserButton(selectedInterview) ? (
+                  <Button variant="outline" className="rounded-xl" onClick={() => void handleMoveToUserInterview()} disabled={isSubmittingAction}>
+                    Jadwalkan Interview User
+                  </Button>
+                ) : null}
+                <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-700" onClick={() => void handleAdvanceCandidate()} disabled={isSubmittingAction || !canAdvanceFromHrd(selectedInterview)}>
                   Lanjut ke penawaran
                 </Button>
                 <Button
@@ -1053,7 +1235,11 @@ export default function InterviewPage() {
 
       {scheduleModalInterview ? (
         <ActionModal
-          title={scheduleModalInterview.interviewDatetime ? "Ubah jadwal wawancara" : "Atur jadwal wawancara"}
+          title={
+            scheduleModalInterview.interviewDatetime
+              ? `Ubah jadwal ${scheduleModalInterview.interviewStageType === "user" ? "Interview User" : "wawancara"}`
+              : `Atur jadwal ${scheduleModalInterview.interviewStageType === "user" ? "Interview User" : "wawancara"}`
+          }
           subtitle={`${scheduleModalInterview.namaPelamar} / ${scheduleModalInterview.posisiDilamar}`}
           onClose={closeScheduleModal}
         >
@@ -1070,6 +1256,12 @@ export default function InterviewPage() {
               <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Interviewer</div>
               <Input value={scheduleForm.interviewer} onChange={(event) => setScheduleForm((current) => ({ ...current, interviewer: event.target.value }))} placeholder="Nama interviewer" />
             </div>
+            {scheduleModalInterview.interviewStageType === "user" ? (
+              <div>
+                <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Jabatan interviewer</div>
+                <Input value={scheduleForm.interviewerRole} onChange={(event) => setScheduleForm((current) => ({ ...current, interviewerRole: event.target.value }))} placeholder="Contoh: Supervisor Gudang / Store Manager" />
+              </div>
+            ) : null}
             <div>
               <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Lokasi / link meeting</div>
               <Input value={scheduleForm.location} onChange={(event) => setScheduleForm((current) => ({ ...current, location: event.target.value }))} placeholder="Contoh: Google Meet / Kantor pusat" />
@@ -1084,7 +1276,7 @@ export default function InterviewPage() {
           <div className="flex justify-end">
             <Button onClick={() => void handleSaveSchedule()} disabled={isSubmittingAction}>
               <CalendarDays className="mr-2 h-4 w-4" />
-              Simpan jadwal wawancara
+              {scheduleModalInterview.interviewStageType === "user" ? "Simpan jadwal Interview User" : "Simpan jadwal wawancara"}
             </Button>
           </div>
         </ActionModal>

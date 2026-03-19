@@ -145,6 +145,7 @@ function mapLowonganRow(item) {
     lokasiKerja: item.lokasi_kerja || "",
     benefit: item.benefit || "",
     caraMelamar: item.cara_melamar || "",
+    userInterviewMode: item.user_interview_mode || "none",
     statusLowongan: item.status_lowongan || "Belum tayang",
     tanggalTayang: item.tanggal_tayang || "",
     tanggalTutup: item.tanggal_tutup || "",
@@ -184,6 +185,7 @@ function mapJobToForm(job) {
     lokasiKerja: job.lokasiKerja,
     benefit: job.benefit,
     caraMelamar: job.caraMelamar,
+    userInterviewMode: job.userInterviewMode || "none",
     statusLowongan: job.statusLowongan,
     tanggalTayang: job.tanggalTayang,
     tanggalTutup: job.tanggalTutup,
@@ -218,6 +220,7 @@ function mapFormPayloadToLowonganInsert(payload, editingJobId = null) {
     lokasi_kerja: payload.lokasiKerja || null,
     benefit: payload.benefit || null,
     cara_melamar: payload.caraMelamar || null,
+    user_interview_mode: payload.userInterviewMode || "none",
     status_lowongan: payload.statusLowongan || "Belum tayang",
     tanggal_tayang: payload.tanggalTayang || null,
     tanggal_tutup: payload.tanggalTutup || null,
@@ -590,6 +593,9 @@ export default function JobsPage() {
                   </Badge>
                   {job.kebutuhanId ? <Badge variant="outline" className="rounded-lg">Terhubung ke kebutuhan</Badge> : null}
                   <Badge className={`border rounded-lg ${indicator.className}`}>{indicator.label}</Badge>
+                  <Badge variant="outline" className="rounded-lg">
+                    Interview User: {job.userInterviewMode === "required" ? "Wajib" : job.userInterviewMode === "optional" ? "Opsional" : "Tidak perlu"}
+                  </Badge>
                   {job.archived ? <Badge variant="outline" className="rounded-lg">Arsip</Badge> : null}
                 </div>
 

@@ -41,6 +41,13 @@ export interface Pelamar {
   interview_location: string | null;
   interview_interviewer: string | null;
   interview_notes: string | null;
+  user_interview_status: string | null;
+  user_interview_datetime: string | null;
+  user_interview_location: string | null;
+  user_interview_interviewer: string | null;
+  user_interview_interviewer_role: string | null;
+  user_interview_notes: string | null;
+  user_interview_recommendation: string | null;
   archived: boolean;
   created_at: string;
   updated_at: string;

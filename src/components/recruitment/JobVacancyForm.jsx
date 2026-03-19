@@ -12,6 +12,11 @@ const statusKerjaOptions = ["PKWT / Kontrak", "Karyawan tetap", "Freelance"];
 const tipeKerjaOptions = ["Full time", "Part time", "Shift"];
 const pendidikanOptions = ["SMP", "SMA / SMK", "D3", "S1", "Tidak dibatasi"];
 const pengalamanOptions = ["Fresh graduate", "Minimal 1 tahun", "Minimal 2 tahun", "Minimal 3 tahun", "Diutamakan berpengalaman"];
+const userInterviewModeOptions = [
+  { value: "none", label: "Tidak perlu" },
+  { value: "optional", label: "Opsional" },
+  { value: "required", label: "Wajib" },
+];
 
 function parseTextList(value) {
   return (value || "")
@@ -100,6 +105,7 @@ export function createInitialJobForm(prefill = {}) {
     lokasiKerja: prefill.lokasiKerja || prefill.cabang || "",
     benefit: prefill.benefit || "",
     caraMelamar: prefill.caraMelamar || "Kirim data lewat link lowongan atau hubungi admin rekrutmen.",
+    userInterviewMode: prefill.userInterviewMode || prefill.user_interview_mode || "none",
     jalurBagikan: prefill.jalurBagikan || [],
     statusLowongan: prefill.statusLowongan || "Belum tayang",
     tanggalTayang: prefill.tanggalTayang || "",
@@ -352,6 +358,29 @@ export default function JobVacancyForm({ form, onChange, onCancel, onSubmit, sou
           <div className="space-y-2">
             <FieldLabel label="Cara melamar" />
             <Input value={form.caraMelamar} onChange={(event) => updateField("caraMelamar", event.target.value)} />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="space-y-2">
+            <FieldLabel label="Interview User" />
+            <select
+              value={form.userInterviewMode}
+              onChange={(event) => updateField("userInterviewMode", event.target.value)}
+              className="flex h-10 w-full rounded-lg border border-[var(--border-soft)] bg-white px-3 py-2 text-sm text-[var(--text-main)]"
+            >
+              {userInterviewModeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-0)] px-4 py-3 text-sm leading-6 text-[var(--text-muted)]">
+            {form.userInterviewMode === "required"
+              ? "Lowongan ini mewajibkan interview user setelah HRD. Kandidat belum bisa langsung masuk penawaran kerja dari tahap wawancara HRD."
+              : form.userInterviewMode === "optional"
+                ? "Recruiter boleh memilih apakah kandidat perlu lanjut ke interview user atau langsung ke penawaran kerja setelah HRD."
+                : "Lowongan ini cukup sampai interview HRD. Tahap interview user tidak perlu ditampilkan di alur kandidat."}
           </div>
         </div>
       </SectionCard>

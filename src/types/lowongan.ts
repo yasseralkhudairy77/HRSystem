@@ -25,6 +25,7 @@ export interface LowonganPekerjaan {
   lokasi_kerja?: string | null;
   benefit?: string | null;
   cara_melamar?: string | null;
+  user_interview_mode?: "none" | "optional" | "required" | null;
   status_lowongan?: string | null;
   tanggal_tayang?: string | null;
   tanggal_tutup?: string | null;

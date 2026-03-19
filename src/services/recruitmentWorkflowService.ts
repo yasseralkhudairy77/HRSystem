@@ -14,8 +14,10 @@ export interface CreateInterviewSchedulePayload {
   pelamar_id: number;
   interview_datetime: string;
   interviewer: string;
+  interviewer_role?: string | null;
   location: string;
   notes?: string | null;
+  interview_type?: "hrd" | "user";
 }
 
 export async function createStageHistory(data: CreateStageHistoryPayload) {
@@ -32,8 +34,10 @@ export async function createInterviewSchedule(data: CreateInterviewSchedulePaylo
     pelamar_id: data.pelamar_id,
     interview_datetime: data.interview_datetime,
     interviewer: data.interviewer,
+    interviewer_role: data.interviewer_role ?? null,
     location: data.location,
     notes: data.notes ?? null,
+    interview_type: data.interview_type ?? "hrd",
   });
 
   if (error) {
