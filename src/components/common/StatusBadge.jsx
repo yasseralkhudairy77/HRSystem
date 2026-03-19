@@ -110,7 +110,13 @@ const statusClasses = {
   "Belum ditutup": "bg-slate-100 text-slate-700 border-slate-200",
   "Sebagian sudah ditutup": "bg-amber-50 text-amber-700 border-amber-200",
   "Belum mulai": "bg-slate-100 text-slate-700 border-slate-200",
+  "Belum dimulai": "bg-slate-100 text-slate-700 border-slate-200",
   "Sedang dikerjakan": "bg-amber-50 text-amber-700 border-amber-200",
+  "Sedang berjalan": "bg-sky-50 text-sky-700 border-sky-200",
+  "Perlu dinilai": "bg-amber-50 text-amber-700 border-amber-200",
+  Diperpanjang: "bg-violet-50 text-violet-700 border-violet-200",
+  Lulus: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  Perpanjang: "bg-violet-50 text-violet-700 border-violet-200",
 };
 
 export default function StatusBadge({ value, className = "" }) {

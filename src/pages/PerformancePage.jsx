@@ -1,462 +1,252 @@
-import { useMemo, useState } from "react";
-import { BookUser, ClipboardCheck, FilePenLine, Search, ShieldAlert, Trophy, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BookUser, ClipboardCheck, LoaderCircle, Search, ShieldAlert, X } from "lucide-react";
 
 import SectionTitle from "@/components/common/SectionTitle";
 import StatusBadge from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { performanceDataFields, performanceDirectory, performanceModuleLinks, performanceQuickTabs } from "@/data";
+import { getEmployeeList, updateEmployee } from "@/services/employeeService";
+import { ensureProbationReviewForEmployee, getProbationReviewList, updateProbationReview } from "@/services/probationReviewService";
 
-const dateFormatter = new Intl.DateTimeFormat("id-ID", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
-const emptyFilters = {
-  usaha: "Semua cabang",
-  jabatan: "Semua jabatan",
-  periode: "Semua periode",
-  statusPenilaian: "Semua status penilaian",
-  penanggungJawab: "Semua atasan",
-};
+const quickTabs = [
+  { key: "semua", label: "Semua" },
+  { key: "perlu-dinilai", label: "Perlu dinilai" },
+  { key: "siap-diputuskan", label: "Siap diputuskan" },
+  { key: "selesai", label: "Selesai" },
+];
+const scoreOptions = ["Kurang", "Cukup", "Baik", "Sangat baik"];
 
 function formatDate(value) {
-  if (!value || value === "-") {
-    return "-";
-  }
-
-  return dateFormatter.format(new Date(value));
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function matchQuickTab(item, tabKey) {
-  switch (tabKey) {
-    case "masa-percobaan":
-      return item.statusKerja === "Probation";
-    case "rutin":
-      return item.statusKerja !== "Probation";
-    case "perlu-dibina":
-      return item.hasilPenilaian === "Perlu dibina";
-    case "siap-diputuskan":
-      return item.keputusanAkhir === "Tetap" || item.keputusanAkhir === "Tidak lanjut" || item.keputusanAkhir === "Dipertimbangkan";
-    case "selesai":
-      return item.statusPenilaian === "Sudah dinilai";
-    default:
-      return true;
+function deriveStatus(review) {
+  if (review.decision === "Lulus") return "Selesai";
+  if (review.decision === "Perpanjang") return "Diperpanjang";
+  if (review.decision === "Tidak dilanjutkan") return "Tidak dilanjutkan";
+  if (!review.start_date) return "Belum dimulai";
+  const dueDate = review.extension_end_date || review.evaluation_date || review.end_date;
+  if (dueDate) {
+    const daysLeft = Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86400000);
+    if (daysLeft <= 7) return "Perlu dinilai";
   }
+  return review.status_review || "Sedang berjalan";
 }
 
-function SummaryCard({ icon: Icon, label, value, note, tone = "slate" }) {
-  const tones = {
-    slate: "bg-slate-50 text-slate-700",
-    amber: "bg-amber-50 text-amber-700",
-    sky: "bg-sky-50 text-sky-700",
-    emerald: "bg-emerald-50 text-emerald-700",
-    rose: "bg-rose-50 text-rose-700",
+function deriveResult(review) {
+  if (review.decision === "Lulus") return "Kerja bagus";
+  if (review.decision === "Perpanjang") return "Perlu dibina";
+  if (review.decision === "Tidak dilanjutkan") return "Perlu perhatian";
+  return deriveStatus(review) === "Perlu dinilai" ? "Perlu dinilai" : "Sedang berjalan";
+}
+
+function buildForm(review) {
+  return {
+    evaluatorName: review?.evaluator_name || "",
+    evaluatorRole: review?.evaluator_role || "Atasan langsung",
+    evaluationDate: review?.evaluation_date || "",
+    extensionEndDate: review?.extension_end_date || "",
+    attendanceScore: review?.attendance_score || "Cukup",
+    attitudeScore: review?.attitude_score || "Cukup",
+    taskUnderstandingScore: review?.task_understanding_score || "Cukup",
+    workQualityScore: review?.work_quality_score || "Cukup",
+    responsibilityScore: review?.responsibility_score || "Cukup",
+    teamworkScore: review?.teamwork_score || "Cukup",
+    strengthsNote: review?.strengths_note || "",
+    coachingNote: review?.coaching_note || "",
+    evaluatorNote: review?.evaluator_note || "",
+    decisionNote: review?.decision_note || "",
   };
-
-  return (
-    <Card className="rounded-2xl border-slate-200 shadow-sm">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-sm text-slate-500">{label}</div>
-            <div className="mt-2 text-3xl font-semibold text-slate-900">{value}</div>
-            <div className="mt-2 text-sm text-slate-500">{note}</div>
-          </div>
-          <div className={`rounded-2xl p-3 ${tones[tone] || tones.slate}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
 
-function FilterSelect({ value, onChange, options }) {
-  return (
-    <select
-      value={value}
-      onChange={onChange}
-      className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300"
-    >
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
-  );
+function SummaryCard({ icon: Icon, label, value, note, tone }) {
+  const tones = { slate: "bg-slate-50 text-slate-700", sky: "bg-sky-50 text-sky-700", amber: "bg-amber-50 text-amber-700", emerald: "bg-emerald-50 text-emerald-700", rose: "bg-rose-50 text-rose-700" };
+  return <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><div className="text-sm text-slate-500">{label}</div><div className="mt-2 text-3xl font-semibold text-slate-900">{value}</div><div className="mt-2 text-sm text-slate-500">{note}</div></div><div className={`rounded-2xl p-3 ${tones[tone] || tones.slate}`}><Icon className="h-5 w-5" /></div></div></CardContent></Card>;
+}
+
+function RatingField({ label, value, onChange }) {
+  return <div className="rounded-2xl border border-[var(--border-soft)] bg-white px-4 py-4"><div className="text-sm font-medium text-[var(--text-main)]">{label}</div><div className="mt-3 flex flex-wrap gap-2">{scoreOptions.map((option) => <button key={option} type="button" onClick={() => onChange(option)} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] transition ${option === value ? "border-[var(--brand-900)] bg-[var(--brand-900)] text-white" : "border-[var(--border-soft)] bg-[var(--surface-0)] text-[var(--text-muted)]"}`}>{option}</button>)}</div></div>;
 }
 
 export default function PerformancePage() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("semua");
-  const [filters, setFilters] = useState(emptyFilters);
-  const [selectedReview, setSelectedReview] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState(buildForm(null));
+  const [submitting, setSubmitting] = useState(false);
 
-  const filterOptions = useMemo(() => {
-    const usaha = ["Semua cabang", ...new Set(performanceDirectory.map((item) => item.namaCabang))];
-    const jabatan = ["Semua jabatan", ...new Set(performanceDirectory.map((item) => item.jabatan))];
-    const periode = ["Semua periode", ...new Set(performanceDirectory.map((item) => item.periodePenilaian))];
-    const statusPenilaian = ["Semua status penilaian", "Belum dinilai", "Sedang dinilai", "Sudah dinilai"];
-    const penanggungJawab = ["Semua atasan", ...new Set(performanceDirectory.map((item) => item.penanggungJawab))];
+  useEffect(() => { void loadRows(); }, []);
+  useEffect(() => { setForm(buildForm(selected?.review || null)); }, [selected]);
 
-    return { usaha, jabatan, periode, statusPenilaian, penanggungJawab };
-  }, []);
+  async function loadRows() {
+    setLoading(true);
+    setErrorMessage("");
+    try {
+      const employees = await getEmployeeList();
+      await Promise.all(
+        employees
+          .filter((item) => String(item.status_kerja || "").trim().toLowerCase() === "probation")
+          .map((item) =>
+            ensureProbationReviewForEmployee({
+              employeeId: item.id,
+              statusKerja: item.status_kerja,
+              startDate: item.tanggal_masuk,
+              evaluatorName: item.atasan,
+              evaluatorRole: "Atasan langsung",
+            }),
+          ),
+      );
+      const reviews = await getProbationReviewList();
+      const employeeMap = Object.fromEntries(employees.map((item) => [item.id, item]));
+      const mapped = reviews.map((review) => {
+        const employee = employeeMap[review.employee_id];
+        if (!employee) return null;
+        return {
+          id: review.id,
+          review,
+          employee,
+          namaLengkap: employee.nama_lengkap,
+          employeeId: employee.employee_id,
+          jabatan: employee.jabatan,
+          cabang: employee.cabang,
+          evaluator: review.evaluator_name || employee.atasan || "Atasan langsung",
+          periode: `${formatDate(review.start_date)} - ${formatDate(review.extension_end_date || review.end_date)}`,
+          statusReview: deriveStatus(review),
+          hasilReview: deriveResult(review),
+          keputusan: review.decision || "Belum diputuskan",
+        };
+      }).filter(Boolean);
+      setRows(mapped);
+    } catch (error) {
+      console.error("Load probation page gagal:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Gagal memuat evaluasi probation.");
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const summaryCards = useMemo(() => {
-    const total = performanceDirectory.length;
-    const probation = performanceDirectory.filter((item) => item.statusKerja === "Probation").length;
-    const bagus = performanceDirectory.filter((item) => item.hasilPenilaian === "Kerja bagus").length;
-    const dibina = performanceDirectory.filter((item) => item.hasilPenilaian === "Perlu dibina").length;
-    const siapDiputuskan = performanceDirectory.filter(
-      (item) => item.keputusanAkhir === "Tetap" || item.keputusanAkhir === "Tidak lanjut" || item.keputusanAkhir === "Dipertimbangkan",
-    ).length;
-    const perhatian = performanceDirectory.filter((item) => item.hasilPenilaian === "Perlu perhatian").length;
+  function syncRow(updatedReview, updatedEmployee) {
+    setRows((current) => current.map((item) => {
+      if (item.id !== updatedReview.id) return item;
+      const employee = updatedEmployee || item.employee;
+      return {
+        ...item,
+        review: updatedReview,
+        employee,
+        namaLengkap: employee.nama_lengkap,
+        jabatan: employee.jabatan,
+        cabang: employee.cabang,
+        evaluator: updatedReview.evaluator_name || employee.atasan || "Atasan langsung",
+        periode: `${formatDate(updatedReview.start_date)} - ${formatDate(updatedReview.extension_end_date || updatedReview.end_date)}`,
+        statusReview: deriveStatus(updatedReview),
+        hasilReview: deriveResult(updatedReview),
+        keputusan: updatedReview.decision || "Belum diputuskan",
+      };
+    }));
+    setSelected((current) => current && current.id === updatedReview.id ? {
+      ...current,
+      review: updatedReview,
+      employee: updatedEmployee || current.employee,
+      statusReview: deriveStatus(updatedReview),
+      hasilReview: deriveResult(updatedReview),
+      keputusan: updatedReview.decision || "Belum diputuskan",
+    } : current);
+  }
 
-    return [
-      { label: "Total yang dinilai", value: total, note: "Semua penilaian kerja ada di satu tempat.", icon: ClipboardCheck, tone: "slate" },
-      { label: "Masa percobaan", value: probation, note: "Perlu dilihat apakah sudah cocok dan layak lanjut.", icon: BookUser, tone: "sky" },
-      { label: "Kerja bagus", value: bagus, note: "Bisa jadi dasar keputusan positif atau tambahan tanggung jawab.", icon: Trophy, tone: "emerald" },
-      { label: "Perlu dibina", value: dibina, note: "Masih perlu arahan dan pendampingan kerja.", icon: FilePenLine, tone: "amber" },
-      { label: "Siap diputuskan", value: siapDiputuskan, note: "Sudah ada bahan untuk keputusan lanjut, tetap, atau tidak lanjut.", icon: ClipboardCheck, tone: "sky" },
-      { label: "Perlu perhatian", value: perhatian, note: "Ada hal yang perlu dibahas cepat oleh atasan atau HR.", icon: ShieldAlert, tone: "rose" },
-    ];
-  }, []);
+  async function persistReview(payload, successMessage, employeePayload = null) {
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      const [updatedReview, updatedEmployee] = await Promise.all([
+        updateProbationReview(selected.id, payload),
+        employeePayload ? updateEmployee(selected.employee.id, employeePayload) : Promise.resolve(null),
+      ]);
+      if (!updatedReview) throw new Error("Evaluasi probation belum berhasil disimpan.");
+      syncRow(updatedReview, updatedEmployee);
+      setFeedback({ type: "success", message: successMessage });
+    } catch (error) {
+      console.error("Persist probation gagal:", error);
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : "Perubahan evaluasi probation belum berhasil disimpan." });
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-  const quickTabCounts = useMemo(
-    () => Object.fromEntries(performanceQuickTabs.map((tab) => [tab.key, performanceDirectory.filter((item) => matchQuickTab(item, tab.key)).length])),
-    [],
-  );
+  function basePayload() {
+    return {
+      evaluator_name: form.evaluatorName || null,
+      evaluator_role: form.evaluatorRole || null,
+      evaluation_date: form.evaluationDate || null,
+      extension_end_date: form.extensionEndDate || null,
+      attendance_score: form.attendanceScore,
+      attitude_score: form.attitudeScore,
+      task_understanding_score: form.taskUnderstandingScore,
+      work_quality_score: form.workQualityScore,
+      responsibility_score: form.responsibilityScore,
+      teamwork_score: form.teamworkScore,
+      strengths_note: form.strengthsNote || null,
+      coaching_note: form.coachingNote || null,
+      evaluator_note: form.evaluatorNote || null,
+      decision_note: form.decisionNote || null,
+    };
+  }
 
-  const filteredReviews = useMemo(() => {
-    const searchLower = search.trim().toLowerCase();
-
-    return performanceDirectory.filter((item) => {
-      if (!matchQuickTab(item, activeTab)) {
-        return false;
-      }
-
-      if (filters.usaha !== "Semua cabang" && item.namaCabang !== filters.usaha) {
-        return false;
-      }
-
-      if (filters.jabatan !== "Semua jabatan" && item.jabatan !== filters.jabatan) {
-        return false;
-      }
-
-      if (filters.periode !== "Semua periode" && item.periodePenilaian !== filters.periode) {
-        return false;
-      }
-
-      if (filters.statusPenilaian !== "Semua status penilaian" && item.statusPenilaian !== filters.statusPenilaian) {
-        return false;
-      }
-
-      if (filters.penanggungJawab !== "Semua atasan" && item.penanggungJawab !== filters.penanggungJawab) {
-        return false;
-      }
-
-      if (!searchLower) {
-        return true;
-      }
-
-      return [item.namaLengkap, item.jabatan, item.namaCabang, item.periodePenilaian, item.penanggungJawab]
-        .join(" ")
-        .toLowerCase()
-        .includes(searchLower);
+  const filteredRows = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return rows.filter((item) => {
+      const matchesSearch = !term || [item.namaLengkap, item.jabatan, item.cabang, item.evaluator, item.keputusan, item.statusReview].join(" ").toLowerCase().includes(term);
+      const matchesTab = activeTab === "semua"
+        || (activeTab === "perlu-dinilai" && item.statusReview === "Perlu dinilai")
+        || (activeTab === "siap-diputuskan" && ["Perlu dinilai", "Diperpanjang"].includes(item.statusReview))
+        || (activeTab === "selesai" && ["Selesai", "Tidak dilanjutkan"].includes(item.statusReview));
+      return matchesSearch && matchesTab;
     });
-  }, [activeTab, filters, search]);
+  }, [activeTab, rows, search]);
 
-  const handleFilterChange = (key, value) => {
-    setFilters((current) => ({ ...current, [key]: value }));
-  };
+  const summaryCards = useMemo(() => [
+    { label: "Total evaluasi", value: rows.length, note: "Semua record probation tahap 1 yang tersambung ke data karyawan.", icon: ClipboardCheck, tone: "slate" },
+    { label: "Sedang probation", value: rows.filter((item) => item.employee.status_kerja === "Probation").length, note: "Karyawan yang masih aktif di masa percobaan.", icon: BookUser, tone: "sky" },
+    { label: "Perlu dinilai", value: rows.filter((item) => item.statusReview === "Perlu dinilai").length, note: "Sudah mendekati atau masuk waktu evaluasi.", icon: ShieldAlert, tone: "amber" },
+    { label: "Selesai", value: rows.filter((item) => item.statusReview === "Selesai").length, note: "Sudah lulus dan siap lanjut ke status kerja berikutnya.", icon: ClipboardCheck, tone: "emerald" },
+    { label: "Tidak dilanjutkan", value: rows.filter((item) => item.statusReview === "Tidak dilanjutkan").length, note: "Keputusan probation berakhir tanpa dilanjutkan bekerja.", icon: ShieldAlert, tone: "rose" },
+  ], [rows]);
 
   return (
     <div className="space-y-6">
       <div className="space-y-4 rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-5 shadow-sm lg:p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <SectionTitle
-            title="Penilaian Kerja"
-            subtitle="Pusat untuk menilai kerja karyawan, mencatat pembinaan, dan membantu atasan mengambil keputusan sederhana yang dibutuhkan UMKM."
-          />
-
-          <div className="flex flex-wrap gap-3">
-            <Button className="rounded-xl">
-              <ClipboardCheck className="mr-2 h-4 w-4" />
-              Tambah Penilaian
-            </Button>
-            <Button variant="outline" className="rounded-xl">
-              <FilePenLine className="mr-2 h-4 w-4" />
-              Catat Pembinaan
-            </Button>
-          </div>
+          <SectionTitle title="Penilaian Kerja" subtitle="Tahap 1 modul ini fokus ke Evaluasi Probation. Flow-nya tersambung dari Data Karyawan saat status kerja masih probation, lalu berakhir di keputusan lulus, perpanjang, atau tidak dilanjutkan." />
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600">Flow aktif: <span className="font-medium text-slate-900">Data Karyawan -&gt; Evaluasi Probation -&gt; Keputusan status kerja</span></div>
         </div>
-
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cari nama, jabatan, cabang, periode, atau atasan"
-              className="rounded-xl border-slate-200 bg-white pl-9"
-            />
-          </div>
-          <FilterSelect value={filters.usaha} onChange={(event) => handleFilterChange("usaha", event.target.value)} options={filterOptions.usaha} />
-          <FilterSelect value={filters.jabatan} onChange={(event) => handleFilterChange("jabatan", event.target.value)} options={filterOptions.jabatan} />
-          <FilterSelect value={filters.periode} onChange={(event) => handleFilterChange("periode", event.target.value)} options={filterOptions.periode} />
-          <FilterSelect
-            value={filters.statusPenilaian}
-            onChange={(event) => handleFilterChange("statusPenilaian", event.target.value)}
-            options={filterOptions.statusPenilaian}
-          />
-          <FilterSelect
-            value={filters.penanggungJawab}
-            onChange={(event) => handleFilterChange("penanggungJawab", event.target.value)}
-            options={filterOptions.penanggungJawab}
-          />
-        </div>
+        <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, jabatan, cabang, evaluator, atau keputusan probation" className="rounded-xl border-slate-200 bg-white pl-9" /></div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {summaryCards.map((item) => (
-          <SummaryCard key={item.label} {...item} />
-        ))}
-      </div>
+      {feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>{feedback.message}</div> : null}
+      {errorMessage ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div> : null}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">{summaryCards.map((item) => <SummaryCard key={item.label} {...item} />)}</div>
+
+      <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="flex flex-wrap gap-2 p-4">{quickTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${tab.key === activeTab ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{tab.label}</button>)}</CardContent></Card>
 
       <Card className="rounded-2xl border-slate-200 shadow-sm">
-        <CardContent className="flex flex-wrap gap-2 p-4">
-          {performanceQuickTabs.map((tab) => {
-            const active = tab.key === activeTab;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                  active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {tab.label} ({quickTabCounts[tab.key] || 0})
-              </button>
-            );
-          })}
+        <CardContent className="space-y-4 p-4 lg:p-5">
+          <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-lg font-semibold text-slate-900">Daftar evaluasi probation</div><div className="text-sm text-slate-500">{filteredRows.length} data ditemukan.</div></div><div className="text-sm text-slate-500">Klik detail untuk isi penilaian.</div></div>
+          {loading ? <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" />Memuat evaluasi probation...</div> : null}
+          <div className="space-y-3">
+            {filteredRows.map((item) => <div key={item.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50/60"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="space-y-3"><div className="flex flex-wrap items-start gap-3"><div><div className="text-lg font-semibold text-slate-900">{item.namaLengkap}</div><div className="text-sm text-slate-500">{item.jabatan} • {item.cabang}</div></div><StatusBadge value={item.statusReview} /><StatusBadge value={item.hasilReview} /></div><div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-4"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Periode</div><div className="mt-1 font-medium text-slate-700">{item.periode}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Tanggal masuk</div><div className="mt-1 font-medium text-slate-700">{formatDate(item.employee.tanggal_masuk)}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Evaluator</div><div className="mt-1 font-medium text-slate-700">{item.evaluator}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Keputusan</div><div className="mt-1 font-medium text-slate-700">{item.keputusan}</div></div></div></div><div className="flex flex-wrap gap-2 xl:max-w-[220px] xl:justify-end"><Button variant="outline" className="rounded-xl" onClick={() => setSelected(item)}>Detail</Button></div></div></div>)}
+            {!loading && filteredRows.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">Belum ada evaluasi probation yang cocok dengan pencarian atau tab yang dipilih.</div> : null}
+          </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_360px]">
-        <Card className="rounded-2xl border-slate-200 shadow-sm">
-          <CardContent className="space-y-4 p-4 lg:p-5">
-            <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="text-lg font-semibold text-slate-900">Daftar penilaian kerja</div>
-                <div className="text-sm text-slate-500">
-                  {filteredReviews.length} data ditemukan. Fokusnya siapa yang kerja bagus, siapa yang perlu dibina, dan siapa yang perlu keputusan lanjutan.
-                </div>
-              </div>
-              <div className="text-sm text-slate-500">Klik "Lihat detail" untuk buka hasil nilai dan catatan atasan tanpa pindah halaman.</div>
-            </div>
-
-            <div className="space-y-3">
-              {filteredReviews.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50/60">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-start gap-3">
-                        <div>
-                          <div className="text-lg font-semibold text-slate-900">{item.namaLengkap}</div>
-                          <div className="text-sm text-slate-500">
-                            {item.jabatan} • {item.namaCabang}
-                          </div>
-                        </div>
-                        <StatusBadge value={item.statusPenilaian} />
-                        <StatusBadge value={item.hasilPenilaian} />
-                      </div>
-
-                      <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-5">
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Periode</div>
-                          <div className="mt-1 font-medium text-slate-700">{item.periodePenilaian}</div>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status kerja</div>
-                          <div className="mt-1 font-medium text-slate-700">{item.statusKerja}</div>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Hasil kerja</div>
-                          <div className="mt-1 font-medium text-slate-700">{item.hasilKerja}</div>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Kedisiplinan</div>
-                          <div className="mt-1 font-medium text-slate-700">{item.kedisiplinan}</div>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Sikap kerja</div>
-                          <div className="mt-1 font-medium text-slate-700">{item.sikapKerja}</div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">Keputusan sementara: {item.keputusanAkhir}</span>
-                        <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700">Atasan: {item.penanggungJawab}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 xl:max-w-[270px] xl:justify-end">
-                      <Button variant="outline" className="rounded-xl" onClick={() => setSelectedReview(item)}>
-                        Lihat detail
-                      </Button>
-                      <Button variant="outline" className="rounded-xl">
-                        Isi penilaian
-                      </Button>
-                      <Button variant="outline" className="rounded-xl">
-                        Catat pembinaan
-                      </Button>
-                      <Button variant="outline" className="rounded-xl">
-                        Simpan hasil
-                      </Button>
-                      <Button variant="outline" className="rounded-xl">
-                        Tandai selesai
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {filteredReviews.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                  Belum ada data yang cocok dengan pencarian atau filter yang dipilih.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          <Card className="rounded-2xl border-slate-200 shadow-sm">
-            <CardContent className="p-5">
-              <div className="text-lg font-semibold text-slate-900">Terhubung ke modul lain</div>
-              <div className="mt-2 text-sm leading-6 text-slate-500">
-                Hasil penilaian kerja tidak berdiri sendiri. Dari sini keputusan bisa diteruskan ke modul lain sesuai kebutuhan.
-              </div>
-              <div className="mt-4 space-y-3">
-                {performanceModuleLinks.map((item) => (
-                  <div key={item.title} className="rounded-xl border border-slate-200 p-3">
-                    <div className="font-medium text-slate-800">{item.title}</div>
-                    <div className="mt-1 text-sm leading-6 text-slate-500">{item.detail}</div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-slate-200 shadow-sm">
-            <CardContent className="p-5">
-              <div className="text-lg font-semibold text-slate-900">Struktur data penilaian</div>
-              <div className="mt-2 text-sm leading-6 text-slate-500">
-                Field ini mendukung penilaian masa percobaan, penilaian rutin, pembinaan, dan keputusan lanjutan.
-              </div>
-              <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-1">
-                {performanceDataFields.map((field) => (
-                  <div key={field} className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    {field}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {selectedReview && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/25 backdrop-blur-[1px]">
-          <div className="h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
-              <div>
-                <div className="text-xl font-semibold text-slate-900">{selectedReview.namaLengkap}</div>
-                <div className="mt-1 text-sm text-slate-500">
-                  {selectedReview.jabatan} • {selectedReview.periodePenilaian}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedReview(null)}
-                className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-5 p-5">
-              <div className="flex flex-wrap gap-2">
-                <StatusBadge value={selectedReview.statusPenilaian} />
-                <StatusBadge value={selectedReview.hasilPenilaian} />
-                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700">{selectedReview.keputusanAkhir}</span>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <div className="text-sm font-medium text-slate-700">Data penilaian</div>
-                  <div className="mt-3 space-y-2 text-sm text-slate-600">
-                    <div>Nama lengkap: {selectedReview.namaLengkap}</div>
-                    <div>Jabatan: {selectedReview.jabatan}</div>
-                    <div>Cabang: {selectedReview.namaCabang}</div>
-                    <div>Tanggal masuk: {formatDate(selectedReview.tanggalMasuk)}</div>
-                    <div>Status kerja: {selectedReview.statusKerja}</div>
-                    <div>Periode penilaian: {selectedReview.periodePenilaian}</div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <div className="text-sm font-medium text-slate-700">Poin penilaian</div>
-                  <div className="mt-3 space-y-2 text-sm text-slate-600">
-                    <div>Hasil kerja: {selectedReview.hasilKerja}</div>
-                    <div>Ketepatan kerja: {selectedReview.ketepatanKerja}</div>
-                    <div>Kedisiplinan: {selectedReview.kedisiplinan}</div>
-                    <div>Sikap kerja: {selectedReview.sikapKerja}</div>
-                    <div>Kerja sama: {selectedReview.kerjaSama}</div>
-                    <div>Tanggung jawab: {selectedReview.tanggungJawab}</div>
-                    <div>Mau belajar: {selectedReview.mauBelajar}</div>
-                    <div>Siap ikut aturan kerja: {selectedReview.ikutAturanKerja}</div>
-                  </div>
-                </div>
-
-                {selectedReview.statusKerja === "Probation" && (
-                  <div className="rounded-2xl bg-slate-50 p-4 md:col-span-2">
-                    <div className="text-sm font-medium text-slate-700">Catatan masa percobaan</div>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2 text-sm text-slate-600">
-                      <div>Cepat belajar: {selectedReview.cepatBelajar}</div>
-                      <div>Cocok dengan posisi: {selectedReview.cocokDenganPosisi}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-4">
-                <div className="text-sm font-medium text-slate-800">Catatan atasan</div>
-                <div className="mt-2 text-sm leading-6 text-slate-600">{selectedReview.catatanAtasan}</div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-4">
-                <div className="text-sm font-medium text-slate-800">Catatan pembinaan</div>
-                <div className="mt-2 text-sm leading-6 text-slate-600">{selectedReview.catatanPembinaan}</div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-4">
-                <div className="text-sm font-medium text-slate-800">Hasil akhir</div>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Hasil penilaian: {selectedReview.hasilPenilaian}</div>
-                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Keputusan akhir: {selectedReview.keputusanAkhir}</div>
-                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Atasan / penanggung jawab: {selectedReview.penanggungJawab}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {selected ? <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/25 backdrop-blur-[1px]"><div className="h-full w-full max-w-3xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4"><div><div className="text-xl font-semibold text-slate-900">{selected.namaLengkap}</div><div className="mt-1 text-sm text-slate-500">{selected.jabatan} • {selected.periode}</div></div><button type="button" onClick={() => setSelected(null)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"><X className="h-4 w-4" /></button></div><div className="space-y-5 p-5"><div className="flex flex-wrap gap-2"><StatusBadge value={selected.statusReview} /><StatusBadge value={selected.hasilReview} /><StatusBadge value={selected.keputusan} /></div><div className="grid gap-3 md:grid-cols-2"><div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600"><div className="font-medium text-slate-800">Ringkasan probation</div><div className="mt-3">ID Karyawan: {selected.employeeId}</div><div>Tanggal masuk: {formatDate(selected.employee.tanggal_masuk)}</div><div>Akhir probation: {formatDate(selected.review.extension_end_date || selected.review.end_date)}</div></div><div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600"><div className="font-medium text-slate-800">Evaluator</div><div className="mt-3">Nama: {selected.evaluator}</div><div>Jabatan evaluator: {selected.review.evaluator_role || "Atasan langsung"}</div><div>Tanggal evaluasi: {formatDate(selected.review.evaluation_date)}</div></div></div><div className="grid gap-4 md:grid-cols-2"><div><div className="mb-2 text-sm font-medium text-slate-900">Nama evaluator</div><Input value={form.evaluatorName} onChange={(event) => setForm((current) => ({ ...current, evaluatorName: event.target.value }))} /></div><div><div className="mb-2 text-sm font-medium text-slate-900">Jabatan evaluator</div><Input value={form.evaluatorRole} onChange={(event) => setForm((current) => ({ ...current, evaluatorRole: event.target.value }))} /></div><div><div className="mb-2 text-sm font-medium text-slate-900">Tanggal evaluasi</div><Input type="date" value={form.evaluationDate} onChange={(event) => setForm((current) => ({ ...current, evaluationDate: event.target.value }))} /></div><div><div className="mb-2 text-sm font-medium text-slate-900">Akhir perpanjangan</div><Input type="date" value={form.extensionEndDate} onChange={(event) => setForm((current) => ({ ...current, extensionEndDate: event.target.value }))} /></div></div><div className="grid gap-4 md:grid-cols-2"><RatingField label="Kehadiran & ketepatan waktu" value={form.attendanceScore} onChange={(value) => setForm((current) => ({ ...current, attendanceScore: value }))} /><RatingField label="Sikap kerja" value={form.attitudeScore} onChange={(value) => setForm((current) => ({ ...current, attitudeScore: value }))} /><RatingField label="Pemahaman tugas" value={form.taskUnderstandingScore} onChange={(value) => setForm((current) => ({ ...current, taskUnderstandingScore: value }))} /><RatingField label="Kualitas kerja" value={form.workQualityScore} onChange={(value) => setForm((current) => ({ ...current, workQualityScore: value }))} /><RatingField label="Tanggung jawab" value={form.responsibilityScore} onChange={(value) => setForm((current) => ({ ...current, responsibilityScore: value }))} /><RatingField label="Kerja sama tim" value={form.teamworkScore} onChange={(value) => setForm((current) => ({ ...current, teamworkScore: value }))} /></div><div className="grid gap-4 md:grid-cols-2"><div><div className="mb-2 text-sm font-medium text-slate-900">Kekuatan utama</div><textarea value={form.strengthsNote} onChange={(event) => setForm((current) => ({ ...current, strengthsNote: event.target.value }))} rows={4} className="min-h-[112px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none" /></div><div><div className="mb-2 text-sm font-medium text-slate-900">Area pembinaan</div><textarea value={form.coachingNote} onChange={(event) => setForm((current) => ({ ...current, coachingNote: event.target.value }))} rows={4} className="min-h-[112px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none" /></div></div><div><div className="mb-2 text-sm font-medium text-slate-900">Catatan evaluator</div><textarea value={form.evaluatorNote} onChange={(event) => setForm((current) => ({ ...current, evaluatorNote: event.target.value }))} rows={4} className="min-h-[112px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none" /></div><div><div className="mb-2 text-sm font-medium text-slate-900">Catatan keputusan</div><textarea value={form.decisionNote} onChange={(event) => setForm((current) => ({ ...current, decisionNote: event.target.value }))} rows={4} className="min-h-[112px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none" /></div><div className="flex flex-wrap gap-2 border-t border-slate-200 pt-4"><Button className="rounded-xl" onClick={() => void persistReview({ ...basePayload(), status_review: selected.review.status_review }, `Evaluasi probation ${selected.namaLengkap} berhasil disimpan.`)} disabled={submitting}>{submitting ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}Simpan</Button><Button variant="outline" className="rounded-xl border-emerald-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800" onClick={() => void persistReview({ ...basePayload(), decision: "Lulus", status_review: "Selesai", decided_at: new Date().toISOString() }, `${selected.namaLengkap} dinyatakan lulus probation dan status kerja diperbarui ke Kontrak.`, { status_kerja: "Kontrak", tipe_kontrak: "PKWT" })} disabled={submitting}>Lulus probation</Button><Button variant="outline" className="rounded-xl border-violet-200 text-violet-700 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-800" onClick={() => { if (!form.extensionEndDate) { setFeedback({ type: "error", message: "Tanggal akhir perpanjangan wajib diisi sebelum probation diperpanjang." }); return; } void persistReview({ ...basePayload(), decision: "Perpanjang", status_review: "Diperpanjang", extension_end_date: form.extensionEndDate, evaluation_date: form.extensionEndDate, decided_at: new Date().toISOString() }, `${selected.namaLengkap} diperpanjang masa probation-nya sampai ${formatDate(form.extensionEndDate)}.`); }} disabled={submitting}>Perpanjang probation</Button><Button variant="outline" className="rounded-xl border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800" onClick={() => { if (!form.decisionNote.trim()) { setFeedback({ type: "error", message: "Catatan keputusan wajib diisi jika probation tidak dilanjutkan." }); return; } void persistReview({ ...basePayload(), decision: "Tidak dilanjutkan", status_review: "Tidak dilanjutkan", decided_at: new Date().toISOString() }, `${selected.namaLengkap} ditandai tidak dilanjutkan setelah masa probation.`, { status_karyawan: "Nonaktif", org_status: "inactive" }); }} disabled={submitting}>Tidak dilanjutkan</Button></div></div></div></div> : null}
     </div>
   );
 }

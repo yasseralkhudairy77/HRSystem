@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { buildEmployeePayloadFromPelamar, buildManualEmployeePayload, mapEmployeeRecordToProfile } from "@/lib/employeeRecordMapper";
+import { ensureProbationReviewForEmployee } from "@/services/probationReviewService";
 import type { EmployeeProfile } from "@/types/employeeProfile";
 import type { CreateEmployeePayload, EmployeeRecord, ManualEmployeeFormInput, OnboardingEmployeeForm, UpdateEmployeePayload } from "@/types/employee";
 import type { Pelamar } from "@/types/pelamar";
@@ -59,14 +60,42 @@ export async function syncEmployeeFromPelamar(pelamar: Pelamar, onboardingForm: 
   const existing = await getEmployeeBySourcePelamarId(pelamar.id);
   const payload = buildEmployeePayloadFromPelamar({ pelamar, onboardingForm, existing });
 
-  if (existing) {
-    return updateEmployee(existing.id, payload);
+  const employee = existing ? await updateEmployee(existing.id, payload) : await createEmployee(payload);
+
+  if (employee) {
+    try {
+      await ensureProbationReviewForEmployee({
+        employeeId: employee.id,
+        statusKerja: employee.status_kerja,
+        startDate: employee.tanggal_masuk,
+        evaluatorName: employee.atasan,
+        evaluatorRole: "Atasan langsung",
+      });
+    } catch (probationError) {
+      console.warn("Auto-create probation review belum berhasil:", probationError);
+    }
   }
 
-  return createEmployee(payload);
+  return employee;
 }
 
 export async function createManualEmployee(input: ManualEmployeeFormInput): Promise<EmployeeRecord | null> {
   const payload: CreateEmployeePayload = buildManualEmployeePayload(input);
-  return createEmployee(payload);
+  const employee = await createEmployee(payload);
+
+  if (employee) {
+    try {
+      await ensureProbationReviewForEmployee({
+        employeeId: employee.id,
+        statusKerja: employee.status_kerja,
+        startDate: employee.tanggal_masuk,
+        evaluatorName: employee.atasan,
+        evaluatorRole: "Atasan langsung",
+      });
+    } catch (probationError) {
+      console.warn("Auto-create probation review manual belum berhasil:", probationError);
+    }
+  }
+
+  return employee;
 }
