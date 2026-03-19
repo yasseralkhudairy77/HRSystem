@@ -20,6 +20,8 @@ const offeringStatusMeta = {
 };
 
 const employmentOptions = ["Probation", "Kontrak", "Tetap", "Freelance", "Part time"];
+const INTERVIEW_FORM_MARKER_START = "[[INTERVIEW_FORM]]";
+const INTERVIEW_FORM_MARKER_END = "[[/INTERVIEW_FORM]]";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -54,6 +56,42 @@ function normalizeWa(value) {
 function buildWaLink(number, message) {
   const normalized = normalizeWa(number);
   return normalized ? `https://wa.me/${normalized}?text=${encodeURIComponent(message)}` : "";
+}
+
+function cleanText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function parseInterviewSummary(rawNotes) {
+  const raw = String(rawNotes || "").trim();
+  if (!raw) return "";
+
+  const startIndex = raw.indexOf(INTERVIEW_FORM_MARKER_START);
+  const endIndex = raw.indexOf(INTERVIEW_FORM_MARKER_END);
+  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return cleanText(raw);
+
+  const readablePart = raw.slice(endIndex + INTERVIEW_FORM_MARKER_END.length).trim();
+  if (!readablePart) return "";
+
+  const compact = cleanText(readablePart);
+  const summarySource = compact
+    .replace(/^Form wawancara recruiter\s*/i, "")
+    .replace(/^Penilaian interviewer:\s*/i, "")
+    .trim();
+
+  const firstMeaningfulLine = summarySource
+    .split(/\s*-\s+/)
+    .map((entry) => cleanText(entry))
+    .find(Boolean);
+
+  return firstMeaningfulLine || compact;
+}
+
+function buildInterviewPreview(item) {
+  const userSummary = cleanText(String(item.user_interview_notes || "").split("\n\n")[0]);
+  const recruiterSummary = parseInterviewSummary(item.interview_notes);
+  const fallback = cleanText(item.catatan_recruiter) || "Belum ada ringkasan akhir recruiter.";
+  return userSummary || recruiterSummary || fallback;
 }
 
 function buildDefaultForm(row) {
@@ -122,7 +160,7 @@ function mapRow(item, offeringMap) {
     offering,
     offeringStatus: status,
     offeringLabel: offeringStatusMeta[status]?.label || "Draft",
-    interviewSummary: item.user_interview_notes || item.interview_notes || item.catatan_recruiter || "Belum ada ringkasan akhir recruiter.",
+    interviewSummary: buildInterviewPreview(item),
   };
 }
 
