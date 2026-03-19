@@ -211,6 +211,58 @@
       line-height:1.75;
       color:var(--muted);
     }
+    .offboarding-card{
+      margin-top:16px;
+      border:1px solid #d5e5d8;
+      border-radius:22px;
+      background:linear-gradient(180deg,#ffffff 0%,#f6fcf8 100%);
+      padding:22px 20px 20px;
+      box-shadow:0 10px 24px rgba(16,35,63,.04);
+    }
+    .offboarding-title{
+      margin:8px 0 0;
+      font-size:24px;
+      font-weight:800;
+      letter-spacing:-.03em;
+      color:var(--text);
+    }
+    .offboarding-copy{
+      margin-top:10px;
+      font-size:14px;
+      line-height:1.8;
+      color:var(--muted);
+      max-width:680px;
+    }
+    .offboarding-points{
+      display:grid;
+      gap:10px;
+      margin-top:18px;
+    }
+    .offboarding-point{
+      border:1px solid #d7e7dc;
+      border-radius:18px;
+      background:#fff;
+      padding:13px 15px;
+      font-size:13px;
+      line-height:1.75;
+      color:var(--text);
+    }
+    .offboarding-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+    .offboarding-countdown{
+      margin-top:14px;
+      border-radius:16px;
+      border:1px solid #d7e7dc;
+      background:#fbfefc;
+      padding:12px 14px;
+      font-size:13px;
+      line-height:1.75;
+      color:var(--muted);
+    }
     .question-card{
       margin-top:16px;border:1px solid var(--line);border-radius:20px;background:#fff;padding:18px;
     }
@@ -470,6 +522,27 @@
               </div>
             </div>
 
+            <div class="offboarding-card" id="offboarding-card" style="display:none;">
+              <div class="eyebrow">Offboarding Wawancara</div>
+              <div class="offboarding-title">Terima kasih telah mengikuti interview virtual</div>
+              <div class="offboarding-copy">
+                Jawaban Anda sudah berhasil kami terima. Tim recruiter akan meninjau hasil wawancara ini sebagai bagian dari proses evaluasi kandidat.
+              </div>
+
+              <div class="offboarding-points">
+                <div class="offboarding-point">Anda sudah menyelesaikan seluruh pertanyaan dan sesi telah berhasil dikirim ke sistem.</div>
+                <div class="offboarding-point">Setelah halaman ini tertutup, Anda dipersilakan keluar dari tab browser ini.</div>
+              </div>
+
+              <div class="offboarding-actions">
+                <button id="offboarding-close-btn" type="button" class="primary">Tutup jendela sekarang</button>
+              </div>
+
+              <div class="offboarding-countdown" id="offboarding-countdown">
+                Jendela ini akan ditutup otomatis dalam beberapa detik. Jika browser tidak menutup otomatis, silakan keluar dan tutup tab ini secara manual.
+              </div>
+            </div>
+
             <div class="notice" id="completion-notice" style="display:none;"></div>
           </div>
 
@@ -538,6 +611,9 @@
       const saveBtn = document.getElementById("save-btn");
       const nextBtn = document.getElementById("next-btn");
       const finishBtn = document.getElementById("finish-btn");
+      const offboardingCardEl = document.getElementById("offboarding-card");
+      const offboardingCloseBtnEl = document.getElementById("offboarding-close-btn");
+      const offboardingCountdownEl = document.getElementById("offboarding-countdown");
       const completionNoticeEl = document.getElementById("completion-notice");
       const metaPositionEl = document.getElementById("meta-position");
       const metaDeadlineEl = document.getElementById("meta-deadline");
@@ -562,11 +638,14 @@
       let draftAudio = null;
       let draftAudioItemId = null;
       let onboardingCompleted = false;
+      let offboardingActive = false;
       let micTestPassed = false;
       let onboardingMicStream = null;
       let onboardingAudioContext = null;
       let onboardingAnalyser = null;
       let onboardingAnimationFrame = null;
+      let offboardingCountdownTick = null;
+      let offboardingCountdownSeconds = 0;
 
       function getClaimStorageKey() {
         return `${CLAIM_STORAGE_PREFIX}${token}`;
@@ -624,6 +703,7 @@
         progressBarEl.style.width = "0%";
         progressTextEl.textContent = "Link ini tidak bisa dipakai lagi";
         questionCardEl.style.display = "none";
+        offboardingCardEl.style.display = "none";
         stepperEl.innerHTML = "";
         completionNoticeEl.style.display = "block";
         completionNoticeEl.textContent = subtitle;
@@ -748,9 +828,61 @@
       function applyOnboardingVisibility() {
         const shouldShowOnboarding = !onboardingCompleted && packageRow?.status !== "completed" && packageRow?.status !== "reviewed";
         onboardingCardEl.style.display = shouldShowOnboarding ? "block" : "none";
-        progressSectionEl.style.display = shouldShowOnboarding ? "none" : "block";
-        introMessageEl.style.display = shouldShowOnboarding ? "none" : "block";
-        questionCardEl.style.display = shouldShowOnboarding ? "none" : questionCardEl.style.display;
+        progressSectionEl.style.display = shouldShowOnboarding || offboardingActive ? "none" : "block";
+        introMessageEl.style.display = shouldShowOnboarding || offboardingActive ? "none" : "block";
+        questionCardEl.style.display = shouldShowOnboarding || offboardingActive ? "none" : questionCardEl.style.display;
+        offboardingCardEl.style.display = offboardingActive ? "block" : "none";
+      }
+
+      function stopOffboardingCountdown() {
+        if (offboardingCountdownTick) {
+          window.clearInterval(offboardingCountdownTick);
+          offboardingCountdownTick = null;
+        }
+      }
+
+      function tryCloseInterviewWindow() {
+        window.open("", "_self");
+        window.close();
+
+        window.setTimeout(() => {
+          if (!window.closed) {
+            offboardingCountdownEl.textContent = "Browser menahan penutupan otomatis. Anda sudah boleh keluar dan menutup tab ini secara manual.";
+          }
+        }, 800);
+      }
+
+      function startOffboardingCountdown(seconds) {
+        stopOffboardingCountdown();
+        offboardingCountdownSeconds = Math.max(1, Number(seconds) || 8);
+
+        const renderCountdownCopy = () => {
+          offboardingCountdownEl.textContent = `Jendela ini akan ditutup otomatis dalam ${offboardingCountdownSeconds} detik. Jika browser tidak menutup otomatis, silakan keluar dan tutup tab ini secara manual.`;
+        };
+
+        renderCountdownCopy();
+        offboardingCountdownTick = window.setInterval(() => {
+          offboardingCountdownSeconds -= 1;
+
+          if (offboardingCountdownSeconds <= 0) {
+            stopOffboardingCountdown();
+            tryCloseInterviewWindow();
+            return;
+          }
+
+          renderCountdownCopy();
+        }, 1000);
+      }
+
+      function showOffboardingScreen() {
+        offboardingActive = true;
+        sessionStatusEl.textContent = "Sudah selesai";
+        metaStatusEl.textContent = "Sudah selesai";
+        completionNoticeEl.style.display = "block";
+        completionNoticeEl.textContent = "Sesi interview virtual sudah selesai. Anda dapat menunggu halaman tertutup otomatis atau menutup tab secara manual.";
+        applyOnboardingVisibility();
+        questionCardEl.style.display = "none";
+        startOffboardingCountdown(8);
       }
 
       function formatDuration(seconds) {
@@ -1086,6 +1218,11 @@
           return;
         }
 
+        if (offboardingActive) {
+          questionCardEl.style.display = "none";
+          return;
+        }
+
         if (!onboardingCompleted && packageRow?.status !== "completed" && packageRow?.status !== "reviewed") {
           questionCardEl.style.display = "none";
           return;
@@ -1152,10 +1289,13 @@
         metaDeadlineEl.textContent = formatDateTime(sessionData.deadline_at);
 
         if (sessionData.status === "completed" || sessionData.status === "reviewed") {
+          offboardingActive = true;
           completionNoticeEl.style.display = "block";
           completionNoticeEl.textContent = "Sesi ini sudah selesai dikirim. Jika recruiter meminta revisi, silakan gunakan link baru dari recruiter.";
         } else {
+          offboardingActive = false;
           completionNoticeEl.style.display = "none";
+          stopOffboardingCountdown();
         }
 
         applyOnboardingVisibility();
@@ -1285,6 +1425,7 @@
         items = [...(nextPackageData?.candidate_test_package_items || [])].sort((left, right) => left.test_order - right.test_order);
         onboardingCompleted = true;
         renderQuestion();
+        showOffboardingScreen();
         finishBtn.disabled = false;
       }
 
@@ -1332,6 +1473,11 @@
         stopOnboardingMicTest();
         applyOnboardingVisibility();
         renderQuestion();
+      });
+
+      offboardingCloseBtnEl.addEventListener("click", () => {
+        stopOffboardingCountdown();
+        tryCloseInterviewWindow();
       });
 
       if (!token) {
