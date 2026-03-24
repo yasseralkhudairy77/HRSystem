@@ -235,51 +235,131 @@ function createFormFromContract(item) {
   });
 }
 
-function buildContractPreview(item) {
+function buildContractArticles(item) {
+  return [
+    {
+      title: "Pasal 1 - Penempatan",
+      body: `${item.namaLengkap || "Karyawan"} ditempatkan sebagai ${item.jabatan || "jabatan terkait"} pada ${item.namaCabang || "unit kerja"} di ${item.namaUsaha || "perusahaan"}.`,
+    },
+    {
+      title: "Pasal 2 - Masa Kerja",
+      body: `Perjanjian ini berlaku sejak ${formatDate(item.tanggalMulai)} sampai dengan ${formatDate(item.tanggalBerakhir)} dengan jenis ${item.jenisKontrak || "-"}.`,
+    },
+    {
+      title: "Pasal 3 - Kompensasi",
+      body: `Gaji pokok yang disepakati adalah ${item.gajiPokok || "-"} dengan tunjangan utama ${item.tunjanganUtama || "-"}.`,
+    },
+    {
+      title: "Pasal 4 - Ketentuan Lanjutan",
+      body: `Status tanda tangan saat ini ${item.statusTandaTangan || "-"}, dan keputusan berikutnya diarahkan ke ${item.keputusanBerikutnya || "-"}.`,
+    },
+  ];
+}
+
+function buildContractPreviewText(item) {
+  const articles = buildContractArticles(item);
   return [
     "PERJANJIAN KERJA",
-    "",
-    `Nomor Kontrak: ${item.nomorKontrak || "-"}`,
-    `Jenis Kontrak: ${item.jenisKontrak || "-"}`,
-    `Tanggal Mulai: ${formatDate(item.tanggalMulai)}`,
-    `Tanggal Berakhir: ${formatDate(item.tanggalBerakhir)}`,
-    "",
-    "Pihak Pertama:",
     `${item.namaUsaha || "Perusahaan"}`,
-    `${item.namaCabang || "Unit kerja"}`,
     "",
-    "Pihak Kedua:",
+    `Nomor Kontrak : ${item.nomorKontrak || "-"}`,
+    `Unit Kerja    : ${item.namaCabang || "-"}`,
+    `Status Kerja  : ${item.statusKerja || "-"}`,
+    "",
+    "PIHAK KEDUA",
     `${item.namaLengkap || "-"}`,
     `${item.employeeId || "-"}`,
     `${item.jabatan || "-"}`,
     "",
-    "Ruang lingkup pokok:",
-    `${item.namaLengkap || "Karyawan"} ditempatkan sebagai ${item.jabatan || "jabatan terkait"} di ${item.namaCabang || "unit kerja"} dengan status kerja ${item.statusKerja || "Kontrak"}.`,
-    "",
-    `Gaji pokok: ${item.gajiPokok || "-"}`,
-    `Tunjangan utama: ${item.tunjanganUtama || "-"}`,
-    `Status tanda tangan: ${item.statusTandaTangan || "-"}`,
-    `Keputusan berikutnya: ${item.keputusanBerikutnya || "-"}`,
-    "",
-    "Catatan HR:",
+    ...articles.flatMap((article) => [article.title, article.body, ""]),
+    "Catatan HR",
     item.catatanHr || "Tidak ada catatan tambahan.",
     "",
-    `${item.penanggungJawab || "Tim HR"}`,
-    "Human Resources",
+    `${item.namaCabang || "Unit kerja"}, ${formatDate(item.tanggalMulai)}`,
+    "",
+    "Pihak Perusahaan,",
+    item.penanggungJawab || "Tim HR",
+    "",
+    "",
+    "Pihak Karyawan,",
+    item.namaLengkap || "-",
   ].join("\n");
 }
 
-function downloadContractDraft(item) {
-  const body = buildContractPreview(item);
-  const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${String(item.fileKontrak || item.nomorKontrak || item.namaLengkap || "draft_kontrak").replace(/[^\w.-]/g, "_")}.txt`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
+async function downloadContractDraft(item) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 18;
+  let cursorY = 20;
+
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, pageWidth, 24, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text(item.namaUsaha || "Perusahaan", margin, 14);
+  doc.setFontSize(9);
+  doc.text("Draft Perjanjian Kerja", margin, 20);
+
+  doc.setTextColor(15, 23, 42);
+  cursorY = 34;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text("PERJANJIAN KERJA", pageWidth / 2, cursorY, { align: "center" });
+
+  cursorY += 10;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  const headerLines = [
+    `Nomor Kontrak: ${item.nomorKontrak || "-"}`,
+    `Jenis Kontrak: ${item.jenisKontrak || "-"}`,
+    `Unit Kerja: ${item.namaCabang || "-"}`,
+    `Status Kerja: ${item.statusKerja || "-"}`,
+  ];
+  headerLines.forEach((line) => {
+    doc.text(line, margin, cursorY);
+    cursorY += 6;
+  });
+
+  cursorY += 3;
+  doc.setFont("helvetica", "bold");
+  doc.text("Pihak Kedua", margin, cursorY);
+  cursorY += 6;
+  doc.setFont("helvetica", "normal");
+  [item.namaLengkap || "-", item.employeeId || "-", item.jabatan || "-"].forEach((line) => {
+    doc.text(line, margin, cursorY);
+    cursorY += 6;
+  });
+
+  cursorY += 4;
+  buildContractArticles(item).forEach((article) => {
+    doc.setFont("helvetica", "bold");
+    doc.text(article.title, margin, cursorY);
+    cursorY += 6;
+    doc.setFont("helvetica", "normal");
+    const lines = doc.splitTextToSize(article.body, pageWidth - margin * 2);
+    doc.text(lines, margin, cursorY);
+    cursorY += lines.length * 5 + 4;
+  });
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Catatan HR", margin, cursorY);
+  cursorY += 6;
+  doc.setFont("helvetica", "normal");
+  const notes = doc.splitTextToSize(item.catatanHr || "Tidak ada catatan tambahan.", pageWidth - margin * 2);
+  doc.text(notes, margin, cursorY);
+  cursorY += notes.length * 5 + 10;
+
+  doc.text(`${item.namaCabang || "Unit kerja"}, ${formatDate(item.tanggalMulai)}`, margin, cursorY);
+  cursorY += 10;
+  doc.text("Pihak Perusahaan,", margin, cursorY);
+  doc.text("Pihak Karyawan,", pageWidth - margin - 35, cursorY);
+  cursorY += 18;
+  doc.text(item.penanggungJawab || "Tim HR", margin, cursorY);
+  doc.text(item.namaLengkap || "-", pageWidth - margin - 35, cursorY);
+
+  doc.save(`${String(item.fileKontrak || item.nomorKontrak || item.namaLengkap || "draft_kontrak").replace(/[^\w.-]/g, "_")}.pdf`);
 }
 
 function SummaryCard({ icon: Icon, label, value, note, tone = "slate" }) {
@@ -853,7 +933,69 @@ export default function ContractsPage() {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
                 Preview ini dibuat dari data kontrak yang tersimpan saat ini. Jika ada yang perlu dibenahi, gunakan tombol `Ubah kontrak` lalu generate ulang.
               </div>
-              <pre className="whitespace-pre-wrap rounded-2xl bg-white p-5 text-sm leading-7 text-slate-700">{buildContractPreview(previewContract)}</pre>
+              <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                <div className="rounded-t-[28px] bg-slate-900 px-6 py-5 text-white">
+                  <div className="text-xs uppercase tracking-[0.24em] text-slate-300">Draft Perjanjian Kerja</div>
+                  <div className="mt-2 text-2xl font-semibold">{previewContract.namaUsaha || "Perusahaan"}</div>
+                  <div className="mt-1 text-sm text-slate-300">{previewContract.namaCabang || "Unit kerja"} / {previewContract.penanggungJawab || "Tim HR"}</div>
+                </div>
+                <div className="space-y-6 px-6 py-6 text-slate-700">
+                  <div className="text-center">
+                    <div className="text-2xl font-semibold text-slate-900">PERJANJIAN KERJA</div>
+                    <div className="mt-2 text-sm text-slate-500">Nomor kontrak {previewContract.nomorKontrak || "-"}</div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Pihak Perusahaan</div>
+                      <div className="mt-2 font-medium text-slate-900">{previewContract.namaUsaha || "Perusahaan"}</div>
+                      <div className="mt-1 text-sm text-slate-600">{previewContract.namaCabang || "Unit kerja"}</div>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Pihak Karyawan</div>
+                      <div className="mt-2 font-medium text-slate-900">{previewContract.namaLengkap || "-"}</div>
+                      <div className="mt-1 text-sm text-slate-600">{previewContract.employeeId || "-"} / {previewContract.jabatan || "-"}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 p-4">
+                      <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Periode</div>
+                      <div className="mt-2 font-medium text-slate-900">{formatDate(previewContract.tanggalMulai)} - {formatDate(previewContract.tanggalBerakhir)}</div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 p-4">
+                      <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Kompensasi</div>
+                      <div className="mt-2 font-medium text-slate-900">{previewContract.gajiPokok || "-"}</div>
+                      <div className="mt-1 text-sm text-slate-600">{previewContract.tunjanganUtama || "-"}</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {buildContractArticles(previewContract).map((article) => (
+                      <div key={article.title} className="rounded-2xl border border-slate-200 p-4">
+                        <div className="font-semibold text-slate-900">{article.title}</div>
+                        <div className="mt-2 text-sm leading-7 text-slate-600">{article.body}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <div className="text-sm font-semibold text-slate-900">Catatan HR</div>
+                    <div className="mt-2 text-sm leading-7 text-slate-600">{previewContract.catatanHr || "Tidak ada catatan tambahan."}</div>
+                  </div>
+
+                  <div className="grid gap-6 border-t border-dashed border-slate-200 pt-6 md:grid-cols-2">
+                    <div>
+                      <div className="text-sm text-slate-500">Pihak perusahaan</div>
+                      <div className="mt-12 font-medium text-slate-900">{previewContract.penanggungJawab || "Tim HR"}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-slate-500">Pihak karyawan</div>
+                      <div className="mt-12 font-medium text-slate-900">{previewContract.namaLengkap || "-"}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4">
