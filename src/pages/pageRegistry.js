@@ -22,9 +22,17 @@ import EmployeeShiftSwapPage from "@/pages/EmployeeShiftSwapPage";
 import HiringPlanPage from "@/pages/HiringPlanPage";
 import HrPresenceAbsenceReportPage from "@/pages/HrPresenceAbsenceReportPage";
 import HrPresenceAttendancePage from "@/pages/HrPresenceAttendancePage";
+import HrPresenceAbsenceMonitoringPage from "@/pages/HrPresenceAbsenceMonitoringPage";
 import HrPresenceConflictReviewPage from "@/pages/HrPresenceConflictReviewPage";
+import HrPresenceDailyMonitoringPage from "@/pages/HrPresenceDailyMonitoringPage";
 import HrPresenceEmployeeMappingPage from "@/pages/HrPresenceEmployeeMappingPage";
+import HrPresenceFinalizationPage from "@/pages/HrPresenceFinalizationPage";
+import HrPresenceHrDashboardPage from "@/pages/HrPresenceHrDashboardPage";
 import HrPresenceIntegrationSettingsPage from "@/pages/HrPresenceIntegrationSettingsPage";
+import HrPresenceLateMonitoringPage from "@/pages/HrPresenceLateMonitoringPage";
+import HrPresenceManagerDashboardPage from "@/pages/HrPresenceManagerDashboardPage";
+import HrPresenceOvertimeMonitoringPage from "@/pages/HrPresenceOvertimeMonitoringPage";
+import HrPresencePayrollRecapPage from "@/pages/HrPresencePayrollRecapPage";
 import HrPresenceRawLogsPage from "@/pages/HrPresenceRawLogsPage";
 import HrPresenceScheduleReportPage from "@/pages/HrPresenceScheduleReportPage";
 import HrPresenceSettingsDepartmentHoursPage from "@/pages/HrPresenceSettingsDepartmentHoursPage";
@@ -89,6 +97,14 @@ export const pageComponents = {
   "hr-presensi-absensi-karyawan": HrPresenceAttendancePage,
   "hr-presensi-laporan-jadwal-kerja": HrPresenceScheduleReportPage,
   "hr-presensi-laporan-ketidakhadiran": HrPresenceAbsenceReportPage,
+  "hr-presensi-monitoring-dashboard-hr": HrPresenceHrDashboardPage,
+  "hr-presensi-monitoring-dashboard-atasan": HrPresenceManagerDashboardPage,
+  "hr-presensi-monitoring-harian": HrPresenceDailyMonitoringPage,
+  "hr-presensi-monitoring-ketidakhadiran": HrPresenceAbsenceMonitoringPage,
+  "hr-presensi-monitoring-keterlambatan": HrPresenceLateMonitoringPage,
+  "hr-presensi-monitoring-lembur": HrPresenceOvertimeMonitoringPage,
+  "hr-presensi-monitoring-rekap-payroll": HrPresencePayrollRecapPage,
+  "hr-presensi-monitoring-cutoff-finalisasi": HrPresenceFinalizationPage,
   "hr-presensi-log-absensi-mentah": HrPresenceRawLogsPage,
   "hr-presensi-sinkronisasi-absensi": HrPresenceSyncPage,
   "hr-presensi-review-konflik-absensi": HrPresenceConflictReviewPage,

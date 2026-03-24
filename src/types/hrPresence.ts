@@ -53,6 +53,32 @@ export type AttendanceConflictType =
   | "device_unknown"
   | "location_invalid";
 export type AttendanceConflictResolutionStatus = "unresolved" | "resolved" | "ignored";
+export type AttendancePayrollReadinessStatus = "ready" | "need_review" | "blocked";
+export type AttendanceFinalAttendanceStatus = "draft" | "reviewed" | "final";
+export type AttendancePayrollImpactType =
+  | "late_penalty_candidate"
+  | "alpha_deduction_candidate"
+  | "unpaid_leave_candidate"
+  | "overtime_payment_candidate"
+  | "attendance_allowance_candidate"
+  | "no_checkout_review"
+  | "no_checkin_review"
+  | "early_leave_review"
+  | "holiday_work_candidate";
+export type AttendancePayrollImpactCategory =
+  | "discipline"
+  | "absence"
+  | "overtime"
+  | "allowance"
+  | "review";
+export type AttendanceImpactUnit = "count" | "minute" | "day" | "hour";
+export type AttendanceFinalizationStatus =
+  | "draft"
+  | "dalam_review"
+  | "butuh_perbaikan"
+  | "siap_payroll"
+  | "locked"
+  | "sudah_dikirim_ke_payroll";
 
 export interface PresenceCompany {
   id: string;
@@ -509,4 +535,89 @@ export interface AttendanceGeneratedSummary {
   earlyLeaveCount: number;
   overtimeCount: number;
   holidayCount: number;
+}
+
+export interface AttendancePayrollSummary {
+  id: string;
+  company_id: string;
+  payroll_period_id: string;
+  employee_id: string;
+  scheduled_work_days: number;
+  present_days: number;
+  alpha_days: number;
+  izin_days: number;
+  sakit_days: number;
+  cuti_days: number;
+  late_count: number;
+  total_late_minutes: number;
+  early_leave_count: number;
+  total_early_leave_minutes: number;
+  overtime_days: number;
+  total_overtime_minutes: number;
+  holiday_work_days: number;
+  correction_count: number;
+  unresolved_conflict_count: number;
+  payroll_readiness_status: AttendancePayrollReadinessStatus;
+  attendance_final_status: AttendanceFinalAttendanceStatus;
+  locked_at: string | null;
+  locked_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendancePayrollImpact {
+  id: string;
+  company_id: string;
+  payroll_period_id: string;
+  employee_id: string;
+  attendance_date: string;
+  attendance_record_id: string | null;
+  impact_type: AttendancePayrollImpactType;
+  impact_category: AttendancePayrollImpactCategory;
+  impact_value: number;
+  impact_unit: AttendanceImpactUnit;
+  source_reference_type: "attendance_record" | "attendance_request" | "attendance_conflict" | "manual_review";
+  source_reference_id: string | null;
+  note: string | null;
+  approval_status: ApprovalStatus | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceFinalizationPeriod {
+  id: string;
+  company_id: string;
+  payroll_period_id: string;
+  status: AttendanceFinalizationStatus;
+  total_employees: number;
+  total_ready: number;
+  total_need_review: number;
+  total_locked: number;
+  finalized_by: string | null;
+  finalized_at: string | null;
+  locked_by: string | null;
+  locked_at: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceMonitoringSnapshot {
+  id: string;
+  company_id: string;
+  snapshot_date: string;
+  branch_id: string | null;
+  department_id: string | null;
+  total_active_employees: number;
+  total_present: number;
+  total_late: number;
+  total_alpha: number;
+  total_izin: number;
+  total_sakit: number;
+  total_cuti: number;
+  total_no_checkout: number;
+  total_conflict: number;
+  total_pending_approval: number;
+  created_at: string;
+  updated_at: string;
 }

@@ -9,3 +9,4 @@ export * from "./hrPresenceSeed";
 export * from "./hrPresenceEngineScenarios";
 export * from "./hrPresenceEmployeeSeed";
 export * from "./hrPresenceIntegrationSeed";
+export * from "./hrPresenceMonitoringSeed";

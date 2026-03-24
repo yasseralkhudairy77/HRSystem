@@ -3,12 +3,25 @@ import { CalendarPlus2, Download, FileSpreadsheet, Filter, Link2, Plus, Printer,
 
 import EmptyState from "@/components/common/EmptyState";
 import PageHeader from "@/components/common/PageHeader";
+import AttendanceDashboardCard from "@/components/hrPresence/AttendanceDashboardCard";
+import AttendanceImpactBadge from "@/components/hrPresence/AttendanceImpactBadge";
+import AttendanceIssueWidget from "@/components/hrPresence/AttendanceIssueWidget";
+import AttendancePayrollSummaryTable from "@/components/hrPresence/AttendancePayrollSummaryTable";
+import AttendanceTrendChart from "@/components/hrPresence/AttendanceTrendChart";
 import ConflictResolutionPanel from "@/components/hrPresence/ConflictResolutionPanel";
 import ConflictTable from "@/components/hrPresence/ConflictTable";
+import DepartmentSummaryTable from "@/components/hrPresence/DepartmentSummaryTable";
 import DeviceStatusCard from "@/components/hrPresence/DeviceStatusCard";
+import EmployeeAttendanceDrawer from "@/components/hrPresence/EmployeeAttendanceDrawer";
+import FinalizationProgressCard from "@/components/hrPresence/FinalizationProgressCard";
 import ImportBatchSummaryCard from "@/components/hrPresence/ImportBatchSummaryCard";
 import ImportPreviewPanel from "@/components/hrPresence/ImportPreviewPanel";
+import LateMinutesBadge from "@/components/hrPresence/LateMinutesBadge";
 import MappingFormModal from "@/components/hrPresence/MappingFormModal";
+import OvertimeBadge from "@/components/hrPresence/OvertimeBadge";
+import PayrollCutoffPanel from "@/components/hrPresence/PayrollCutoffPanel";
+import PayrollReadinessCard from "@/components/hrPresence/PayrollReadinessCard";
+import PendingApprovalWidget from "@/components/hrPresence/PendingApprovalWidget";
 import PresenceDataTable from "@/components/hrPresence/PresenceDataTable";
 import PresenceFilterBar from "@/components/hrPresence/PresenceFilterBar";
 import PresenceModalForm from "@/components/hrPresence/PresenceModalForm";
@@ -20,6 +33,7 @@ import ScheduleMatrix from "@/components/hrPresence/ScheduleMatrix";
 import ShiftColorBadge from "@/components/hrPresence/ShiftColorBadge";
 import SourceBadge from "@/components/hrPresence/SourceBadge";
 import SyncStatusBadge from "@/components/hrPresence/SyncStatusBadge";
+import TeamAttendanceWidget from "@/components/hrPresence/TeamAttendanceWidget";
 import { Button } from "@/components/ui/button";
 import {
   attendancePenalties,
@@ -29,6 +43,10 @@ import {
   attendanceIntegrationUi,
   attendanceProcessedRecords,
   attendanceRawLogs,
+  attendanceMonitoringUi,
+  attendanceFinalizationPeriod,
+  attendancePayrollImpacts,
+  attendancePayrollSummaries,
   attendanceSettings,
   attendanceSyncJobs,
   departmentWorkShifts,
@@ -44,6 +62,7 @@ import {
   workShifts,
 } from "@/data";
 import { formatAttendanceStatusLabel } from "@/lib/hrPresence";
+import { exportAttendancePayrollRecap, lockAttendanceForPayroll, markAttendanceDataReadyForPayroll, unlockAttendanceForPayroll } from "@/services/attendanceMonitoringService";
 
 const pageMeta = {
   "hr-presensi-absensi-karyawan": {
@@ -79,6 +98,93 @@ const pageMeta = {
       { label: "Departemen", placeholder: "Semua departemen" },
       { label: "Jenis", placeholder: "Semua jenis" },
       { label: "Approval", placeholder: "Semua status", type: "advanced" },
+    ],
+  },
+  "hr-presensi-monitoring-dashboard-hr": {
+    title: "Dashboard Presensi HR",
+    breadcrumbs: ["HR Presensi", "Monitoring Presensi", "Dashboard Presensi HR"],
+    description: "Dashboard pusat untuk HR memantau kondisi kehadiran, issue operasional, pending approval, dan kesiapan data menuju payroll.",
+    filters: [
+      { label: "Tanggal / periode", placeholder: "24 Mar 2026", type: "date", wide: true },
+      { label: "Cabang", placeholder: "Semua cabang" },
+      { label: "Departemen", placeholder: "Semua departemen" },
+      { label: "Status kerja", placeholder: "Semua status", type: "advanced" },
+      { label: "Payroll period", placeholder: "Payroll Maret 2026", type: "advanced" },
+    ],
+  },
+  "hr-presensi-monitoring-dashboard-atasan": {
+    title: "Dashboard Presensi Atasan",
+    breadcrumbs: ["HR Presensi", "Monitoring Presensi", "Dashboard Presensi Atasan"],
+    description: "Sudut pandang leader untuk memantau timnya sendiri: siapa hadir, terlambat, belum check-out, dan siapa yang butuh approval.",
+    filters: [
+      { label: "Tanggal", placeholder: "24 Mar 2026", type: "date" },
+      { label: "Departemen", placeholder: "Tim saya" },
+      { label: "Status", placeholder: "Semua status", type: "advanced" },
+    ],
+  },
+  "hr-presensi-monitoring-harian": {
+    title: "Monitoring Harian",
+    breadcrumbs: ["HR Presensi", "Monitoring Presensi", "Monitoring Harian"],
+    description: "Layar operasional harian untuk HR melihat kondisi presensi berjalan lengkap dengan payroll impact flag dan approval terkait.",
+    filters: [
+      { label: "Tanggal", placeholder: "24 Mar 2026", type: "date" },
+      { label: "Cabang", placeholder: "Semua cabang" },
+      { label: "Departemen", placeholder: "Semua departemen" },
+      { label: "Shift", placeholder: "Semua shift" },
+      { label: "Status", placeholder: "Semua status", type: "advanced" },
+    ],
+  },
+  "hr-presensi-monitoring-ketidakhadiran": {
+    title: "Monitoring Ketidakhadiran",
+    breadcrumbs: ["HR Presensi", "Monitoring Presensi", "Monitoring Ketidakhadiran"],
+    description: "Fokus pada alpha, izin, sakit, cuti, pulang cepat, no check-in, no check-out, dan exception lain yang perlu tindak lanjut.",
+    filters: [
+      { label: "Periode", placeholder: "Maret 2026", type: "date" },
+      { label: "Cabang", placeholder: "Semua cabang" },
+      { label: "Departemen", placeholder: "Semua departemen" },
+      { label: "Jenis", placeholder: "Semua jenis", type: "advanced" },
+    ],
+  },
+  "hr-presensi-monitoring-keterlambatan": {
+    title: "Monitoring Keterlambatan",
+    breadcrumbs: ["HR Presensi", "Monitoring Presensi", "Monitoring Keterlambatan"],
+    description: "Pantau jumlah kasus telat, total menit, ranking keterlambatan, dan potensi dampaknya ke disiplin serta payroll.",
+    filters: [
+      { label: "Periode", placeholder: "Maret 2026", type: "date" },
+      { label: "Cabang", placeholder: "Semua cabang" },
+      { label: "Departemen", placeholder: "Semua departemen" },
+      { label: "Karyawan", placeholder: "Semua karyawan" },
+    ],
+  },
+  "hr-presensi-monitoring-lembur": {
+    title: "Monitoring Lembur",
+    breadcrumbs: ["HR Presensi", "Monitoring Presensi", "Monitoring Lembur"],
+    description: "Daftar lembur yang tercatat, yang disetujui, dan yang sudah siap dibawa ke payroll pada periode berjalan.",
+    filters: [
+      { label: "Periode", placeholder: "Maret 2026", type: "date" },
+      { label: "Departemen", placeholder: "Semua departemen" },
+      { label: "Status approval", placeholder: "Semua status", type: "advanced" },
+    ],
+  },
+  "hr-presensi-monitoring-rekap-payroll": {
+    title: "Rekap Presensi Payroll",
+    breadcrumbs: ["HR Presensi", "Monitoring Presensi", "Rekap Presensi Payroll"],
+    description: "Bridge utama dari presensi ke payroll. Semua ringkasan per karyawan per periode dibentuk di sini sebelum gaji dihitung.",
+    filters: [
+      { label: "Periode payroll", placeholder: "Payroll Maret 2026", type: "advanced" },
+      { label: "Cabang", placeholder: "Semua cabang" },
+      { label: "Departemen", placeholder: "Semua departemen" },
+      { label: "Readiness", placeholder: "Semua readiness", type: "advanced" },
+      { label: "Finalisasi", placeholder: "Semua status", type: "advanced" },
+    ],
+  },
+  "hr-presensi-monitoring-cutoff-finalisasi": {
+    title: "Cutoff & Finalisasi Presensi",
+    breadcrumbs: ["HR Presensi", "Monitoring Presensi", "Cutoff & Finalisasi Presensi"],
+    description: "Checkpoint sebelum payroll. HR bisa melihat issue yang memblokir, menandai siap payroll, lalu lock periode presensi.",
+    filters: [
+      { label: "Periode payroll", placeholder: "Payroll Maret 2026", type: "advanced" },
+      { label: "Status finalisasi", placeholder: "Semua status", type: "advanced" },
     ],
   },
   "hr-presensi-log-absensi-mentah": {
@@ -228,6 +334,7 @@ export default function HrPresencePageShell({ pageKey }) {
   const [selectedRawLogId, setSelectedRawLogId] = useState(null);
   const [selectedConflictId, setSelectedConflictId] = useState(null);
   const [showMappingModal, setShowMappingModal] = useState(false);
+  const [selectedPayrollSummaryId, setSelectedPayrollSummaryId] = useState(null);
   const meta = pageMeta[pageKey];
 
   const branchMap = useMemo(() => new Map(presenceBranches.map((item) => [item.id, item.branch_name])), []);
@@ -237,6 +344,7 @@ export default function HrPresencePageShell({ pageKey }) {
   const deviceMap = useMemo(() => new Map(fingerprintDevices.map((item) => [item.id, item])), []);
   const selectedRawLog = attendanceRawLogs.find((item) => item.id === selectedRawLogId) || null;
   const selectedConflict = attendanceConflicts.find((item) => item.id === selectedConflictId) || null;
+  const selectedPayrollSummary = attendancePayrollSummaries.find((item) => item.id === selectedPayrollSummaryId) || null;
 
   if (!meta) {
     return null;
@@ -406,10 +514,49 @@ export default function HrPresencePageShell({ pageKey }) {
     };
   });
 
+  const payrollSummaryRows = attendancePayrollSummaries.map((item) => {
+    const employee = employeeMap.get(item.employee_id);
+    return {
+      id: item.id,
+      nik: employee?.employee_id || "-",
+      nama: <div><div className="font-semibold">{employee?.employee_name || item.employee_id}</div><div className="text-xs text-[var(--text-muted)]">{employee?.job_title || "-"}</div></div>,
+      departemen: departmentMap.get(employee?.department_id || "") || "-",
+      periode: attendanceMonitoringUi.payrollPeriods[0]?.label || "Payroll berjalan",
+      ...item,
+      total_late_minutes: <LateMinutesBadge value={item.total_late_minutes} />,
+      total_overtime_minutes: <OvertimeBadge value={item.total_overtime_minutes} />,
+      payroll_readiness_status: prettify(item.payroll_readiness_status),
+      attendance_final_status: prettify(item.attendance_final_status),
+      aksi: <button type="button" className="text-sm font-semibold text-[var(--brand-900)]" onClick={() => setSelectedPayrollSummaryId(item.id)}>Detail</button>,
+    };
+  });
+
+  const payrollImpactRows = attendancePayrollImpacts.slice(0, 16).map((item) => {
+    const employee = employeeMap.get(item.employee_id);
+    return {
+      id: item.id,
+      tanggal: formatDate(item.attendance_date),
+      karyawan: employee?.employee_name || item.employee_id,
+      jenis: <AttendanceImpactBadge value={item.impact_type} />,
+      kategori: prettify(item.impact_category),
+      nilai: `${item.impact_value} ${item.impact_unit}`,
+      approval: item.approval_status ? prettify(item.approval_status) : "Perlu review",
+      note: item.note || "-",
+    };
+  });
+
   const headerActions = {
     "hr-presensi-absensi-karyawan": [<ActionButton key="sync" icon={RefreshCcw} label="Sinkronisasi" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="exp" icon={Download} label="Export" onClick={() => setOpenModal(true)} />],
     "hr-presensi-laporan-jadwal-kerja": [<ActionButton key="print" icon={Printer} label="Cetak" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="xls" icon={FileSpreadsheet} label="Export Excel" onClick={() => setOpenModal(true)} />, <ActionButton key="pdf" icon={Download} label="Export PDF" onClick={() => setOpenModal(true)} />],
     "hr-presensi-laporan-ketidakhadiran": [<ActionButton key="print" icon={Printer} label="Print" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="exp" icon={Download} label="Export" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-monitoring-dashboard-hr": [<ActionButton key="refresh" icon={RefreshCcw} label="Refresh dashboard" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="exp" icon={Download} label="Export ringkas" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-monitoring-dashboard-atasan": [<ActionButton key="approval" icon={ShieldAlert} label="Lihat approval" variant="default" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-monitoring-harian": [<ActionButton key="review" icon={ShieldAlert} label="Review harian" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="exp" icon={Download} label="Export" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-monitoring-ketidakhadiran": [<ActionButton key="print" icon={Printer} label="Print" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="exp" icon={Download} label="Export" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-monitoring-keterlambatan": [<ActionButton key="exp" icon={Download} label="Export" onClick={() => setOpenModal(true)} />, <ActionButton key="trend" icon={LineChart} label="Lihat tren" variant="default" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-monitoring-lembur": [<ActionButton key="exp" icon={Download} label="Export" onClick={() => setOpenModal(true)} />, <ActionButton key="approval" icon={ShieldAlert} label="Approval lembur" variant="default" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-monitoring-rekap-payroll": [<ActionButton key="csv" icon={FileSpreadsheet} label="Export CSV" onClick={() => setOpenModal(true)} />, <ActionButton key="ready" icon={Save} label="Tandai siap payroll" variant="default" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-monitoring-cutoff-finalisasi": [<ActionButton key="lock" icon={ShieldPlus} label="Lock periode" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="send" icon={SendHorizontal} label="Kirim ke payroll" onClick={() => setOpenModal(true)} />],
     "hr-presensi-log-absensi-mentah": [<ActionButton key="filter" icon={Filter} label="Filter" onClick={() => setOpenModal(true)} />, <ActionButton key="sync" icon={RefreshCcw} label="Proses ulang" variant="default" onClick={() => setOpenModal(true)} />],
     "hr-presensi-sinkronisasi-absensi": [<ActionButton key="upload" icon={Upload} label="Upload file" onClick={() => setOpenModal(true)} />, <ActionButton key="sync" icon={RefreshCcw} label="Sinkronisasi sekarang" variant="default" onClick={() => setOpenModal(true)} />],
     "hr-presensi-review-konflik-absensi": [<ActionButton key="mapping" icon={Link2} label="Buka mapping" onClick={() => setShowMappingModal(true)} />, <ActionButton key="reprocess" icon={RefreshCcw} label="Proses ulang" variant="default" onClick={() => setOpenModal(true)} />],
@@ -472,6 +619,368 @@ export default function HrPresencePageShell({ pageKey }) {
               { key: "tanggal", label: "Tanggal", width: 130 }, { key: "nama", label: "Nama karyawan", width: 220 }, { key: "cabang", label: "Cabang", width: 180 }, { key: "departemen", label: "Departemen", width: 180 }, { key: "jenis", label: "Jenis", width: 150, type: "status" }, { key: "approval", label: "Approval", width: 130, type: "status" }, { key: "keterangan", label: "Keterangan", width: 280 },
             ]} rows={exceptionRows} stickyColumns={1} />
           </PresenceSectionCard>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-monitoring-dashboard-hr") {
+      const summary = hrPresenceUiHelpers.attendanceSummary;
+      const dashboard = attendanceMonitoringUi.hrDashboard;
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <AttendanceDashboardCard label="Total karyawan aktif" value={dashboard.summary.total_active_employees} note="Seluruh perusahaan pada scope aktif." tone="slate" />
+            <AttendanceDashboardCard label="Hadir hari ini" value={dashboard.summary.hadir_hari_ini} note="Sudah tercatat hadir atau on-time." tone="emerald" />
+            <AttendanceDashboardCard label="Terlambat hari ini" value={dashboard.summary.terlambat_hari_ini} note={`${summary.totalLateMinutes} menit keterlambatan tercatat.`} tone="amber" />
+            <AttendanceDashboardCard label="Data belum siap payroll" value={dashboard.summary.data_belum_siap_payroll} note="Conflict atau approval pending masih terbuka." tone="rose" />
+          </div>
+          <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={RefreshCcw} label="Refresh dashboard" variant="default" onClick={() => setOpenModal(true)} />} />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
+            <div className="space-y-6">
+              <AttendanceTrendChart title="Tren kehadiran 7 hari terakhir" points={attendanceMonitoringUi.trend7} />
+              <PresenceSectionCard title="Daftar karyawan terlambat hari ini" description="Drill down cepat untuk HR sebelum issue dibawa ke tindakan disiplin atau payroll review.">
+                <PresenceDataTable columns={[
+                  { key: "tanggal", label: "Tanggal", width: 120 },
+                  { key: "nama", label: "Nama", width: 220 },
+                  { key: "departemen", label: "Departemen", width: 160 },
+                  { key: "status", label: "Status", width: 120, type: "status" },
+                  { key: "terlambat", label: "Terlambat", width: 120 },
+                ]} rows={attendanceRows.filter((item) => item.terlambat !== "-").slice(0, 8)} />
+              </PresenceSectionCard>
+              <PresenceSectionCard title="Rekap per departemen" description="Membantu HR melihat unit mana yang paling stabil dan mana yang paling sering bermasalah.">
+                <DepartmentSummaryTable rows={attendanceMonitoringUi.departmentRanking.slice(0, 8)} />
+              </PresenceSectionCard>
+            </div>
+            <div className="space-y-6">
+              <PayrollReadinessCard summary={{ total_data_siap_payroll: attendanceFinalizationPeriod.total_ready, total_need_review: attendanceFinalizationPeriod.total_need_review }} finalization={attendanceFinalizationPeriod} />
+              <AttendanceIssueWidget title="Karyawan belum check-out" items={dashboard.noCheckoutToday.map((item) => ({ ...item, employee_name: employeeMap.get(item.employee_id)?.employee_name, note: item.reason }))} />
+              <AttendanceIssueWidget title="Konflik absensi aktif" items={dashboard.unresolvedConflicts} />
+              <PendingApprovalWidget items={dashboard.pendingApprovals.slice(0, 5)} />
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-monitoring-dashboard-atasan") {
+      const dashboard = attendanceMonitoringUi.managerDashboard;
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <AttendanceDashboardCard label="Total anggota tim" value={dashboard.summary.total_anggota_tim} note="Scope tim sesuai departemen atasan." tone="slate" />
+            <AttendanceDashboardCard label="Hadir hari ini" value={dashboard.summary.hadir_hari_ini} note="Tim yang hadir di hari berjalan." tone="emerald" />
+            <AttendanceDashboardCard label="Terlambat" value={dashboard.summary.terlambat} note="Perlu follow-up ringan dari leader." tone="amber" />
+            <AttendanceDashboardCard label="Pending approval" value={dashboard.summary.pengajuan_pending} note="Antrian yang masih menunggu keputusan atasan." tone="sky" />
+          </div>
+          <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={ShieldAlert} label="Buka approval" variant="default" onClick={() => setOpenModal(true)} />} />
+          <div className="grid gap-6 xl:grid-cols-2">
+            <TeamAttendanceWidget title="Kehadiran tim hari ini" rows={dashboard.teamToday.map((item) => ({ ...item, employee_name: employeeMap.get(item.employee_id)?.employee_name }))} renderMeta={(row) => `${formatAttendanceStatusLabel(row.status_main)} • ${row.attendance_date}`} />
+            <TeamAttendanceWidget title="Tim yang terlambat" rows={dashboard.lateTeam.map((item) => ({ ...item, employee_name: employeeMap.get(item.employee_id)?.employee_name }))} renderMeta={(row) => `${row.late_minutes} menit terlambat`} />
+            <PendingApprovalWidget items={dashboard.pendingApprovals} />
+            <PresenceSectionCard title="Ranking kedisiplinan tim" description="Atasan bisa cepat melihat siapa yang paling stabil dan siapa yang paling sering perlu diingatkan.">
+              <PresenceDataTable columns={[
+                { key: "employee_name", label: "Karyawan", width: 220 },
+                { key: "discipline_score", label: "Skor", width: 120 },
+                { key: "late_count", label: "Terlambat", width: 110 },
+                { key: "alpha_count", label: "Alpha", width: 110 },
+              ]} rows={dashboard.disciplineRanking.slice(0, 8)} />
+            </PresenceSectionCard>
+          </div>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-monitoring-harian") {
+      const monitoring = attendanceMonitoringUi.dailyMonitoring;
+      const dailyRows = monitoring.rows.slice(0, 24).map((record) => {
+        const employee = employeeMap.get(record.employee_id);
+        const approval = getApprovalStatusForEmployeeDate(record.employee_id, record.attendance_date);
+        return {
+          id: record.id,
+          tanggal: formatDate(record.attendance_date),
+          nik: employee?.employee_id || "-",
+          nama: employee?.employee_name || "-",
+          cabang: branchMap.get(record.branch_id || "") || "-",
+          departemen: departmentMap.get(record.department_id || "") || "-",
+          shift: shiftMap.get(record.shift_id || "")?.shift_name || "-",
+          jadwalMasuk: formatTime(record.scheduled_checkin),
+          checkinAktual: formatTime(record.actual_checkin),
+          jadwalPulang: formatTime(record.scheduled_checkout),
+          checkoutAktual: formatTime(record.actual_checkout),
+          status: formatAttendanceStatusLabel(record.status_main),
+          late: <LateMinutesBadge value={record.late_minutes} />,
+          earlyLeave: record.early_leave_minutes ? `${record.early_leave_minutes} mnt` : "-",
+          overtime: <OvertimeBadge value={record.overtime_minutes} />,
+          source: prettify(record.source),
+          approval: approval ? prettify(approval.status) : "Tidak ada",
+          payrollImpact: attendancePayrollImpacts.some((impact) => impact.attendance_record_id === record.id) ? "Ada impact" : "Aman",
+        };
+      });
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <AttendanceDashboardCard label="Hadir" value={monitoring.summary.hadir} note="Sudah tercatat lengkap." tone="emerald" />
+            <AttendanceDashboardCard label="Terlambat" value={monitoring.summary.terlambat} note="Melewati toleransi." tone="amber" />
+            <AttendanceDashboardCard label="Alpha" value={monitoring.summary.alpha} note="Tidak ada check-in maupun check-out." tone="rose" />
+            <AttendanceDashboardCard label="Belum check-out" value={monitoring.summary.belum_check_out} note="Perlu dipantau sebelum tutup hari." tone="sky" />
+            <AttendanceDashboardCard label="Conflict" value={monitoring.summary.conflict} note="Butuh review sebelum payroll." tone="violet" />
+          </div>
+          <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={Filter} label="Filter" onClick={() => setOpenModal(true)} />} />
+          <PresenceSectionCard title="Monitoring presensi harian" description="Layar ini dibuat untuk operasi harian HR, termasuk approval, payroll impact, dan drill down ke review.">
+            <PresenceDataTable dense stickyColumns={2} columns={[
+              { key: "tanggal", label: "Tanggal", width: 130 },
+              { key: "nik", label: "NIK", width: 120 },
+              { key: "nama", label: "Nama", width: 190 },
+              { key: "cabang", label: "Cabang", width: 160 },
+              { key: "departemen", label: "Departemen", width: 160 },
+              { key: "shift", label: "Shift", width: 140 },
+              { key: "jadwalMasuk", label: "Jadwal masuk", width: 110 },
+              { key: "checkinAktual", label: "Check-in", width: 110 },
+              { key: "jadwalPulang", label: "Jadwal pulang", width: 110 },
+              { key: "checkoutAktual", label: "Check-out", width: 110 },
+              { key: "status", label: "Status", width: 130, type: "status" },
+              { key: "late", label: "Late", width: 100 },
+              { key: "earlyLeave", label: "Early leave", width: 100 },
+              { key: "overtime", label: "Overtime", width: 100 },
+              { key: "source", label: "Source", width: 120, type: "status" },
+              { key: "approval", label: "Approval", width: 110, type: "status" },
+              { key: "payrollImpact", label: "Payroll impact", width: 130, type: "status" },
+            ]} rows={dailyRows} />
+          </PresenceSectionCard>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-monitoring-ketidakhadiran") {
+      const monitoring = attendanceMonitoringUi.absenceMonitoring;
+      const absenceRows = monitoring.rows.slice(0, 18).map((record) => {
+        const employee = employeeMap.get(record.employee_id);
+        return {
+          id: record.id,
+          tanggal: formatDate(record.attendance_date),
+          nama: employee?.employee_name || "-",
+          departemen: departmentMap.get(record.department_id || "") || "-",
+          jenis: formatAttendanceStatusLabel(record.status_main),
+          approval: getApprovalStatusForEmployeeDate(record.employee_id, record.attendance_date) ? "Ada pengajuan" : "Tanpa pengajuan",
+          detail: record.reason || record.note || "-",
+        };
+      });
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              ["Alpha", monitoring.summary.alpha, "rose"],
+              ["Izin", monitoring.summary.izin, "sky"],
+              ["Sakit", monitoring.summary.sakit, "violet"],
+              ["Cuti", monitoring.summary.cuti, "slate"],
+              ["Tidak absen masuk", monitoring.summary.tidak_absen_masuk, "amber"],
+              ["Tidak absen pulang", monitoring.summary.tidak_absen_pulang, "amber"],
+              ["Pulang cepat", monitoring.summary.pulang_cepat, "amber"],
+              ["Off schedule", monitoring.summary.off_schedule, "slate"],
+            ].map(([label, value, tone]) => <AttendanceDashboardCard key={label} label={label} value={value} note="Ringkasan issue periode aktif." tone={tone} />)}
+          </div>
+          <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={Download} label="Export" variant="default" onClick={() => setOpenModal(true)} />} />
+          <PresenceSectionCard title="Detail ketidakhadiran" description="Semua kategori ketidakhadiran dan anomali dirapikan di satu meja kerja untuk tindak lanjut HR.">
+            <PresenceDataTable columns={[
+              { key: "tanggal", label: "Tanggal", width: 130 },
+              { key: "nama", label: "Nama", width: 220 },
+              { key: "departemen", label: "Departemen", width: 170 },
+              { key: "jenis", label: "Jenis", width: 140, type: "status" },
+              { key: "approval", label: "Approval terkait", width: 130, type: "status" },
+              { key: "detail", label: "Detail", width: 260 },
+            ]} rows={absenceRows} />
+          </PresenceSectionCard>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-monitoring-keterlambatan") {
+      const monitoring = attendanceMonitoringUi.lateMonitoring;
+      const lateRows = monitoring.rows.slice(0, 18).map((record) => {
+        const employee = employeeMap.get(record.employee_id);
+        return {
+          id: record.id,
+          nama: employee?.employee_name || "-",
+          tanggal: formatDate(record.attendance_date),
+          shift: shiftMap.get(record.shift_id || "")?.shift_name || "-",
+          jadwalMasuk: formatTime(record.scheduled_checkin),
+          checkinAktual: formatTime(record.actual_checkin),
+          lateMinutes: <LateMinutesBadge value={record.late_minutes} />,
+          source: prettify(record.source),
+          payrollImpact: attendancePayrollImpacts.some((impact) => impact.attendance_record_id === record.id && impact.impact_type === "late_penalty_candidate") ? "Kandidat potongan" : "Review",
+        };
+      });
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <AttendanceDashboardCard label="Total kasus terlambat" value={monitoring.summary.total_cases} note="Jumlah kejadian di periode aktif." tone="amber" />
+            <AttendanceDashboardCard label="Total menit terlambat" value={monitoring.summary.total_minutes} note="Akumulasi menit melewati toleransi." tone="amber" />
+            <AttendanceDashboardCard label="Karyawan paling sering telat" value={monitoring.employeeRanking[0]?.employee_name || "-"} note={`${monitoring.employeeRanking[0]?.late_count || 0} kejadian`} tone="rose" />
+            <AttendanceDashboardCard label="Departemen paling sering telat" value={monitoring.departmentRanking[0]?.department_name || "-"} note={`${monitoring.departmentRanking[0]?.late_cases || 0} kejadian`} tone="violet" />
+          </div>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
+            <div className="space-y-6">
+              <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={Download} label="Export keterlambatan" variant="default" onClick={() => setOpenModal(true)} />} />
+              <PresenceSectionCard title="Daftar keterlambatan" description="Dipakai HR untuk disiplin sekaligus payroll review, jadi kolom lateness dan payroll impact dibuat tegas.">
+                <PresenceDataTable columns={[
+                  { key: "nama", label: "Nama", width: 220 },
+                  { key: "tanggal", label: "Tanggal", width: 120 },
+                  { key: "shift", label: "Shift", width: 140 },
+                  { key: "jadwalMasuk", label: "Jadwal masuk", width: 110 },
+                  { key: "checkinAktual", label: "Check-in aktual", width: 110 },
+                  { key: "lateMinutes", label: "Late minutes", width: 110 },
+                  { key: "source", label: "Sumber", width: 120, type: "status" },
+                  { key: "payrollImpact", label: "Payroll impact", width: 150, type: "status" },
+                ]} rows={lateRows} />
+              </PresenceSectionCard>
+            </div>
+            <div className="space-y-6">
+              <PresenceSectionCard title="Ranking keterlambatan per karyawan"><PresenceDataTable columns={[{ key: "employee_name", label: "Karyawan", width: 180 }, { key: "late_count", label: "Kejadian", width: 90 }, { key: "total_late_minutes", label: "Menit", width: 90 }]} rows={monitoring.employeeRanking.slice(0, 8)} /></PresenceSectionCard>
+              <PresenceSectionCard title="Ranking keterlambatan per departemen"><PresenceDataTable columns={[{ key: "department_name", label: "Departemen", width: 180 }, { key: "late_cases", label: "Kejadian", width: 90 }, { key: "present_rate", label: "Kehadiran", width: 90 }]} rows={monitoring.departmentRanking.slice(0, 8).map((item) => ({ ...item, present_rate: `${item.present_rate}%` }))} /></PresenceSectionCard>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-monitoring-lembur") {
+      const monitoring = attendanceMonitoringUi.overtimeMonitoring;
+      const overtimeRows = monitoring.rows.slice(0, 18).map((record) => {
+        const employee = employeeMap.get(record.employee_id);
+        return {
+          id: record.id,
+          nama: employee?.employee_name || "-",
+          departemen: departmentMap.get(record.department_id || "") || "-",
+          tanggal: formatDate(record.attendance_date),
+          mulai: formatTime(record.scheduled_checkout),
+          selesai: formatTime(record.actual_checkout),
+          total: <OvertimeBadge value={record.overtime_minutes} />,
+          approval: attendancePayrollImpacts.some((impact) => impact.attendance_record_id === record.id && impact.impact_type === "overtime_payment_candidate") ? "Disetujui" : "Menunggu",
+          payroll: attendancePayrollImpacts.some((impact) => impact.attendance_record_id === record.id && impact.impact_type === "overtime_payment_candidate") ? "Siap payroll" : "Review",
+        };
+      });
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <AttendanceDashboardCard label="Total lembur hari ini" value={monitoring.rows.filter((item) => item.attendance_date === "2026-03-24").length} note="Record lembur pada hari berjalan." tone="emerald" />
+            <AttendanceDashboardCard label="Total lembur periode" value={monitoring.summary.total_cases} note="Semua lembur tercatat." tone="sky" />
+            <AttendanceDashboardCard label="Total jam lembur" value={`${Math.round(monitoring.summary.total_minutes / 60)} jam`} note="Akumulasi lembur periode aktif." tone="emerald" />
+            <AttendanceDashboardCard label="Lembur disetujui" value={monitoring.summary.approved_cases} note="Kandidat pembayaran lembur." tone="violet" />
+            <AttendanceDashboardCard label="Siap payroll" value={attendancePayrollImpacts.filter((item) => item.impact_type === "overtime_payment_candidate").length} note="Sudah masuk layer impact payroll." tone="amber" />
+          </div>
+          <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={Download} label="Export lembur" variant="default" onClick={() => setOpenModal(true)} />} />
+          <PresenceSectionCard title="Monitoring lembur" description="Menyatukan data lembur operasional dengan kesiapan pembayaran lembur untuk payroll.">
+            <PresenceDataTable columns={[
+              { key: "nama", label: "Nama karyawan", width: 220 },
+              { key: "departemen", label: "Departemen", width: 160 },
+              { key: "tanggal", label: "Tanggal", width: 120 },
+              { key: "mulai", label: "Jam mulai", width: 100 },
+              { key: "selesai", label: "Jam selesai", width: 100 },
+              { key: "total", label: "Total lembur", width: 120 },
+              { key: "approval", label: "Approval", width: 120, type: "status" },
+              { key: "payroll", label: "Payroll status", width: 130, type: "status" },
+            ]} rows={overtimeRows} />
+          </PresenceSectionCard>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-monitoring-rekap-payroll") {
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <AttendanceDashboardCard label="Total karyawan periode" value={attendancePayrollSummaries.length} note="Karyawan yang masuk payroll period aktif." tone="slate" />
+            <AttendanceDashboardCard label="Total alpha" value={attendancePayrollSummaries.reduce((sum, item) => sum + item.alpha_days, 0)} note="Kandidat potongan hari kerja." tone="rose" />
+            <AttendanceDashboardCard label="Total menit terlambat" value={attendancePayrollSummaries.reduce((sum, item) => sum + item.total_late_minutes, 0)} note="Kandidat penalty jika policy aktif." tone="amber" />
+            <AttendanceDashboardCard label="Data siap payroll" value={attendanceFinalizationPeriod.total_ready} note="Sudah rapi dan bisa dikonsumsi payroll." tone="emerald" />
+          </div>
+          <PresenceFilterBar filters={meta.filters} rightActions={<div className="flex gap-2"><ActionButton icon={FileSpreadsheet} label="Excel" onClick={() => setOpenModal(true)} /><ActionButton icon={Download} label="CSV" onClick={() => setOpenModal(true)} /><ActionButton icon={Printer} label="PDF" variant="default" onClick={() => setOpenModal(true)} /></div>} />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
+            <div className="space-y-6">
+              <PresenceSectionCard title="Rekap presensi payroll per karyawan" description="Tabel ini adalah jembatan utama ke payroll. Semua issue, overtime, alpha, dan keterlambatan sudah diringkas per periode.">
+                <AttendancePayrollSummaryTable rows={payrollSummaryRows} />
+              </PresenceSectionCard>
+              <PresenceSectionCard title="Layer attendance payroll impact" description="Belum menghitung nominal gaji, tetapi semua kandidat impact payroll sudah disiapkan agar modul payroll tinggal mengonsumsi layer ini.">
+                <PresenceDataTable columns={[
+                  { key: "tanggal", label: "Tanggal", width: 120 },
+                  { key: "karyawan", label: "Karyawan", width: 220 },
+                  { key: "jenis", label: "Impact type", width: 190 },
+                  { key: "kategori", label: "Kategori", width: 120, type: "status" },
+                  { key: "nilai", label: "Nilai", width: 120 },
+                  { key: "approval", label: "Approval", width: 120, type: "status" },
+                  { key: "note", label: "Catatan", width: 260 },
+                ]} rows={payrollImpactRows} />
+              </PresenceSectionCard>
+            </div>
+            <div className="space-y-6">
+              <PayrollReadinessCard summary={{ total_data_siap_payroll: attendanceFinalizationPeriod.total_ready, total_data_belum_valid: attendanceFinalizationPeriod.total_need_review }} finalization={attendanceFinalizationPeriod} />
+              <FinalizationProgressCard finalization={attendanceFinalizationPeriod} />
+              <AttendanceIssueWidget title="Issue yang memblokir payroll" items={attendanceMonitoringUi.payrollBlockingIssues.unresolved_conflicts} />
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-monitoring-cutoff-finalisasi") {
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <AttendanceDashboardCard label="Total karyawan" value={attendanceFinalizationPeriod.total_employees} note="Masuk payroll period aktif." tone="slate" />
+            <AttendanceDashboardCard label="Total siap" value={attendanceFinalizationPeriod.total_ready} note="Sudah lolos review presensi." tone="emerald" />
+            <AttendanceDashboardCard label="Need review" value={attendanceFinalizationPeriod.total_need_review} note="Masih ada conflict atau approval pending." tone="amber" />
+            <AttendanceDashboardCard label="Total locked" value={attendanceFinalizationPeriod.total_locked} note="Data sudah dikunci untuk payroll." tone="violet" />
+          </div>
+          <PayrollCutoffPanel
+            finalization={attendanceFinalizationPeriod}
+            onReady={() => {
+              markAttendanceDataReadyForPayroll("payroll-2026-03", { employeeIds: attendancePayrollSummaries.slice(0, 4).map((item) => item.employee_id) });
+              setOpenModal(true);
+            }}
+            onLock={() => {
+              lockAttendanceForPayroll("payroll-2026-03");
+              setOpenModal(true);
+            }}
+            onUnlock={() => {
+              unlockAttendanceForPayroll("payroll-2026-03", "Butuh revisi sebelum payroll.");
+              setOpenModal(true);
+            }}
+            onExport={() => {
+              exportAttendancePayrollRecap("payroll-2026-03", "excel");
+              setOpenModal(true);
+            }}
+          />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
+            <div className="space-y-6">
+              <PresenceSectionCard title="Issue yang memblokir payroll" description="Area ini membantu HR bersih-bersih sebelum periode ditandai siap payroll lalu di-lock.">
+                <PresenceDataTable columns={[
+                  { key: "employee", label: "Employee raw", width: 180 },
+                  { key: "jenis", label: "Jenis issue", width: 180, type: "status" },
+                  { key: "deskripsi", label: "Deskripsi", width: 260 },
+                  { key: "status", label: "Status", width: 120, type: "status" },
+                ]} rows={[
+                  ...attendanceMonitoringUi.payrollBlockingIssues.unresolved_conflicts.map((item) => ({ id: item.id, employee: attendanceRawLogs.find((log) => log.id === item.raw_log_id)?.employee_name_raw || "-", jenis: prettify(item.conflict_type), deskripsi: item.conflict_description, status: prettify(item.resolution_status) })),
+                  ...attendanceMonitoringUi.payrollBlockingIssues.pending_requests.map((item) => ({ id: item.id, employee: employeeMap.get(item.employee_id)?.employee_name || "-", jenis: prettify(item.request_type), deskripsi: item.description, status: prettify(item.status) })),
+                ]} />
+              </PresenceSectionCard>
+              <PresenceSectionCard title="Audit trail finalisasi" description="Setiap tindakan penting dicatat agar payroll dan HR punya jejak review yang jelas.">
+                <PresenceDataTable columns={[
+                  { key: "waktu", label: "Waktu", width: 170 },
+                  { key: "aksi", label: "Aksi", width: 180 },
+                  { key: "pelaku", label: "Pelaku", width: 160 },
+                  { key: "catatan", label: "Catatan", width: 260 },
+                ]} rows={[
+                  { id: "audit-01", waktu: formatDateTime(attendanceFinalizationPeriod.updated_at), aksi: "Generate rekap payroll", pelaku: "HR Payroll", catatan: "Rekap presensi payroll periode Maret berhasil dibentuk." },
+                  { id: "audit-02", waktu: formatDateTime(attendanceImportBatches[0]?.updated_at), aksi: "Review conflict absensi", pelaku: "HR Admin", catatan: "Masih ada conflict unresolved yang perlu dibersihkan." },
+                ]} />
+              </PresenceSectionCard>
+            </div>
+            <div className="space-y-6">
+              <FinalizationProgressCard finalization={attendanceFinalizationPeriod} />
+              <AttendanceIssueWidget title="Approval pending" items={attendanceMonitoringUi.payrollBlockingIssues.pending_requests} />
+              <AttendanceIssueWidget title="Processed log yang masih conflict" items={attendanceMonitoringUi.processedConflicts} />
+            </div>
+          </div>
         </>
       );
     }
@@ -704,9 +1213,10 @@ export default function HrPresencePageShell({ pageKey }) {
                 status: "Aktif",
               }
             : null
-        }
+          }
       />
       <RawLogDetailDrawer log={selectedRawLog} onClose={() => setSelectedRawLogId(null)} />
+      <EmployeeAttendanceDrawer summary={selectedPayrollSummary} employeeName={selectedPayrollSummary ? employeeMap.get(selectedPayrollSummary.employee_id)?.employee_name : ""} onClose={() => setSelectedPayrollSummaryId(null)} />
     </div>
   );
 }
