@@ -80,20 +80,6 @@ export const sidebarSections = [
     ],
   },
   {
-    key: "hr-payroll",
-    title: "HR Payroll",
-    roles: [appRoles.hr, appRoles.owner],
-    hiddenIfEmpty: false,
-    items: [
-      { key: "payroll-process", route: "payroll-process", label: "Proses Gaji", icon: Wallet, roles: [appRoles.hr, appRoles.owner], enabled: true },
-      { key: "salary-rules", route: "salary-rules", label: "Aturan Gaji", icon: BadgeDollarSign, roles: [appRoles.hr, appRoles.owner], enabled: true },
-      { key: "attendance-overtime", route: "attendance-overtime", label: "Kehadiran & Lembur", icon: TimerReset, roles: [appRoles.hr, appRoles.owner], enabled: true },
-      { key: "thr-bonus", route: "thr-bonus", label: "THR & Bonus", icon: Banknote, roles: [appRoles.hr, appRoles.owner], enabled: true },
-      { key: "payslips", route: "payslips", label: "Slip Gaji", icon: ReceiptText, roles: [appRoles.hr, appRoles.owner], enabled: true },
-      { key: "bpjs-tax", route: "bpjs-tax", label: "BPJS & Pajak", icon: ShieldPlus, roles: [appRoles.hr, appRoles.owner], enabled: true },
-    ],
-  },
-  {
     key: "hr-administrasi",
     title: "HR Administrasi",
     roles: [appRoles.hr, appRoles.owner, appRoles.agency],
@@ -308,6 +294,20 @@ export const sidebarSections = [
           },
         ],
       },
+    ],
+  },
+  {
+    key: "hr-payroll",
+    title: "HR Payroll",
+    roles: [appRoles.hr, appRoles.owner],
+    hiddenIfEmpty: false,
+    items: [
+      { key: "payroll-process", route: "payroll-process", label: "Proses Gaji", icon: Wallet, roles: [appRoles.hr, appRoles.owner], enabled: true },
+      { key: "salary-rules", route: "salary-rules", label: "Aturan Gaji", icon: BadgeDollarSign, roles: [appRoles.hr, appRoles.owner], enabled: true },
+      { key: "attendance-overtime", route: "attendance-overtime", label: "Kehadiran & Lembur", icon: TimerReset, roles: [appRoles.hr, appRoles.owner], enabled: true },
+      { key: "thr-bonus", route: "thr-bonus", label: "THR & Bonus", icon: Banknote, roles: [appRoles.hr, appRoles.owner], enabled: true },
+      { key: "payslips", route: "payslips", label: "Slip Gaji", icon: ReceiptText, roles: [appRoles.hr, appRoles.owner], enabled: true },
+      { key: "bpjs-tax", route: "bpjs-tax", label: "BPJS & Pajak", icon: ShieldPlus, roles: [appRoles.hr, appRoles.owner], enabled: true },
     ],
   },
   {
