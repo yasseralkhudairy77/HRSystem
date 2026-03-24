@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Archive, CalendarDays, CheckCircle2, Search, ShieldAlert, UserRoundMinus, X } from "lucide-react";
+import { Archive, CalendarDays, CheckCircle2, Lock, Plus, Search, ShieldAlert, Trash2, UserRoundMinus, X } from "lucide-react";
 
 import SectionTitle from "@/components/common/SectionTitle";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -27,14 +27,13 @@ const createFormTemplate = {
   catatanHr: "",
 };
 const defaultChecklist = [
-  { label: "Pengajuan keluar sudah dicatat", done: true, group: "Status keluar" },
-  { label: "Hari kerja terakhir sudah ditentukan", done: true, group: "Status keluar" },
-  { label: "Persetujuan atasan sudah ada", done: false, group: "Status keluar" },
-  { label: "Alasan keluar sudah dicatat", done: true, group: "Status keluar" },
-  { label: "Laptop / HP kerja sudah kembali", done: false, group: "Aset & akses" },
-  { label: "Akun email / sistem sudah ditutup", done: false, group: "Aset & akses" },
-  { label: "Paklaring sudah dibuat", done: false, group: "Dokumen akhir" },
-  { label: "Status karyawan sudah dinonaktifkan", done: false, group: "Dokumen akhir" },
+  { label: "Pengajuan keluar sudah dicatat", done: true, group: "Status keluar", isCustom: false },
+  { label: "Hari kerja terakhir sudah ditentukan", done: true, group: "Status keluar", isCustom: false },
+  { label: "Persetujuan atasan sudah ada", done: false, group: "Status keluar", isCustom: false },
+  { label: "Alasan keluar sudah dicatat", done: true, group: "Status keluar", isCustom: false },
+  { label: "Laptop / HP kerja sudah kembali", done: false, group: "Aset & akses", isCustom: false },
+  { label: "Akun email / sistem sudah ditutup", done: false, group: "Aset & akses", isCustom: false },
+  { label: "Status karyawan sudah dinonaktifkan", done: false, group: "Dokumen akhir", isCustom: false },
 ];
 const checklistGroups = ["Status keluar", "Aset & akses", "Dokumen akhir"];
 
@@ -58,49 +57,68 @@ function buildOffboardingAlert(item) {
   return null;
 }
 
-function enrichItem(item) {
-  return { ...item, alert: buildOffboardingAlert(item) };
+function normalizeChecklist(checklist) {
+  return (checklist || []).map((item) => ({ ...item, isCustom: Boolean(item.isCustom) }));
 }
 
-function summarizeChecklist(checklist) {
+function isChecklistComplete(checklist) {
   const items = checklist || [];
-  const statusItems = items.filter((item) => item.group === "Status keluar");
-  const assetItems = items.filter((item) => item.group === "Aset & akses");
-  const documentItems = items.filter((item) => item.group === "Dokumen akhir");
-  const allDone = items.length > 0 && items.every((item) => item.done);
-  const anyAssetDone = assetItems.some((item) => item.done);
-  const allAssetDone = assetItems.length > 0 && assetItems.every((item) => item.done);
-  const anyDocumentDone = documentItems.some((item) => item.done);
-  const allDocumentDone = documentItems.length > 0 && documentItems.every((item) => item.done);
-  const allStatusDone = statusItems.length > 0 && statusItems.every((item) => item.done);
-  const certificateReady = items.some((item) => item.label === "Paklaring sudah dibuat" && item.done);
-  const employeeDeactivated = items.some((item) => item.label === "Status karyawan sudah dinonaktifkan" && item.done);
+  return items.length > 0 && items.every((item) => item.done);
+}
+
+function getGroupProgress(checklist, group) {
+  const items = (checklist || []).filter((item) => item.group === group);
+  const done = items.filter((item) => item.done).length;
+  const total = items.length;
+  const percent = total ? Math.round((done / total) * 100) : 0;
+  return { done, total, percent };
+}
+
+function deriveDocumentStatus({ checklistComplete, paklaringReady, documentDone }) {
+  if (paklaringReady) return "Siap dikirim";
+  if (checklistComplete) return "Siap buat paklaring";
+  if (documentDone > 0) return "Sedang dirapikan";
+  return "Belum dibuat";
+}
+
+function enrichItem(item) {
+  const checklist = normalizeChecklist(item.checklist);
+  return { ...item, checklist, alert: buildOffboardingAlert({ ...item, checklist }) };
+}
+
+function summarizeChecklist(item, checklist) {
+  const statusProgress = getGroupProgress(checklist, "Status keluar");
+  const assetProgress = getGroupProgress(checklist, "Aset & akses");
+  const documentProgress = getGroupProgress(checklist, "Dokumen akhir");
+  const checklistComplete = isChecklistComplete(checklist);
+  const employeeDeactivated = checklist.some((check) => check.label === "Status karyawan sudah dinonaktifkan" && check.done);
 
   return {
-    processStatus: allDone ? "Sudah selesai" : allStatusDone ? "Sedang diproses" : "Akan keluar",
-    assetStatus: allAssetDone ? "Sudah kembali" : anyAssetDone ? "Sebagian sudah kembali" : "Belum kembali",
-    accessStatus: allAssetDone ? "Sudah ditutup" : anyAssetDone ? "Sebagian sudah ditutup" : "Belum ditutup",
-    finalDocumentStatus: allDocumentDone ? "Sudah diarsipkan" : anyDocumentDone ? "Siap dikirim" : "Belum dibuat",
-    certificateReady,
-    handoverReportReady: allDocumentDone,
+    checklistComplete,
+    processStatus: checklistComplete ? "Sudah selesai" : statusProgress.done > 0 ? "Sedang diproses" : "Akan keluar",
+    assetStatus: assetProgress.total && assetProgress.done === assetProgress.total ? "Sudah kembali" : assetProgress.done > 0 ? "Sebagian sudah kembali" : "Belum kembali",
+    accessStatus: assetProgress.total && assetProgress.done === assetProgress.total ? "Sudah ditutup" : assetProgress.done > 0 ? "Sebagian sudah ditutup" : "Belum ditutup",
+    finalDocumentStatus: deriveDocumentStatus({ checklistComplete, paklaringReady: Boolean(item.paklaringSiap), documentDone: documentProgress.done }),
+    handoverReportReady: documentProgress.total > 0 && documentProgress.done === documentProgress.total,
     employeeDeactivated,
-    needsAttention: !allDone,
+    supervisorApproval: checklist.some((check) => check.label === "Persetujuan atasan sudah ada" && check.done) ? "Sudah ada" : "Menunggu persetujuan",
+    needsAttention: !checklistComplete,
   };
 }
 
 function applyChecklistSummary(item, checklist) {
-  const summary = summarizeChecklist(checklist);
+  const normalizedChecklist = normalizeChecklist(checklist);
+  const summary = summarizeChecklist(item, normalizedChecklist);
   return enrichItem({
     ...item,
-    checklist,
+    checklist: normalizedChecklist,
     statusProses: summary.processStatus,
     statusAset: summary.assetStatus,
     statusAkses: summary.accessStatus,
     statusSuratAkhir: summary.finalDocumentStatus,
-    paklaringSiap: summary.certificateReady,
     beritaAcaraSiap: summary.handoverReportReady,
     statusKaryawanSudahNonaktif: summary.employeeDeactivated,
-    persetujuanAtasan: checklist.some((check) => check.label === "Persetujuan atasan sudah ada" && check.done) ? "Sudah ada" : "Menunggu persetujuan",
+    persetujuanAtasan: summary.supervisorApproval,
     perluPerhatian: summary.needsAttention,
   });
 }
@@ -176,6 +194,19 @@ function FilterSelect({ value, onChange, options }) {
   return <select value={value} onChange={onChange} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300">{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
 }
 
+function ProgressStrip({ progress }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="h-2 rounded-full bg-slate-100">
+        <div className="h-2 rounded-full bg-slate-900 transition-all" style={{ width: `${progress.percent}%` }} />
+      </div>
+      <div className="text-xs text-slate-500">
+        {progress.done}/{progress.total} selesai
+      </div>
+    </div>
+  );
+}
+
 function buildFallbackEmployeeOptions() {
   return employeeDirectory.map((item) => ({ rowId: "", employeeId: item.employeeId, namaLengkap: item.namaLengkap, jabatan: item.jabatan, divisi: item.divisi, namaUsaha: item.namaUsaha, namaCabang: item.namaCabang, atasan: item.atasanLangsung, statusKaryawan: item.statusAktif }));
 }
@@ -192,6 +223,7 @@ export default function OffboardingPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState(createFormTemplate);
   const [offboardingTableReady, setOffboardingTableReady] = useState(false);
+  const [customChecklistInputs, setCustomChecklistInputs] = useState({});
 
   const selectedProcess = useMemo(() => rows.find((item) => item.id === selectedProcessId) || null, [rows, selectedProcessId]);
 
@@ -321,49 +353,59 @@ export default function OffboardingPage() {
       nextRow = applyChecklistSummary(item, item.checklist.map((check) => check.label === "Persetujuan atasan sudah ada" ? { ...check, done: true } : check));
       message = `${item.namaLengkap} dipindahkan ke status sedang diproses.`;
     }
-    if (action === "final-letter") {
-      nextRow = applyChecklistSummary(item, item.checklist.map((check) => check.group === "Dokumen akhir" ? { ...check, done: true } : check));
-      nextRow = enrichItem({ ...nextRow, suratAkhir: "Paklaring dan surat akhir sudah disiapkan untuk proses kirim/arsip." });
-      message = `Dokumen akhir ${item.namaLengkap} ditandai siap dikirim.`;
+    if (action === "paklaring") {
+      if (!isChecklistComplete(item.checklist)) {
+        setFeedback({ type: "error", message: `Checklist ${item.namaLengkap} belum lengkap. Paklaring baru bisa dibuat setelah semua checklist selesai.` });
+        return;
+      }
+      nextRow = enrichItem({ ...item, paklaringSiap: true, beritaAcaraSiap: true, statusSuratAkhir: "Siap dikirim", suratAkhir: "Paklaring sudah dibuat dan siap dikirim/diarsipkan." });
+      message = `Paklaring ${item.namaLengkap} berhasil dibuka dan ditandai siap dikirim.`;
     }
     if (action === "complete") {
       nextRow = applyChecklistSummary(item, item.checklist.map((check) => ({ ...check, done: true })));
-      nextRow = enrichItem({ ...nextRow, asetKerja: "Semua aset kerja sudah kembali dan diverifikasi.", aksesKerja: "Seluruh akses kerja sudah ditutup oleh HR/Admin.", suratAkhir: "Paklaring, surat akhir, dan arsip final sudah lengkap." });
+      nextRow = enrichItem({ ...nextRow, asetKerja: "Semua aset kerja sudah kembali dan diverifikasi.", aksesKerja: "Seluruh akses kerja sudah ditutup oleh HR/Admin." });
       message = `${item.namaLengkap} berhasil ditandai selesai.`;
     }
     const saved = await persistRow(nextRow, message);
-    if (saved && action === "complete" && saved.sourceEmployeeRowId) {
-      try {
-        await updateEmployee(saved.sourceEmployeeRowId, { status_karyawan: "Nonaktif" });
-      } catch (error) {
-        console.warn("Status karyawan di tabel employees belum ikut diperbarui:", error);
-      }
-    }
+    await syncEmployeeStatus(saved);
   }
 
   async function toggleChecklistItem(processId, label) {
     const current = rows.find((item) => item.id === processId);
-    if (!current) return;
+    if (!current || isChecklistComplete(current.checklist)) return;
 
     const nextChecklist = current.checklist.map((item) => (item.label === label ? { ...item, done: !item.done } : item));
     let nextRow = applyChecklistSummary(current, nextChecklist);
-
-    if (label === "Paklaring sudah dibuat" && nextChecklist.find((item) => item.label === label)?.done) {
-      nextRow = enrichItem({ ...nextRow, suratAkhir: "Paklaring sudah dibuat dan dokumen akhir sedang dirapikan." });
-    }
 
     if (label === "Akun email / sistem sudah ditutup" && nextChecklist.find((item) => item.label === label)?.done) {
       nextRow = enrichItem({ ...nextRow, aksesKerja: "Akun email dan sistem utama sudah ditutup." });
     }
 
     const saved = await persistRow(nextRow, `Checklist ${current.namaLengkap} berhasil diperbarui.`);
-    if (saved && saved.sourceEmployeeRowId && saved.statusKaryawanSudahNonaktif) {
-      try {
-        await updateEmployee(saved.sourceEmployeeRowId, { status_karyawan: "Nonaktif" });
-      } catch (error) {
-        console.warn("Status karyawan belum ikut nonaktif setelah update checklist:", error);
-      }
+    await syncEmployeeStatus(saved);
+  }
+
+  async function addCustomChecklistItem(processId, group) {
+    const current = rows.find((item) => item.id === processId);
+    const label = String(customChecklistInputs[group] || "").trim();
+    if (!current || !label) return;
+    if (isChecklistComplete(current.checklist)) {
+      setFeedback({ type: "error", message: "Checklist sudah terkunci. Tambahan item baru hanya bisa dilakukan sebelum semua checklist selesai." });
+      return;
     }
+
+    const nextChecklist = [...current.checklist, { label, done: false, group, isCustom: true }];
+    const saved = await persistRow(applyChecklistSummary(current, nextChecklist), `Checklist custom untuk grup ${group} berhasil ditambahkan.`);
+    if (saved) {
+      setCustomChecklistInputs((currentState) => ({ ...currentState, [group]: "" }));
+    }
+  }
+
+  async function removeCustomChecklistItem(processId, label) {
+    const current = rows.find((item) => item.id === processId);
+    if (!current || isChecklistComplete(current.checklist)) return;
+    const nextChecklist = current.checklist.filter((item) => !(item.label === label && item.isCustom));
+    await persistRow(applyChecklistSummary(current, nextChecklist), `Checklist custom ${current.namaLengkap} berhasil dihapus.`);
   }
 
   return (
@@ -388,9 +430,9 @@ export default function OffboardingPage() {
 
       <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="flex flex-wrap gap-2 p-4">{offboardingQuickTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${tab.key === activeTab ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{tab.label} ({quickTabCounts[tab.key] || 0})</button>)}</CardContent></Card>
 
-      <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="space-y-3 p-5">{filteredProcesses.map((item) => <div key={item.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="space-y-3"><div className="flex flex-wrap items-start gap-3"><div><div className="text-lg font-semibold text-slate-900">{item.namaLengkap}</div><div className="text-sm text-slate-500">{item.employeeId} - {item.jabatan} - {item.namaCabang}</div></div><StatusBadge value={item.statusProses} /></div><div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-5"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Alasan keluar</div><div className="mt-1 font-medium text-slate-700">{item.alasanKeluar}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Hari kerja terakhir</div><div className="mt-1 font-medium text-slate-700">{formatDate(item.hariKerjaTerakhir)}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status aset</div><div className="mt-1 font-medium text-slate-700">{item.statusAset}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status akses</div><div className="mt-1 font-medium text-slate-700">{item.statusAkses}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Surat akhir</div><div className="mt-1 font-medium text-slate-700">{item.statusSuratAkhir}</div></div></div>{item.alert ? <div className={`rounded-xl border px-3 py-2 text-sm leading-6 ${item.alert.level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}><span className="font-semibold">{item.alert.title}</span> {item.alert.description}</div> : null}</div><div className="flex flex-wrap gap-2 xl:max-w-[320px] xl:justify-end"><Button variant="outline" className="rounded-xl" onClick={() => setSelectedProcessId(item.id)}>Lihat detail</Button><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(item, "start")}>Lengkapi proses</Button><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(item, "final-letter")}>Buat surat akhir</Button><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(item, "complete")}>Tandai selesai</Button></div></div></div>)}{filteredProcesses.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">Belum ada data yang cocok dengan pencarian atau filter yang dipilih.</div> : null}</CardContent></Card>
+      <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="space-y-3 p-5">{filteredProcesses.map((item) => { const checklistLocked = isChecklistComplete(item.checklist); return <div key={item.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="space-y-3"><div className="flex flex-wrap items-start gap-3"><div><div className="text-lg font-semibold text-slate-900">{item.namaLengkap}</div><div className="text-sm text-slate-500">{item.employeeId} - {item.jabatan} - {item.namaCabang}</div></div><StatusBadge value={item.statusProses} />{checklistLocked ? <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Checklist terkunci</span> : null}</div><div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-5"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Alasan keluar</div><div className="mt-1 font-medium text-slate-700">{item.alasanKeluar}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Hari kerja terakhir</div><div className="mt-1 font-medium text-slate-700">{formatDate(item.hariKerjaTerakhir)}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status aset</div><div className="mt-1 font-medium text-slate-700">{item.statusAset}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status akses</div><div className="mt-1 font-medium text-slate-700">{item.statusAkses}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Dokumen akhir</div><div className="mt-1 font-medium text-slate-700">{item.statusSuratAkhir}</div></div></div>{item.alert ? <div className={`rounded-xl border px-3 py-2 text-sm leading-6 ${item.alert.level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}><span className="font-semibold">{item.alert.title}</span> {item.alert.description}</div> : null}</div><div className="flex flex-wrap gap-2 xl:max-w-[360px] xl:justify-end"><Button variant="outline" className="rounded-xl" onClick={() => setSelectedProcessId(item.id)}>Lihat detail</Button><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(item, "start")} disabled={checklistLocked}>Lengkapi proses</Button><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(item, "paklaring")} disabled={!checklistLocked || item.paklaringSiap}>{item.paklaringSiap ? "Paklaring siap" : "Buat paklaring"}</Button><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(item, "complete")} disabled={checklistLocked}>Tandai selesai</Button></div></div></div>; })}{filteredProcesses.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">Belum ada data yang cocok dengan pencarian atau filter yang dipilih.</div> : null}</CardContent></Card>
 
-      {selectedProcess ? <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/25 backdrop-blur-[1px]"><div className="h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4"><div><div className="text-xl font-semibold text-slate-900">{selectedProcess.namaLengkap}</div><div className="mt-1 text-sm text-slate-500">{selectedProcess.employeeId} - {selectedProcess.jabatan} - {selectedProcess.namaCabang}</div></div><button type="button" onClick={() => setSelectedProcessId(null)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"><X className="h-4 w-4" /></button></div><div className="space-y-5 p-5"><div className="flex flex-wrap gap-2"><StatusBadge value={selectedProcess.statusProses} /><StatusBadge value={selectedProcess.statusAset} /><StatusBadge value={selectedProcess.statusAkses} /></div><div className="grid gap-3 md:grid-cols-2"><div className="rounded-2xl bg-slate-50 p-4"><div className="text-sm font-medium text-slate-700">Data proses keluar</div><div className="mt-3 space-y-2 text-sm text-slate-600"><div>Alasan keluar: {selectedProcess.alasanKeluar}</div><div>Tanggal pengajuan: {formatDate(selectedProcess.tanggalPengajuanKeluar)}</div><div>Hari kerja terakhir: {formatDate(selectedProcess.hariKerjaTerakhir)}</div><div>Penanggung jawab: {selectedProcess.penanggungJawab}</div><div>Persetujuan atasan: {selectedProcess.persetujuanAtasan}</div></div></div><div className="rounded-2xl bg-slate-50 p-4"><div className="text-sm font-medium text-slate-700">Status proses</div><div className="mt-3 space-y-2 text-sm text-slate-600"><div>Aset kerja: {selectedProcess.asetKerja}</div><div>Akses kerja: {selectedProcess.aksesKerja}</div><div>Surat akhir: {selectedProcess.suratAkhir}</div><div>Paklaring: {selectedProcess.paklaringSiap ? "Sudah siap" : "Belum siap"}</div><div>Status karyawan: {selectedProcess.statusKaryawanSudahNonaktif ? "Sudah nonaktif" : "Masih aktif"}</div></div></div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="flex items-center justify-between gap-3"><div className="text-sm font-medium text-slate-800">Checklist</div><div className="text-xs uppercase tracking-[0.16em] text-slate-400">Klik item untuk centang</div></div><div className="mt-3 space-y-4">{checklistGroups.map((group) => <div key={group} className="space-y-2"><div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{group}</div>{selectedProcess.checklist.filter((item) => item.group === group).map((item) => <button key={item.label} type="button" onClick={() => void toggleChecklistItem(selectedProcess.id, item.label)} className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition ${item.done ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"}`}><CheckCircle2 className={`h-4 w-4 ${item.done ? "text-emerald-600" : "text-slate-300"}`} /><span className="flex-1">{item.label}</span><span className="text-xs font-medium">{item.done ? "Selesai" : "Belum"}</span></button>)}</div>)}</div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="text-sm font-medium text-slate-800">Catatan HR</div><div className="mt-2 text-sm leading-6 text-slate-600">{selectedProcess.catatanHr || "Belum ada catatan tambahan."}</div></div></div></div></div> : null}
+      {selectedProcess ? (() => { const checklistLocked = isChecklistComplete(selectedProcess.checklist); return <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/25 backdrop-blur-[1px]"><div className="h-full w-full max-w-3xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4"><div><div className="text-xl font-semibold text-slate-900">{selectedProcess.namaLengkap}</div><div className="mt-1 text-sm text-slate-500">{selectedProcess.employeeId} - {selectedProcess.jabatan} - {selectedProcess.namaCabang}</div></div><button type="button" onClick={() => setSelectedProcessId(null)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"><X className="h-4 w-4" /></button></div><div className="space-y-5 p-5"><div className="flex flex-wrap gap-2"><StatusBadge value={selectedProcess.statusProses} /><StatusBadge value={selectedProcess.statusAset} /><StatusBadge value={selectedProcess.statusAkses} /><StatusBadge value={selectedProcess.statusSuratAkhir} /></div>{checklistLocked ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><div className="flex items-center gap-2 font-semibold"><Lock className="h-4 w-4" />Checklist sudah lengkap dan otomatis dikunci.</div><div className="mt-1">Akses pembuatan paklaring sekarang terbuka. Checklist tidak bisa diubah lagi agar arsip tetap konsisten.</div></div> : <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Checklist masih berjalan. Paklaring baru bisa dibuat setelah semua checklist selesai.</div>}<div className="grid gap-3 md:grid-cols-2"><div className="rounded-2xl bg-slate-50 p-4"><div className="text-sm font-medium text-slate-700">Data proses keluar</div><div className="mt-3 space-y-2 text-sm text-slate-600"><div>Alasan keluar: {selectedProcess.alasanKeluar}</div><div>Tanggal pengajuan: {formatDate(selectedProcess.tanggalPengajuanKeluar)}</div><div>Hari kerja terakhir: {formatDate(selectedProcess.hariKerjaTerakhir)}</div><div>Penanggung jawab: {selectedProcess.penanggungJawab}</div><div>Persetujuan atasan: {selectedProcess.persetujuanAtasan}</div></div></div><div className="rounded-2xl bg-slate-50 p-4"><div className="text-sm font-medium text-slate-700">Status proses</div><div className="mt-3 space-y-2 text-sm text-slate-600"><div>Aset kerja: {selectedProcess.asetKerja}</div><div>Akses kerja: {selectedProcess.aksesKerja}</div><div>Surat akhir: {selectedProcess.suratAkhir}</div><div>Paklaring: {selectedProcess.paklaringSiap ? "Sudah siap" : "Belum siap"}</div><div>Status karyawan: {selectedProcess.statusKaryawanSudahNonaktif ? "Sudah nonaktif" : "Masih aktif"}</div></div></div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="flex items-center justify-between gap-3"><div className="text-sm font-medium text-slate-800">Checklist fleksibel</div><div className="text-xs uppercase tracking-[0.16em] text-slate-400">Bisa dikustom per proses</div></div><div className="mt-4 space-y-5">{checklistGroups.map((group) => { const progress = getGroupProgress(selectedProcess.checklist, group); return <div key={group} className="space-y-3 rounded-2xl border border-slate-200 p-4"><div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div><div className="text-sm font-semibold text-slate-800">{group}</div><div className="mt-1 text-xs text-slate-500">Progress grup ini ikut memengaruhi status proses.</div></div><div className="w-full max-w-[220px]"><ProgressStrip progress={progress} /></div></div><div className="space-y-2">{selectedProcess.checklist.filter((item) => item.group === group).map((item) => <div key={item.label} className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm ${item.done ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-600"}`}><button type="button" onClick={() => void toggleChecklistItem(selectedProcess.id, item.label)} disabled={checklistLocked} className="flex flex-1 items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-70"><CheckCircle2 className={`h-4 w-4 ${item.done ? "text-emerald-600" : "text-slate-300"}`} /><span className="flex-1">{item.label}</span><span className="text-xs font-medium">{item.done ? "Selesai" : "Belum"}</span></button>{item.isCustom ? <button type="button" onClick={() => void removeCustomChecklistItem(selectedProcess.id, item.label)} disabled={checklistLocked} className="rounded-lg border border-slate-200 p-1 text-slate-500 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button> : null}</div>)}</div><div className="flex flex-col gap-2 md:flex-row"><Input value={customChecklistInputs[group] || ""} onChange={(event) => setCustomChecklistInputs((current) => ({ ...current, [group]: event.target.value }))} placeholder={`Tambah item custom untuk ${group.toLowerCase()}`} className="rounded-xl border-slate-200" disabled={checklistLocked} /><Button variant="outline" className="rounded-xl" onClick={() => void addCustomChecklistItem(selectedProcess.id, group)} disabled={checklistLocked || !String(customChecklistInputs[group] || "").trim()}><Plus className="mr-2 h-4 w-4" />Tambah item</Button></div></div>; })}</div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="text-sm font-medium text-slate-800">Catatan HR</div><div className="mt-2 text-sm leading-6 text-slate-600">{selectedProcess.catatanHr || "Belum ada catatan tambahan."}</div></div><div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-5"><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(selectedProcess, "paklaring")} disabled={!checklistLocked || selectedProcess.paklaringSiap}>{selectedProcess.paklaringSiap ? "Paklaring siap dikirim" : "Buka akses buat paklaring"}</Button></div></div></div></div>; })() : null}
 
       {showCreateModal ? <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/35 p-4"><div className="mx-auto w-full max-w-3xl rounded-[24px] border border-slate-200 bg-white shadow-2xl"><div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4"><div><div className="text-lg font-semibold text-slate-900">Tambah proses keluar</div><div className="mt-1 text-sm leading-6 text-slate-500">Pilih karyawan aktif, isi alasan keluar, lalu simpan agar proses offboarding langsung tercatat.</div></div><button type="button" onClick={() => setShowCreateModal(false)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"><X className="h-4 w-4" /></button></div><div className="grid gap-4 px-5 py-5 md:grid-cols-2"><div className="md:col-span-2"><div className="mb-2 text-sm font-medium text-slate-700">Pilih karyawan</div><select value={createForm.employeeId} onChange={(event) => { const selected = availableEmployees.find((item) => item.employeeId === event.target.value); if (!selected) { setCreateForm(createFormTemplate); return; } setCreateForm((current) => ({ ...current, employeeRowId: selected.rowId, employeeId: selected.employeeId, namaLengkap: selected.namaLengkap, jabatan: selected.jabatan, divisi: selected.divisi, namaUsaha: selected.namaUsaha, namaCabang: selected.namaCabang, penanggungJawab: selected.atasan || current.penanggungJawab })); }} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300"><option value="">Pilih karyawan aktif</option>{availableEmployees.map((item) => <option key={item.employeeId} value={item.employeeId}>{item.employeeId} - {item.namaLengkap} - {item.namaCabang}</option>)}</select></div><div><div className="mb-2 text-sm font-medium text-slate-700">Nama karyawan</div><Input value={createForm.namaLengkap} readOnly className="rounded-xl border-slate-200 bg-slate-50" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Jabatan</div><Input value={createForm.jabatan} readOnly className="rounded-xl border-slate-200 bg-slate-50" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Alasan keluar</div><Input value={createForm.alasanKeluar} onChange={(event) => setCreateForm((current) => ({ ...current, alasanKeluar: event.target.value }))} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Penanggung jawab</div><Input value={createForm.penanggungJawab} onChange={(event) => setCreateForm((current) => ({ ...current, penanggungJawab: event.target.value }))} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Tanggal pengajuan keluar</div><Input type="date" value={createForm.tanggalPengajuanKeluar} onChange={(event) => setCreateForm((current) => ({ ...current, tanggalPengajuanKeluar: event.target.value }))} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Hari kerja terakhir</div><Input type="date" value={createForm.hariKerjaTerakhir} onChange={(event) => setCreateForm((current) => ({ ...current, hariKerjaTerakhir: event.target.value }))} className="rounded-xl border-slate-200" /></div><div className="md:col-span-2"><div className="mb-2 text-sm font-medium text-slate-700">Catatan HR awal</div><textarea value={createForm.catatanHr} onChange={(event) => setCreateForm((current) => ({ ...current, catatanHr: event.target.value }))} rows={4} className="min-h-[120px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300" /></div></div><div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4"><Button variant="outline" className="rounded-xl" onClick={() => setShowCreateModal(false)}>Tutup</Button><Button className="rounded-xl" onClick={() => void handleCreateProcess()}>Simpan proses keluar</Button></div></div></div> : null}
     </div>
