@@ -37,7 +37,7 @@ function getApprovalStatusForEmployeeDate(employeeId, attendanceDate) {
   return attendanceRequests.find((item) => item.employee_id === employeeId && item.start_date <= attendanceDate && (!item.end_date || item.end_date >= attendanceDate));
 }
 
-function buildMonitoringContext({
+export function buildMonitoringContext({
   attendanceRecords,
   employees,
   branches,

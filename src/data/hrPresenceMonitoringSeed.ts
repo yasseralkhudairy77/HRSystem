@@ -17,6 +17,7 @@ import {
   buildAttendancePayrollImpact,
   buildDepartmentAttendanceRanking,
   buildEmployeeDisciplineRanking,
+  buildMonitoringContext,
   buildHrAttendanceDashboard,
   buildManagerAttendanceDashboard,
   buildAttendanceTrend,
@@ -58,7 +59,7 @@ export const managerScopes = [
   },
 ];
 
-const monitoringContext = {
+const monitoringContext = buildMonitoringContext({
   attendanceRecords: resolvedAttendanceRecords,
   employees: presenceEmployees,
   branches: presenceBranches,
@@ -66,7 +67,7 @@ const monitoringContext = {
   workShifts,
   payrollPeriods,
   managerScopes,
-};
+});
 
 export const hrAttendanceDashboard = buildHrAttendanceDashboard({ date: "2026-03-24" }, monitoringContext);
 export const managerAttendanceDashboard = buildManagerAttendanceDashboard("emp-pres-003", { date: "2026-03-24" }, monitoringContext);
