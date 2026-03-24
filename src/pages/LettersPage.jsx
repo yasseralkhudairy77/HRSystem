@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { documentAutoFeatures, documentDataFields, documentDirectory, documentModuleLinks, documentQuickTabs, employeeDirectory } from "@/data";
 import { getEmployeeList } from "@/services/employeeService";
+import { createHrLetter, getHrLetters, updateHrLetter } from "@/services/hrLetterService";
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" });
 const emptyFilters = { jenisDokumen: "Semua jenis dokumen", usaha: "Semua cabang", namaKaryawan: "Semua karyawan", statusDokumen: "Semua status dokumen", periodeTanggal: "Semua periode" };
@@ -134,6 +135,57 @@ function enrichDocument(item) {
   return { ...item, templateKey, isiDokumen: buildBody(getTemplate(templateKey), { ...item, templateKey }) };
 }
 
+function mapDbLetterToRow(item) {
+  return enrichDocument({
+    id: item.id,
+    templateKey: item.template_key,
+    kategoriDokumen: item.category,
+    jenisDokumen: item.type_label,
+    nomorSurat: item.document_number,
+    judulDokumen: item.title,
+    tanggalDibuat: item.created_date,
+    tanggalBerlaku: item.effective_date,
+    isiRingkas: item.summary,
+    statusDokumen: item.document_status,
+    filePdf: item.file_pdf,
+    penanggungJawab: item.responsible_person,
+    catatanAdmin: item.admin_note,
+    namaUsaha: item.business_name,
+    namaCabang: item.branch_name,
+    employeeId: item.employee_code,
+    namaKaryawan: item.employee_name,
+    jabatan: item.job_title,
+    menempelKeDataKaryawan: item.attach_to_employee,
+    ditujukanUntuk: item.target_audience,
+    isiDokumen: item.document_body,
+  });
+}
+
+function mapFormToPayload(form) {
+  return {
+    template_key: form.templateKey,
+    category: form.kategoriDokumen,
+    type_label: form.jenisDokumen,
+    document_number: form.nomorSurat,
+    title: form.judulDokumen,
+    created_date: form.tanggalDibuat,
+    effective_date: form.tanggalBerlaku,
+    summary: form.isiRingkas,
+    document_status: form.statusDokumen,
+    file_pdf: form.filePdf,
+    responsible_person: form.penanggungJawab,
+    admin_note: form.catatanAdmin,
+    business_name: form.namaUsaha,
+    branch_name: form.namaCabang,
+    employee_code: form.employeeId || "",
+    employee_name: form.namaKaryawan || "",
+    job_title: form.jabatan || "",
+    attach_to_employee: Boolean(form.menempelKeDataKaryawan),
+    target_audience: form.ditujukanUntuk || "",
+    document_body: form.isiDokumen || "",
+  };
+}
+
 function defaultForm(category, rows) {
   const template = templates.find((item) => item.category === category) || templates[0];
   const today = new Date().toISOString().slice(0, 10);
@@ -169,7 +221,8 @@ function createFormFromItem(item) {
 }
 
 export default function LettersPage() {
-  const [rows, setRows] = useState(() => documentDirectory.map(enrichDocument));
+  const defaultRows = useMemo(() => documentDirectory.map(enrichDocument), []);
+  const [rows, setRows] = useState(defaultRows);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("semua");
   const [filters, setFilters] = useState(emptyFilters);
@@ -177,8 +230,9 @@ export default function LettersPage() {
   const [feedback, setFeedback] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
   const [editorMode, setEditorMode] = useState("create");
-  const [form, setForm] = useState(defaultForm("surat", documentDirectory.map(enrichDocument)));
+  const [form, setForm] = useState(defaultForm("surat", defaultRows));
   const [employeeLookupRows, setEmployeeLookupRows] = useState([]);
+  const [lettersTableReady, setLettersTableReady] = useState(false);
 
   const filterOptions = useMemo(() => ({
     jenisDokumen: ["Semua jenis dokumen", ...new Set(rows.map((item) => item.jenisDokumen))],
@@ -245,6 +299,39 @@ export default function LettersPage() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadLetters() {
+      try {
+        const records = await getHrLetters();
+        if (!isMounted) return;
+
+        if (records.length) {
+          setRows(records.map(mapDbLetterToRow));
+          setLettersTableReady(true);
+          return;
+        }
+
+        setRows(defaultRows);
+        setLettersTableReady(false);
+      } catch (error) {
+        console.warn("Load surat HR dari database belum berhasil, fallback ke data lokal.", error);
+        if (isMounted) {
+          setRows(defaultRows);
+          setLettersTableReady(false);
+        }
+      }
+    }
+
+    void loadLetters();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [defaultRows]);
+
   const filteredDocuments = useMemo(() => rows.filter((item) => {
     const term = search.trim().toLowerCase();
     if (!matchQuickTab(item, activeTab)) return false;
@@ -294,7 +381,7 @@ export default function LettersPage() {
     setShowEditor(true);
   }
 
-  function saveDocument() {
+  async function saveDocument() {
     if (!form.judulDokumen.trim() || !form.nomorSurat.trim() || !form.penanggungJawab.trim()) {
       setFeedback({ type: "error", message: "Judul dokumen, nomor surat, dan penanggung jawab wajib diisi sebelum disimpan." });
       return;
@@ -303,23 +390,70 @@ export default function LettersPage() {
       setFeedback({ type: "error", message: "Nama karyawan wajib diisi untuk dokumen kategori surat." });
       return;
     }
-    const nextDocument = refreshBody({ ...form, id: form.id || `doc-${String(Date.now()).slice(-6)}` });
-    setRows((current) => [nextDocument, ...current.filter((item) => item.id !== nextDocument.id)].sort((a, b) => String(b.tanggalDibuat || "").localeCompare(String(a.tanggalDibuat || ""))));
-    setSelectedDocument(nextDocument);
-    setShowEditor(false);
-    setFeedback({ type: "success", message: `${nextDocument.nomorSurat} berhasil ${editorMode === "create" ? "dibuat" : "diperbarui"} dan masuk ke register HR.` });
+    const draftDocument = refreshBody({ ...form, id: form.id || `doc-${String(Date.now()).slice(-6)}` });
+
+    try {
+      let savedDocument = draftDocument;
+
+      if (typeof draftDocument.id === "number") {
+        const updated = await updateHrLetter(draftDocument.id, mapFormToPayload(draftDocument));
+        if (updated) {
+          savedDocument = mapDbLetterToRow(updated);
+          setLettersTableReady(true);
+        }
+      } else {
+        const created = await createHrLetter(mapFormToPayload(draftDocument));
+        if (created) {
+          savedDocument = mapDbLetterToRow(created);
+          setLettersTableReady(true);
+        }
+      }
+
+      setRows((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)].sort((a, b) => String(b.tanggalDibuat || "").localeCompare(String(a.tanggalDibuat || ""))));
+      setSelectedDocument(savedDocument);
+      setShowEditor(false);
+      setFeedback({ type: "success", message: `${savedDocument.nomorSurat} berhasil ${editorMode === "create" ? "dibuat" : "diperbarui"} dan masuk ke register HR.` });
+    } catch (error) {
+      setRows((current) => [draftDocument, ...current.filter((item) => item.id !== draftDocument.id)].sort((a, b) => String(b.tanggalDibuat || "").localeCompare(String(a.tanggalDibuat || ""))));
+      setSelectedDocument(draftDocument);
+      setShowEditor(false);
+      setLettersTableReady(false);
+      setFeedback({
+        type: "success",
+        message: `${draftDocument.nomorSurat} tersimpan di mode lokal. Jalankan migration Supabase surat HR agar dokumen masuk database.`,
+      });
+      console.warn("Simpan surat HR ke database belum berhasil, fallback ke lokal.", error);
+    }
   }
 
-  function setDocumentStatus(id, status, message) {
-    let updated = null;
-    setRows((current) => current.map((item) => {
-      if (item.id !== id) return item;
-      updated = { ...item, statusDokumen: status };
-      return updated;
-    }));
-    if (updated) {
-      setSelectedDocument(updated);
+  async function setDocumentStatus(id, status, message) {
+    const current = rows.find((item) => item.id === id);
+    if (!current) return;
+
+    const updatedLocal = { ...current, statusDokumen: status };
+
+    try {
+      let updatedRow = updatedLocal;
+
+      if (typeof current.id === "number") {
+        const updated = await updateHrLetter(current.id, { document_status: status });
+        if (updated) {
+          updatedRow = mapDbLetterToRow(updated);
+          setLettersTableReady(true);
+        }
+      } else {
+        setLettersTableReady(false);
+      }
+
+      setRows((currentRows) => currentRows.map((item) => (item.id === id ? updatedRow : item)));
+      setSelectedDocument(updatedRow);
       setFeedback({ type: "success", message });
+    } catch (error) {
+      setRows((currentRows) => currentRows.map((item) => (item.id === id ? updatedLocal : item)));
+      setSelectedDocument(updatedLocal);
+      setLettersTableReady(false);
+      setFeedback({ type: "success", message: `${message} Dokumen ini masih berjalan di mode lokal sampai migration surat HR dijalankan.` });
+      console.warn("Update status surat HR ke database belum berhasil, fallback ke lokal.", error);
     }
   }
 
@@ -344,13 +478,14 @@ export default function LettersPage() {
       </div>
 
       {feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>{feedback.message}</div> : null}
+      {!lettersTableReady ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Daftar surat saat ini masih memakai fallback lokal. Jalankan migration `hr_letters_documents` agar dokumen tersimpan penuh di Supabase.</div> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{summaryCards.map((item) => <SummaryCard key={item.label} {...item} />)}</div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_360px]">
         <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 lg:p-5">
           <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-lg font-semibold text-slate-900">Daftar surat dan pengumuman</div><div className="text-sm text-slate-500">{filteredDocuments.length} data ditemukan. Fokus utamanya dokumen yang perlu diselesaikan, dikirim, atau disimpan ke arsip.</div></div><div className="text-sm text-slate-500">Dokumen personal bisa menempel ke data karyawan, pengumuman tersimpan per nomor surat dan cabang.</div></div>
           <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="flex flex-wrap gap-2 p-4">{documentQuickTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${tab.key === activeTab ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{tab.label} ({quickTabCounts[tab.key] || 0})</button>)}</CardContent></Card>
-          <div className="space-y-3">{filteredDocuments.map((item) => <div key={item.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50/60"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="space-y-3"><div className="flex flex-wrap items-start gap-3"><div><div className="text-lg font-semibold text-slate-900">{item.judulDokumen}</div><div className="text-sm text-slate-500">{item.jenisDokumen} · {item.namaKaryawan ? `${item.namaKaryawan} · ` : ""}{item.namaCabang}</div></div><StatusBadge value={item.statusDokumen} /></div><div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-4"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Nomor surat</div><div className="mt-1 font-medium text-slate-700">{item.nomorSurat}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Tanggal dibuat</div><div className="mt-1 font-medium text-slate-700">{formatDate(item.tanggalDibuat)}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Template</div><div className="mt-1 font-medium text-slate-700">{getTemplate(item.templateKey).typeLabel}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Penanggung jawab</div><div className="mt-1 font-medium text-slate-700">{item.penanggungJawab}</div></div></div></div><div className="flex flex-wrap gap-2 xl:max-w-[260px] xl:justify-end"><Button variant="outline" className="rounded-xl" onClick={() => setSelectedDocument(item)}>Lihat detail</Button><Button variant="outline" className="rounded-xl" onClick={() => openEdit(item)}>Ubah</Button><Button variant="outline" className="rounded-xl" onClick={() => setDocumentStatus(item.id, "Siap dikirim", `${item.nomorSurat} ditandai siap dikirim.`)}>Siap kirim</Button><Button variant="outline" className="rounded-xl" onClick={() => setDocumentStatus(item.id, "Sudah dikirim", `${item.nomorSurat} ditandai sudah dikirim.`)}>Kirim</Button><Button variant="outline" className="rounded-xl" onClick={() => setDocumentStatus(item.id, "Sudah diarsipkan", `${item.nomorSurat} dipindahkan ke arsip.`)}>Arsipkan</Button></div></div></div>)}{filteredDocuments.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">Belum ada data yang cocok dengan pencarian atau filter yang dipilih.</div> : null}</div>
+          <div className="space-y-3">{filteredDocuments.map((item) => <div key={item.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50/60"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="space-y-3"><div className="flex flex-wrap items-start gap-3"><div><div className="text-lg font-semibold text-slate-900">{item.judulDokumen}</div><div className="text-sm text-slate-500">{item.jenisDokumen} · {item.namaKaryawan ? `${item.namaKaryawan} · ` : ""}{item.namaCabang}</div></div><StatusBadge value={item.statusDokumen} /></div><div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-4"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Nomor surat</div><div className="mt-1 font-medium text-slate-700">{item.nomorSurat}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Tanggal dibuat</div><div className="mt-1 font-medium text-slate-700">{formatDate(item.tanggalDibuat)}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Template</div><div className="mt-1 font-medium text-slate-700">{getTemplate(item.templateKey).typeLabel}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Penanggung jawab</div><div className="mt-1 font-medium text-slate-700">{item.penanggungJawab}</div></div></div></div><div className="flex flex-wrap gap-2 xl:max-w-[260px] xl:justify-end"><Button variant="outline" className="rounded-xl" onClick={() => setSelectedDocument(item)}>Lihat detail</Button><Button variant="outline" className="rounded-xl" onClick={() => openEdit(item)}>Ubah</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(item.id, "Siap dikirim", `${item.nomorSurat} ditandai siap dikirim.`)}>Siap kirim</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(item.id, "Sudah dikirim", `${item.nomorSurat} ditandai sudah dikirim.`)}>Kirim</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(item.id, "Sudah diarsipkan", `${item.nomorSurat} dipindahkan ke arsip.`)}>Arsipkan</Button></div></div></div>)}{filteredDocuments.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">Belum ada data yang cocok dengan pencarian atau filter yang dipilih.</div> : null}</div>
         </CardContent></Card>
 
         <div className="space-y-4">
@@ -363,10 +498,10 @@ export default function LettersPage() {
       </div>
 
       {selectedDocument ? <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/35 p-4"><div className="mx-auto flex min-h-full items-start justify-center py-6"><div className="w-full max-w-5xl rounded-[24px] border border-slate-200 bg-white shadow-2xl"><div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4"><div><div className="text-lg font-semibold text-slate-900">Detail dokumen</div><div className="mt-1 text-sm leading-6 text-slate-500">Dokumen ini tercatat dalam register HR dan bisa ditelusur berdasarkan nomor surat, status, serta siapa yang menyusunnya.</div></div><button type="button" onClick={() => setSelectedDocument(null)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"><X className="h-4 w-4" /></button></div><div className="grid gap-5 px-5 py-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"><div className="space-y-4"><div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-xs uppercase tracking-[0.18em] text-slate-400">{selectedDocument.nomorSurat}</div><div className="mt-2 text-2xl font-semibold text-slate-900">{selectedDocument.judulDokumen}</div><div className="mt-2 text-sm text-slate-500">{selectedDocument.jenisDokumen} · {selectedDocument.kategoriDokumen === "surat" ? selectedDocument.namaKaryawan || "Karyawan terkait" : selectedDocument.ditujukanUntuk || "Seluruh karyawan"}</div></div><StatusBadge value={selectedDocument.statusDokumen} /></div></div><div className="grid gap-3 md:grid-cols-2"><div className="rounded-2xl border border-slate-200 p-4"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Tanggal dibuat</div><div className="mt-2 text-sm font-medium text-slate-800">{formatDate(selectedDocument.tanggalDibuat)}</div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Tanggal berlaku</div><div className="mt-2 text-sm font-medium text-slate-800">{formatDate(selectedDocument.tanggalBerlaku)}</div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Cabang / unit</div><div className="mt-2 text-sm font-medium text-slate-800">{selectedDocument.namaCabang}</div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Penanggung jawab</div><div className="mt-2 text-sm font-medium text-slate-800">{selectedDocument.penanggungJawab}</div></div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="text-sm font-semibold text-slate-900">Preview isi dokumen</div><pre className="mt-3 whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">{selectedDocument.isiDokumen}</pre></div></div>
-<div className="space-y-4"><Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="p-5"><div className="text-lg font-semibold text-slate-900">Ringkasan tracking</div><div className="mt-4 space-y-3 text-sm text-slate-600"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.12em] text-slate-400">File final</div><div className="mt-1 font-medium text-slate-800">{selectedDocument.filePdf}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.12em] text-slate-400">Tujuan dokumen</div><div className="mt-1 font-medium text-slate-800">{selectedDocument.kategoriDokumen === "surat" ? selectedDocument.namaKaryawan || "-" : selectedDocument.ditujukanUntuk || "-"}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.12em] text-slate-400">Penyimpanan</div><div className="mt-1 font-medium text-slate-800">{selectedDocument.menempelKeDataKaryawan ? "Menempel ke data karyawan" : "Arsip umum perusahaan"}</div></div></div></CardContent></Card><Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="p-5"><div className="text-lg font-semibold text-slate-900">Catatan admin</div><div className="mt-2 text-sm leading-6 text-slate-600">{selectedDocument.catatanAdmin || "Belum ada catatan tambahan untuk dokumen ini."}</div><div className="mt-5 flex flex-wrap gap-2"><Button variant="outline" className="rounded-xl" onClick={() => openEdit(selectedDocument)}>Ubah dokumen</Button><Button variant="outline" className="rounded-xl" onClick={() => setDocumentStatus(selectedDocument.id, "Sudah dikirim", `${selectedDocument.nomorSurat} ditandai sudah dikirim.`)}>Tandai dikirim</Button><Button variant="outline" className="rounded-xl" onClick={() => setDocumentStatus(selectedDocument.id, "Sudah diarsipkan", `${selectedDocument.nomorSurat} dipindahkan ke arsip.`)}>Simpan ke arsip</Button></div></CardContent></Card></div></div><div className="flex justify-end border-t border-slate-200 px-5 py-4"><Button variant="outline" className="rounded-xl" onClick={() => setSelectedDocument(null)}>Tutup</Button></div></div></div></div> : null}
+<div className="space-y-4"><Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="p-5"><div className="text-lg font-semibold text-slate-900">Ringkasan tracking</div><div className="mt-4 space-y-3 text-sm text-slate-600"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.12em] text-slate-400">File final</div><div className="mt-1 font-medium text-slate-800">{selectedDocument.filePdf}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.12em] text-slate-400">Tujuan dokumen</div><div className="mt-1 font-medium text-slate-800">{selectedDocument.kategoriDokumen === "surat" ? selectedDocument.namaKaryawan || "-" : selectedDocument.ditujukanUntuk || "-"}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.12em] text-slate-400">Penyimpanan</div><div className="mt-1 font-medium text-slate-800">{selectedDocument.menempelKeDataKaryawan ? "Menempel ke data karyawan" : "Arsip umum perusahaan"}</div></div></div></CardContent></Card><Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="p-5"><div className="text-lg font-semibold text-slate-900">Catatan admin</div><div className="mt-2 text-sm leading-6 text-slate-600">{selectedDocument.catatanAdmin || "Belum ada catatan tambahan untuk dokumen ini."}</div><div className="mt-5 flex flex-wrap gap-2"><Button variant="outline" className="rounded-xl" onClick={() => openEdit(selectedDocument)}>Ubah dokumen</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(selectedDocument.id, "Sudah dikirim", `${selectedDocument.nomorSurat} ditandai sudah dikirim.`)}>Tandai dikirim</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(selectedDocument.id, "Sudah diarsipkan", `${selectedDocument.nomorSurat} dipindahkan ke arsip.`)}>Simpan ke arsip</Button></div></CardContent></Card></div></div><div className="flex justify-end border-t border-slate-200 px-5 py-4"><Button variant="outline" className="rounded-xl" onClick={() => setSelectedDocument(null)}>Tutup</Button></div></div></div></div> : null}
 
       {showEditor ? <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/35 p-4"><div className="mx-auto w-full max-w-6xl rounded-[24px] border border-slate-200 bg-white shadow-2xl"><div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4"><div><div className="text-lg font-semibold text-slate-900">{editorMode === "create" ? "Buat dokumen HR" : "Ubah dokumen HR"}</div><div className="mt-1 text-sm leading-6 text-slate-500">Pilih template normatif, sesuaikan isi, lalu simpan agar nomor surat dan histori dokumen tetap rapi di register HR.</div></div><button type="button" onClick={() => setShowEditor(false)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"><X className="h-4 w-4" /></button></div><div className="grid gap-5 px-5 py-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"><div className="space-y-5"><div className="grid gap-4 md:grid-cols-2"><div><div className="mb-2 text-sm font-medium text-slate-700">Kategori dokumen</div><FilterSelect value={form.kategoriDokumen} onChange={(event) => setForm(defaultForm(event.target.value, rows))} options={["surat", "pengumuman"]} /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Template</div><select value={form.templateKey} onChange={(event) => { const template = getTemplate(event.target.value); const sequence = extractSequence(form.nomorSurat) || nextSequence(rows); setForm(refreshBody({ ...form, templateKey: template.key, kategoriDokumen: template.category, jenisDokumen: template.typeLabel, judulDokumen: template.titlePattern, isiRingkas: template.summary, ditujukanUntuk: template.category === "pengumuman" ? template.target : form.ditujukanUntuk, nomorSurat: buildNumber(sequence, template.code, form.tanggalDibuat || form.tanggalBerlaku), menempelKeDataKaryawan: template.category === "surat" })); }} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300">{templates.filter((template) => template.category === form.kategoriDokumen).map((template) => <option key={template.key} value={template.key}>{template.typeLabel}</option>)}</select></div><div><div className="mb-2 text-sm font-medium text-slate-700">Nomor surat</div><Input value={form.nomorSurat} onChange={(event) => updateForm("nomorSurat", event.target.value)} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Status dokumen</div><FilterSelect value={form.statusDokumen} onChange={(event) => updateForm("statusDokumen", event.target.value)} options={statusOptions} /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Tanggal dibuat</div><Input type="date" value={form.tanggalDibuat} onChange={(event) => updateForm("tanggalDibuat", event.target.value)} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Tanggal berlaku</div><Input type="date" value={form.tanggalBerlaku} onChange={(event) => updateForm("tanggalBerlaku", event.target.value)} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Judul dokumen</div><Input value={form.judulDokumen} onChange={(event) => updateForm("judulDokumen", event.target.value)} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Penanggung jawab</div><Input value={form.penanggungJawab} onChange={(event) => updateForm("penanggungJawab", event.target.value)} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Nama usaha</div><Input value={form.namaUsaha} onChange={(event) => updateForm("namaUsaha", event.target.value)} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Cabang / unit</div><Input value={form.namaCabang} onChange={(event) => updateForm("namaCabang", event.target.value)} className="rounded-xl border-slate-200" /></div></div>
-{form.kategoriDokumen === "surat" ? <div className="grid gap-4 md:grid-cols-2"><div><div className="mb-2 text-sm font-medium text-slate-700">ID karyawan</div><Input value={form.employeeId} onChange={(event) => updateForm("employeeId", event.target.value)} className="rounded-xl border-slate-200" placeholder="Contoh: HKM-2026-018" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Nama karyawan</div><Input value={form.namaKaryawan} onChange={(event) => updateForm("namaKaryawan", event.target.value)} className="rounded-xl border-slate-200" placeholder="Nama karyawan terkait" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Jabatan</div><Input value={form.jabatan} onChange={(event) => updateForm("jabatan", event.target.value)} className="rounded-xl border-slate-200" placeholder="Jabatan saat surat dibuat" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Arsip ke data karyawan</div><select value={String(form.menempelKeDataKaryawan)} onChange={(event) => updateForm("menempelKeDataKaryawan", event.target.value === "true")} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300"><option value="true">Ya, tempel ke data karyawan</option><option value="false">Tidak, simpan di arsip umum</option></select></div></div> : <div><div className="mb-2 text-sm font-medium text-slate-700">Ditujukan untuk</div><Input value={form.ditujukanUntuk} onChange={(event) => updateForm("ditujukanUntuk", event.target.value)} className="rounded-xl border-slate-200" placeholder="Contoh: Seluruh karyawan cabang Bandung" /></div>}<div><div className="mb-2 text-sm font-medium text-slate-700">Isi ringkas / pokok memo</div><textarea value={form.isiRingkas} onChange={(event) => updateForm("isiRingkas", event.target.value)} rows={6} className="min-h-[148px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300" placeholder="Tulis isi pokok surat atau pengumuman. Preview resmi di sebelah kanan akan ikut diperbarui." /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Catatan admin</div><textarea value={form.catatanAdmin} onChange={(event) => updateForm("catatanAdmin", event.target.value)} rows={4} className="min-h-[112px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300" placeholder="Catatan internal, misalnya status tanda tangan owner, media pengiriman, atau tindak lanjut." /></div></div><div className="space-y-4"><Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="p-5"><div className="text-lg font-semibold text-slate-900">Preview template</div><div className="mt-2 text-sm leading-6 text-slate-500">{getTemplate(form.templateKey).summary}</div><pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">{form.isiDokumen}</pre></CardContent></Card><Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="p-5"><div className="text-lg font-semibold text-slate-900">Checklist sebelum simpan</div><div className="mt-4 space-y-3 text-sm text-slate-600"><div className="rounded-xl border border-slate-200 p-3">Nomor surat sudah unik dan sesuai format internal perusahaan.</div><div className="rounded-xl border border-slate-200 p-3">Judul, tanggal berlaku, dan penanggung jawab sudah benar.</div><div className="rounded-xl border border-slate-200 p-3">{form.kategoriDokumen === "surat" ? "Nama karyawan dan jabatan penerima sudah dilengkapi." : "Target pengumuman dan cakupan cabang sudah dilengkapi."}</div><div className="rounded-xl border border-slate-200 p-3">Catatan admin bisa dipakai untuk tracking proses kirim dan arsip.</div></div></CardContent></Card></div></div><div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4"><Button variant="outline" className="rounded-xl" onClick={() => setShowEditor(false)}>Tutup</Button><Button className="rounded-xl" onClick={saveDocument}>{editorMode === "create" ? "Simpan dokumen" : "Simpan perubahan"}</Button></div></div></div> : null}
+{form.kategoriDokumen === "surat" ? <div className="grid gap-4 md:grid-cols-2"><div><div className="mb-2 text-sm font-medium text-slate-700">ID karyawan</div><Input value={form.employeeId} onChange={(event) => updateForm("employeeId", event.target.value)} className="rounded-xl border-slate-200" placeholder="Contoh: HKM-2026-018" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Nama karyawan</div><Input value={form.namaKaryawan} onChange={(event) => updateForm("namaKaryawan", event.target.value)} className="rounded-xl border-slate-200" placeholder="Nama karyawan terkait" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Jabatan</div><Input value={form.jabatan} onChange={(event) => updateForm("jabatan", event.target.value)} className="rounded-xl border-slate-200" placeholder="Jabatan saat surat dibuat" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Arsip ke data karyawan</div><select value={String(form.menempelKeDataKaryawan)} onChange={(event) => updateForm("menempelKeDataKaryawan", event.target.value === "true")} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300"><option value="true">Ya, tempel ke data karyawan</option><option value="false">Tidak, simpan di arsip umum</option></select></div></div> : <div><div className="mb-2 text-sm font-medium text-slate-700">Ditujukan untuk</div><Input value={form.ditujukanUntuk} onChange={(event) => updateForm("ditujukanUntuk", event.target.value)} className="rounded-xl border-slate-200" placeholder="Contoh: Seluruh karyawan cabang Bandung" /></div>}<div><div className="mb-2 text-sm font-medium text-slate-700">Isi ringkas / pokok memo</div><textarea value={form.isiRingkas} onChange={(event) => updateForm("isiRingkas", event.target.value)} rows={6} className="min-h-[148px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300" placeholder="Tulis isi pokok surat atau pengumuman. Preview resmi di sebelah kanan akan ikut diperbarui." /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Catatan admin</div><textarea value={form.catatanAdmin} onChange={(event) => updateForm("catatanAdmin", event.target.value)} rows={4} className="min-h-[112px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300" placeholder="Catatan internal, misalnya status tanda tangan owner, media pengiriman, atau tindak lanjut." /></div></div><div className="space-y-4"><Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="p-5"><div className="text-lg font-semibold text-slate-900">Preview template</div><div className="mt-2 text-sm leading-6 text-slate-500">{getTemplate(form.templateKey).summary}</div><pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">{form.isiDokumen}</pre></CardContent></Card><Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="p-5"><div className="text-lg font-semibold text-slate-900">Checklist sebelum simpan</div><div className="mt-4 space-y-3 text-sm text-slate-600"><div className="rounded-xl border border-slate-200 p-3">Nomor surat sudah unik dan sesuai format internal perusahaan.</div><div className="rounded-xl border border-slate-200 p-3">Judul, tanggal berlaku, dan penanggung jawab sudah benar.</div><div className="rounded-xl border border-slate-200 p-3">{form.kategoriDokumen === "surat" ? "Nama karyawan dan jabatan penerima sudah dilengkapi." : "Target pengumuman dan cakupan cabang sudah dilengkapi."}</div><div className="rounded-xl border border-slate-200 p-3">Catatan admin bisa dipakai untuk tracking proses kirim dan arsip.</div></div></CardContent></Card></div></div><div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4"><Button variant="outline" className="rounded-xl" onClick={() => setShowEditor(false)}>Tutup</Button><Button className="rounded-xl" onClick={() => void saveDocument()}>{editorMode === "create" ? "Simpan dokumen" : "Simpan perubahan"}</Button></div></div></div> : null}
     </div>
   );
 }
