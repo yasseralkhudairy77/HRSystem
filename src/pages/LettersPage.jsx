@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Archive, FilePlus2, FileText, Megaphone, Search, Send, Users, X } from "lucide-react";
 
 import SectionTitle from "@/components/common/SectionTitle";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { documentAutoFeatures, documentDataFields, documentDirectory, documentModuleLinks, documentQuickTabs, employeeDirectory } from "@/data";
+import { getEmployeeList } from "@/services/employeeService";
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" });
 const emptyFilters = { jenisDokumen: "Semua jenis dokumen", usaha: "Semua cabang", namaKaryawan: "Semua karyawan", statusDokumen: "Semua status dokumen", periodeTanggal: "Semua periode" };
@@ -177,6 +178,7 @@ export default function LettersPage() {
   const [showEditor, setShowEditor] = useState(false);
   const [editorMode, setEditorMode] = useState("create");
   const [form, setForm] = useState(defaultForm("surat", documentDirectory.map(enrichDocument)));
+  const [employeeLookupRows, setEmployeeLookupRows] = useState([]);
 
   const filterOptions = useMemo(() => ({
     jenisDokumen: ["Semua jenis dokumen", ...new Set(rows.map((item) => item.jenisDokumen))],
@@ -196,14 +198,53 @@ export default function LettersPage() {
   ], [rows]);
 
   const quickTabCounts = useMemo(() => Object.fromEntries(documentQuickTabs.map((tab) => [tab.key, rows.filter((item) => matchQuickTab(item, tab.key)).length])), [rows]);
-  const employeeOptions = useMemo(() => employeeDirectory.map((item) => ({
-    employeeId: String(item.employeeId || "").trim().toLowerCase(),
-    namaLengkap: item.namaLengkap || "",
-    jabatan: item.jabatan || "",
-    namaUsaha: item.namaUsaha || "",
-    namaCabang: item.namaCabang || "",
-  })), []);
+  const employeeOptions = useMemo(() => {
+    const fallbackRows = employeeDirectory.map((item) => ({
+      employeeId: String(item.employeeId || "").trim().toLowerCase(),
+      namaLengkap: item.namaLengkap || "",
+      jabatan: item.jabatan || "",
+      namaUsaha: item.namaUsaha || "",
+      namaCabang: item.namaCabang || "",
+    }));
 
+    const merged = [...employeeLookupRows, ...fallbackRows];
+    const seen = new Set();
+
+    return merged.filter((item) => {
+      if (!item.employeeId || seen.has(item.employeeId)) return false;
+      seen.add(item.employeeId);
+      return true;
+    });
+  }, [employeeLookupRows]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadEmployeeLookup() {
+      try {
+        const employees = await getEmployeeList();
+        if (!isMounted) return;
+
+        setEmployeeLookupRows(
+          employees.map((item) => ({
+            employeeId: String(item.employee_id || "").trim().toLowerCase(),
+            namaLengkap: item.nama_lengkap || "",
+            jabatan: item.jabatan || "",
+            namaUsaha: item.nama_usaha || "",
+            namaCabang: item.cabang || "",
+          })),
+        );
+      } catch (error) {
+        console.warn("Lookup karyawan untuk surat belum berhasil dimuat, fallback ke data lokal.", error);
+      }
+    }
+
+    void loadEmployeeLookup();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const filteredDocuments = useMemo(() => rows.filter((item) => {
     const term = search.trim().toLowerCase();
     if (!matchQuickTab(item, activeTab)) return false;
@@ -329,4 +370,3 @@ export default function LettersPage() {
     </div>
   );
 }
-
