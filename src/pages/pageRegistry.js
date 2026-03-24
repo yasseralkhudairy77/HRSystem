@@ -22,6 +22,10 @@ import EmployeeShiftSwapPage from "@/pages/EmployeeShiftSwapPage";
 import HiringPlanPage from "@/pages/HiringPlanPage";
 import HrPresenceAbsenceReportPage from "@/pages/HrPresenceAbsenceReportPage";
 import HrPresenceAttendancePage from "@/pages/HrPresenceAttendancePage";
+import HrPresenceConflictReviewPage from "@/pages/HrPresenceConflictReviewPage";
+import HrPresenceEmployeeMappingPage from "@/pages/HrPresenceEmployeeMappingPage";
+import HrPresenceIntegrationSettingsPage from "@/pages/HrPresenceIntegrationSettingsPage";
+import HrPresenceRawLogsPage from "@/pages/HrPresenceRawLogsPage";
 import HrPresenceScheduleReportPage from "@/pages/HrPresenceScheduleReportPage";
 import HrPresenceSettingsDepartmentHoursPage from "@/pages/HrPresenceSettingsDepartmentHoursPage";
 import HrPresenceSettingsFingerprintPage from "@/pages/HrPresenceSettingsFingerprintPage";
@@ -29,6 +33,7 @@ import HrPresenceSettingsFinesPage from "@/pages/HrPresenceSettingsFinesPage";
 import HrPresenceSettingsGeneralPage from "@/pages/HrPresenceSettingsGeneralPage";
 import HrPresenceSettingsHolidaysPage from "@/pages/HrPresenceSettingsHolidaysPage";
 import HrPresenceSettingsWorkHoursPage from "@/pages/HrPresenceSettingsWorkHoursPage";
+import HrPresenceSyncPage from "@/pages/HrPresenceSyncPage";
 import InterviewAiPage from "@/pages/InterviewAiPage";
 import InterviewPage from "@/pages/InterviewPage";
 import JobsPage from "@/pages/JobsPage";
@@ -84,12 +89,17 @@ export const pageComponents = {
   "hr-presensi-absensi-karyawan": HrPresenceAttendancePage,
   "hr-presensi-laporan-jadwal-kerja": HrPresenceScheduleReportPage,
   "hr-presensi-laporan-ketidakhadiran": HrPresenceAbsenceReportPage,
+  "hr-presensi-log-absensi-mentah": HrPresenceRawLogsPage,
+  "hr-presensi-sinkronisasi-absensi": HrPresenceSyncPage,
+  "hr-presensi-review-konflik-absensi": HrPresenceConflictReviewPage,
   "hr-presensi-pengaturan-setelan-umum": HrPresenceSettingsGeneralPage,
   "hr-presensi-pengaturan-denda": HrPresenceSettingsFinesPage,
   "hr-presensi-pengaturan-hari-libur": HrPresenceSettingsHolidaysPage,
   "hr-presensi-pengaturan-jam-kerja-departemen": HrPresenceSettingsDepartmentHoursPage,
   "hr-presensi-pengaturan-jam-kerja": HrPresenceSettingsWorkHoursPage,
   "hr-presensi-pengaturan-mesin-fingerprint": HrPresenceSettingsFingerprintPage,
+  "hr-presensi-pengaturan-integrasi-absensi": HrPresenceIntegrationSettingsPage,
+  "hr-presensi-pengaturan-mapping-karyawan-mesin": HrPresenceEmployeeMappingPage,
   contracts: ContractsPage,
   letters: LettersPage,
   performance: PerformancePage,

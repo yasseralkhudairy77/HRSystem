@@ -1,20 +1,38 @@
 import { useMemo, useState } from "react";
-import { CalendarPlus2, Download, FileSpreadsheet, Filter, Plus, Printer, RefreshCcw, Save } from "lucide-react";
+import { CalendarPlus2, Download, FileSpreadsheet, Filter, Link2, Plus, Printer, RefreshCcw, Save, ShieldAlert, Upload } from "lucide-react";
 
 import EmptyState from "@/components/common/EmptyState";
 import PageHeader from "@/components/common/PageHeader";
+import ConflictResolutionPanel from "@/components/hrPresence/ConflictResolutionPanel";
+import ConflictTable from "@/components/hrPresence/ConflictTable";
+import DeviceStatusCard from "@/components/hrPresence/DeviceStatusCard";
+import ImportBatchSummaryCard from "@/components/hrPresence/ImportBatchSummaryCard";
+import ImportPreviewPanel from "@/components/hrPresence/ImportPreviewPanel";
+import MappingFormModal from "@/components/hrPresence/MappingFormModal";
 import PresenceDataTable from "@/components/hrPresence/PresenceDataTable";
 import PresenceFilterBar from "@/components/hrPresence/PresenceFilterBar";
 import PresenceModalForm from "@/components/hrPresence/PresenceModalForm";
 import PresenceSectionCard from "@/components/hrPresence/PresenceSectionCard";
 import PresenceSummaryCard from "@/components/hrPresence/PresenceSummaryCard";
+import RawLogDetailDrawer from "@/components/hrPresence/RawLogDetailDrawer";
+import RawLogTable from "@/components/hrPresence/RawLogTable";
 import ScheduleMatrix from "@/components/hrPresence/ScheduleMatrix";
 import ShiftColorBadge from "@/components/hrPresence/ShiftColorBadge";
+import SourceBadge from "@/components/hrPresence/SourceBadge";
+import SyncStatusBadge from "@/components/hrPresence/SyncStatusBadge";
 import { Button } from "@/components/ui/button";
 import {
   attendancePenalties,
+  attendanceConflicts,
+  attendanceImportBatches,
+  attendanceIntegrationScenarios,
+  attendanceIntegrationUi,
+  attendanceProcessedRecords,
+  attendanceRawLogs,
   attendanceSettings,
+  attendanceSyncJobs,
   departmentWorkShifts,
+  employeeDeviceMappingsResolved,
   fingerprintDevices,
   holidays,
   hrPresenceDemoMeta,
@@ -61,6 +79,39 @@ const pageMeta = {
       { label: "Departemen", placeholder: "Semua departemen" },
       { label: "Jenis", placeholder: "Semua jenis" },
       { label: "Approval", placeholder: "Semua status", type: "advanced" },
+    ],
+  },
+  "hr-presensi-log-absensi-mentah": {
+    title: "Log Absensi Mentah",
+    breadcrumbs: ["HR Presensi", "Operasional", "Log Absensi Mentah"],
+    description: "Pantau semua raw log dari fingerprint, mobile, manual, dan source lain sebelum atau sesudah diproses menjadi attendance record.",
+    filters: [
+      { label: "Periode", placeholder: "24 Mar 2026", type: "date", wide: true },
+      { label: "Source", placeholder: "Semua source", type: "advanced" },
+      { label: "Mesin", placeholder: "Semua mesin" },
+      { label: "Employee", placeholder: "Semua employee" },
+      { label: "Status proses", placeholder: "Semua status", type: "advanced" },
+    ],
+  },
+  "hr-presensi-sinkronisasi-absensi": {
+    title: "Sinkronisasi Absensi",
+    breadcrumbs: ["HR Presensi", "Operasional", "Sinkronisasi Absensi"],
+    description: "Upload file log, jalankan sync, review preview import, lalu pantau batch sinkronisasi dan hasil prosesnya dalam satu layar.",
+    filters: [
+      { label: "Sumber import", placeholder: "Semua sumber", type: "advanced" },
+      { label: "Mesin", placeholder: "Semua mesin" },
+      { label: "Status batch", placeholder: "Semua status", type: "advanced" },
+    ],
+  },
+  "hr-presensi-review-konflik-absensi": {
+    title: "Review Konflik Absensi",
+    breadcrumbs: ["HR Presensi", "Operasional", "Review Konflik Absensi"],
+    description: "Raw log bermasalah dikumpulkan di sini agar HR bisa resolve, abaikan, mapping ulang, atau proses ulang dengan audit trail yang jelas.",
+    filters: [
+      { label: "Periode", placeholder: "Maret 2026", type: "date" },
+      { label: "Jenis conflict", placeholder: "Semua conflict", type: "advanced" },
+      { label: "Mesin", placeholder: "Semua mesin" },
+      { label: "Employee", placeholder: "Semua employee" },
     ],
   },
   "hr-presensi-pengaturan-setelan-umum": {
@@ -115,6 +166,22 @@ const pageMeta = {
       { label: "Status koneksi", placeholder: "Semua status", type: "advanced" },
     ],
   },
+  "hr-presensi-pengaturan-integrasi-absensi": {
+    title: "Integrasi Absensi",
+    breadcrumbs: ["HR Presensi", "Pengaturan", "Integrasi Absensi"],
+    description: "Atur fondasi import, duplicate window, auto process, direction mode, dan validasi mobile agar semua source absensi tetap konsisten.",
+    filters: [],
+  },
+  "hr-presensi-pengaturan-mapping-karyawan-mesin": {
+    title: "Mapping Karyawan Mesin",
+    breadcrumbs: ["HR Presensi", "Pengaturan", "Mapping Karyawan Mesin"],
+    description: "Hubungkan employee internal dengan PIN atau kode eksternal dari mesin agar raw log fingerprint dan mobile bisa dikenali sistem.",
+    filters: [
+      { label: "Cari karyawan", placeholder: "Cari nama atau NIK" },
+      { label: "Mesin", placeholder: "Semua mesin" },
+      { label: "Source", placeholder: "Semua source", type: "advanced" },
+    ],
+  },
 };
 
 function formatDate(value) {
@@ -158,12 +225,18 @@ function SettingTile({ label, value, note }) {
 
 export default function HrPresencePageShell({ pageKey }) {
   const [openModal, setOpenModal] = useState(false);
+  const [selectedRawLogId, setSelectedRawLogId] = useState(null);
+  const [selectedConflictId, setSelectedConflictId] = useState(null);
+  const [showMappingModal, setShowMappingModal] = useState(false);
   const meta = pageMeta[pageKey];
 
   const branchMap = useMemo(() => new Map(presenceBranches.map((item) => [item.id, item.branch_name])), []);
   const departmentMap = useMemo(() => new Map(presenceDepartments.map((item) => [item.id, item.department_name])), []);
   const employeeMap = useMemo(() => new Map(presenceEmployees.map((item) => [item.id, item])), []);
   const shiftMap = useMemo(() => new Map(workShifts.map((item) => [item.id, item])), []);
+  const deviceMap = useMemo(() => new Map(fingerprintDevices.map((item) => [item.id, item])), []);
+  const selectedRawLog = attendanceRawLogs.find((item) => item.id === selectedRawLogId) || null;
+  const selectedConflict = attendanceConflicts.find((item) => item.id === selectedConflictId) || null;
 
   if (!meta) {
     return null;
@@ -256,19 +329,98 @@ export default function HrPresencePageShell({ pageKey }) {
     koneksi: prettify(item.connection_status),
     sinkron: formatDateTime(item.last_sync_at),
     alamat: item.ip_address,
+    mappedUser: employeeDeviceMappingsResolved.filter((mapping) => mapping.device_id === item.id && mapping.is_active).length,
     status: item.is_active ? "Aktif" : "Nonaktif",
   }));
+
+  const mappingRows = employeeDeviceMappingsResolved.map((item) => {
+    const employee = employeeMap.get(item.employee_id);
+    const device = item.device_id ? deviceMap.get(item.device_id) : null;
+    return {
+      id: item.id,
+      nama: <div><div className="font-semibold">{employee?.employee_name || "-"}</div><div className="text-xs text-[var(--text-muted)]">{employee?.job_title || "-"}</div></div>,
+      nik: employee?.employee_id || "-",
+      source: <SourceBadge value={item.source_type} />,
+      mesin: device ? <div><div>{device.device_name}</div><div className="text-xs text-[var(--text-muted)]">{device.device_code}</div></div> : "Mobile / tanpa mesin",
+      kodeEksternal: item.external_employee_code,
+      namaEksternal: item.external_employee_name || "-",
+      utama: item.is_primary ? "Utama" : "Cadangan",
+      status: item.is_active ? "Aktif" : "Nonaktif",
+      aksi: <button type="button" className="text-sm font-semibold text-[var(--brand-900)]" onClick={() => setShowMappingModal(true)}>Ubah</button>,
+    };
+  });
+
+  const rawLogRows = attendanceRawLogs.map((item) => ({
+    id: item.id,
+    datetime: formatDateTime(item.log_datetime),
+    source: <SourceBadge value={item.source_type} />,
+    mesin: item.device_name || "-",
+    kodeEksternal: item.external_employee_code || "-",
+    employeeInternal: item.employee_id ? employeeMap.get(item.employee_id)?.employee_name || item.employee_id : "-",
+    direction: prettify(item.direction || "unknown"),
+    verification: prettify(item.verification_type || "-"),
+    sync: <SyncStatusBadge value={item.sync_status} />,
+    proses: <SyncStatusBadge value={item.process_status} />,
+    note: item.process_note || "-",
+    detail: <button type="button" className="text-sm font-semibold text-[var(--brand-900)]" onClick={() => setSelectedRawLogId(item.id)}>Detail</button>,
+  }));
+
+  const batchRows = attendanceImportBatches.map((item) => ({
+    id: item.id,
+    batch: <div><div className="font-semibold">{item.batch_code}</div><div className="text-xs text-[var(--text-muted)]">{formatDateTime(item.import_started_at)}</div></div>,
+    source: <SyncStatusBadge value={prettify(item.import_source)} />,
+    fileDevice: item.file_name || deviceMap.get(item.device_id || "")?.device_name || "-",
+    total: item.total_rows,
+    berhasil: item.success_rows,
+    duplicate: item.duplicate_rows,
+    conflict: item.conflict_rows,
+    status: <SyncStatusBadge value={item.status} />,
+    aksi: <button type="button" className="text-sm font-semibold text-[var(--brand-900)]" onClick={() => setOpenModal(true)}>Detail</button>,
+  }));
+
+  const syncJobRows = attendanceSyncJobs.map((item) => ({
+    id: item.id,
+    syncType: prettify(item.sync_type),
+    mesin: item.device_id ? deviceMap.get(item.device_id)?.device_name || item.device_id : "Semua source non-device",
+    fetched: item.total_fetched,
+    processed: item.total_processed,
+    conflict: item.total_conflict,
+    duplicate: item.total_duplicate,
+    status: <SyncStatusBadge value={item.status} />,
+    waktu: formatDateTime(item.started_at),
+  }));
+
+  const conflictRows = attendanceConflicts.map((item) => {
+    const rawLog = attendanceRawLogs.find((log) => log.id === item.raw_log_id);
+    return {
+      id: item.id,
+      waktu: rawLog ? formatDateTime(rawLog.log_datetime) : "-",
+      source: rawLog ? <SourceBadge value={rawLog.source_type} /> : "-",
+      employeeRaw: rawLog?.employee_name_raw || rawLog?.external_employee_code || "-",
+      employeeInternal: item.employee_id ? employeeMap.get(item.employee_id)?.employee_name || item.employee_id : "-",
+      jenis: prettify(item.conflict_type),
+      deskripsi: item.conflict_description,
+      suggested: item.suggested_action || "Review manual",
+      status: <SyncStatusBadge value={item.resolution_status} />,
+      aksi: <button type="button" className="text-sm font-semibold text-[var(--brand-900)]" onClick={() => setSelectedConflictId(item.id)}>Resolve</button>,
+    };
+  });
 
   const headerActions = {
     "hr-presensi-absensi-karyawan": [<ActionButton key="sync" icon={RefreshCcw} label="Sinkronisasi" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="exp" icon={Download} label="Export" onClick={() => setOpenModal(true)} />],
     "hr-presensi-laporan-jadwal-kerja": [<ActionButton key="print" icon={Printer} label="Cetak" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="xls" icon={FileSpreadsheet} label="Export Excel" onClick={() => setOpenModal(true)} />, <ActionButton key="pdf" icon={Download} label="Export PDF" onClick={() => setOpenModal(true)} />],
     "hr-presensi-laporan-ketidakhadiran": [<ActionButton key="print" icon={Printer} label="Print" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="exp" icon={Download} label="Export" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-log-absensi-mentah": [<ActionButton key="filter" icon={Filter} label="Filter" onClick={() => setOpenModal(true)} />, <ActionButton key="sync" icon={RefreshCcw} label="Proses ulang" variant="default" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-sinkronisasi-absensi": [<ActionButton key="upload" icon={Upload} label="Upload file" onClick={() => setOpenModal(true)} />, <ActionButton key="sync" icon={RefreshCcw} label="Sinkronisasi sekarang" variant="default" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-review-konflik-absensi": [<ActionButton key="mapping" icon={Link2} label="Buka mapping" onClick={() => setShowMappingModal(true)} />, <ActionButton key="reprocess" icon={RefreshCcw} label="Proses ulang" variant="default" onClick={() => setOpenModal(true)} />],
     "hr-presensi-pengaturan-setelan-umum": [<ActionButton key="save" icon={Save} label="Simpan" variant="default" onClick={() => setOpenModal(true)} />],
     "hr-presensi-pengaturan-denda": [<ActionButton key="add" icon={Plus} label="Tambah denda" variant="default" onClick={() => setOpenModal(true)} />],
     "hr-presensi-pengaturan-hari-libur": [<ActionButton key="add" icon={CalendarPlus2} label="Tambah hari libur" variant="default" onClick={() => setOpenModal(true)} />],
     "hr-presensi-pengaturan-jam-kerja-departemen": [<ActionButton key="add" icon={Plus} label="Tambah mapping" variant="default" onClick={() => setOpenModal(true)} />],
     "hr-presensi-pengaturan-jam-kerja": [<ActionButton key="add" icon={Plus} label="Tambah jam kerja" variant="default" onClick={() => setOpenModal(true)} />],
     "hr-presensi-pengaturan-mesin-fingerprint": [<ActionButton key="sync" icon={RefreshCcw} label="Sinkronisasi" variant="default" onClick={() => setOpenModal(true)} />, <ActionButton key="add" icon={Plus} label="Tambah mesin" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-pengaturan-integrasi-absensi": [<ActionButton key="save" icon={Save} label="Simpan aturan" variant="default" onClick={() => setOpenModal(true)} />],
+    "hr-presensi-pengaturan-mapping-karyawan-mesin": [<ActionButton key="import" icon={Upload} label="Import mapping" onClick={() => setOpenModal(true)} />, <ActionButton key="add" icon={Plus} label="Tambah mapping" variant="default" onClick={() => setShowMappingModal(true)} />],
   }[pageKey];
 
   const renderContent = () => {
@@ -324,6 +476,116 @@ export default function HrPresencePageShell({ pageKey }) {
       );
     }
 
+    if (pageKey === "hr-presensi-log-absensi-mentah") {
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-4">
+            <PresenceSummaryCard label="Total raw log" value={attendanceIntegrationUi.rawLogSummary.total} note="Semua source yang masuk ke layer mentah." tone="slate" />
+            <PresenceSummaryCard label="Fingerprint" value={attendanceIntegrationUi.rawLogSummary.bySource.fingerprint || 0} note="Log dari mesin fingerprint." tone="emerald" />
+            <PresenceSummaryCard label="Mobile" value={attendanceIntegrationUi.rawLogSummary.bySource.mobile || 0} note="Log dari aplikasi mobile attendance." tone="sky" />
+            <PresenceSummaryCard label="Conflict" value={attendanceIntegrationUi.rawLogSummary.byProcessStatus.conflict || 0} note="Perlu review sebelum final." tone="rose" />
+          </div>
+          <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={Filter} label="Filter" onClick={() => setOpenModal(true)} />} />
+          <PresenceSectionCard title="Daftar log absensi mentah" description="Layer ini menampilkan log sebelum dan sesudah dinormalisasi. Detail log menyimpan payload mentah, mapping, dan status proses.">
+            <RawLogTable
+              columns={[
+                { key: "datetime", label: "Datetime log", width: 170 },
+                { key: "source", label: "Source", width: 140 },
+                { key: "mesin", label: "Mesin / device", width: 200 },
+                { key: "kodeEksternal", label: "Kode eksternal", width: 140 },
+                { key: "employeeInternal", label: "Employee internal", width: 180 },
+                { key: "direction", label: "Direction", width: 130, type: "status" },
+                { key: "verification", label: "Verification", width: 140 },
+                { key: "sync", label: "Sync status", width: 130 },
+                { key: "proses", label: "Process status", width: 140 },
+                { key: "note", label: "Note", width: 260 },
+                { key: "detail", label: "Detail", width: 110 },
+              ]}
+              rows={rawLogRows}
+              stickyColumns={2}
+            />
+          </PresenceSectionCard>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-sinkronisasi-absensi") {
+      return (
+        <>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {attendanceIntegrationUi.batchSummaryCards.map((batch) => <ImportBatchSummaryCard key={batch.id} batch={batch} />)}
+          </div>
+          <ImportPreviewPanel preview={attendanceIntegrationUi.preview} />
+          <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={Upload} label="Upload file log" variant="default" onClick={() => setOpenModal(true)} />} />
+          <PresenceSectionCard title="Riwayat import batch" description="Setiap file atau sync masuk sebagai batch agar HR bisa audit total row, duplicate, conflict, dan hasil prosesnya.">
+            <PresenceDataTable
+              columns={[
+                { key: "batch", label: "Batch code", width: 220 },
+                { key: "source", label: "Source", width: 140 },
+                { key: "fileDevice", label: "File / device", width: 220 },
+                { key: "total", label: "Total rows", width: 100 },
+                { key: "berhasil", label: "Berhasil", width: 90 },
+                { key: "duplicate", label: "Duplicate", width: 90 },
+                { key: "conflict", label: "Conflict", width: 90 },
+                { key: "status", label: "Status", width: 120 },
+                { key: "aksi", label: "Aksi", width: 100 },
+              ]}
+              rows={batchRows}
+            />
+          </PresenceSectionCard>
+          <PresenceSectionCard title="Job sinkronisasi" description="Job log ini membantu membedakan batch import file dengan sync rutin dari device atau mobile attendance.">
+            <PresenceDataTable
+              columns={[
+                { key: "syncType", label: "Sync type", width: 170, type: "status" },
+                { key: "mesin", label: "Mesin", width: 220 },
+                { key: "fetched", label: "Fetched", width: 90 },
+                { key: "processed", label: "Processed", width: 90 },
+                { key: "conflict", label: "Conflict", width: 90 },
+                { key: "duplicate", label: "Duplicate", width: 90 },
+                { key: "status", label: "Status", width: 120 },
+                { key: "waktu", label: "Started at", width: 170 },
+              ]}
+              rows={syncJobRows}
+            />
+          </PresenceSectionCard>
+        </>
+      );
+    }
+
+    if (pageKey === "hr-presensi-review-konflik-absensi") {
+      const conflictSummary = attendanceIntegrationUi.conflictSummary;
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <PresenceSummaryCard label="Belum dimapping" value={conflictSummary.byType.employee_not_mapped || 0} note="Kode eksternal belum dikenali." tone="sky" />
+            <PresenceSummaryCard label="Duplicate" value={conflictSummary.byType.duplicate_scan || 0} note="Scan ganda dalam duplicate window." tone="amber" />
+            <PresenceSummaryCard label="Invalid" value={conflictSummary.byType.invalid_datetime || 0} note="Datetime atau format log salah." tone="rose" />
+            <PresenceSummaryCard label="Missing pair" value={conflictSummary.byType.missing_pair || 0} note="Log belum punya pasangan masuk/pulang." tone="amber" />
+            <PresenceSummaryCard label="Ambiguous" value={conflictSummary.byType.ambiguous_direction || 0} note="Direction perlu review manual." tone="violet" />
+            <PresenceSummaryCard label="Unresolved" value={conflictSummary.byStatus.unresolved || 0} note="Masih menunggu tindakan HR." tone="rose" />
+          </div>
+          <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={ShieldAlert} label="Review conflict" variant="default" onClick={() => setOpenModal(true)} />} />
+          <PresenceSectionCard title="Daftar conflict absensi" description="Semua log bermasalah dikumpulkan di sini, lengkap dengan suggested action agar proses review tidak bolak-balik.">
+            <ConflictTable
+              columns={[
+                { key: "waktu", label: "Waktu log", width: 170 },
+                { key: "source", label: "Source", width: 120 },
+                { key: "employeeRaw", label: "Employee raw", width: 180 },
+                { key: "employeeInternal", label: "Employee internal", width: 180 },
+                { key: "jenis", label: "Jenis conflict", width: 170, type: "status" },
+                { key: "deskripsi", label: "Deskripsi", width: 260 },
+                { key: "suggested", label: "Suggested action", width: 220 },
+                { key: "status", label: "Status penyelesaian", width: 150 },
+                { key: "aksi", label: "Aksi", width: 110 },
+              ]}
+              rows={conflictRows}
+            />
+          </PresenceSectionCard>
+          <ConflictResolutionPanel conflict={selectedConflict} onAction={() => setOpenModal(true)} />
+        </>
+      );
+    }
+
     if (pageKey === "hr-presensi-pengaturan-setelan-umum") {
       return (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_380px]">
@@ -331,6 +593,7 @@ export default function HrPresencePageShell({ pageKey }) {
             <PresenceSectionCard title="Aturan check-in / check-out"><div className="grid gap-3 md:grid-cols-2"><SettingTile label="Toleransi telat" value={`${settings.tolerance_late_minutes} menit`} /><SettingTile label="Check-in awal" value={`${settings.early_checkin_limit_minutes} menit`} /><SettingTile label="Check-in terlambat" value={`${settings.late_checkin_limit_minutes} menit`} /><SettingTile label="Checkout limit" value={`${settings.checkout_limit_minutes} menit`} /></div></PresenceSectionCard>
             <PresenceSectionCard title="Metode absensi"><div className="grid gap-3 md:grid-cols-3"><SettingTile label="Mobile" value={settings.allow_mobile_attendance ? "Aktif" : "Nonaktif"} /><SettingTile label="Fingerprint" value={settings.allow_fingerprint_attendance ? "Aktif" : "Nonaktif"} /><SettingTile label="Face recognition" value={settings.allow_face_recognition ? "Aktif" : "Nonaktif"} /></div></PresenceSectionCard>
             <PresenceSectionCard title="Validasi lokasi dan selfie"><div className="grid gap-3 md:grid-cols-2"><SettingTile label="Wajib selfie" value={settings.require_selfie ? "Ya" : "Tidak"} /><SettingTile label="Wajib lokasi" value={settings.require_location ? "Ya" : "Tidak"} /><SettingTile label="Radius" value={`${settings.attendance_radius_meter} meter`} /><SettingTile label="Format laporan" value={prettify(settings.default_report_format)} /></div></PresenceSectionCard>
+            <PresenceSectionCard title="Rule sinkronisasi"><div className="grid gap-3 md:grid-cols-2"><SettingTile label="Duplicate window" value={`${settings.duplicate_scan_window_minutes || 0} menit`} /><SettingTile label="Auto process import" value={settings.auto_process_imported_logs ? "Aktif" : "Nonaktif"} /><SettingTile label="Require mapping" value={settings.require_employee_mapping_before_processing ? "Ya" : "Tidak"} /><SettingTile label="Direction mode" value={prettify(settings.default_direction_mode || "heuristic")} /></div></PresenceSectionCard>
           </div>
           <div className="space-y-6"><PresenceSummaryCard label="Aturan aktif" value="12" note="Setting inti presensi sudah tersusun per section." tone="emerald" /><PresenceSectionCard title="Otomatisasi status"><div className="space-y-3"><SettingTile label="Auto generate alpha" value={settings.auto_generate_alpha ? "Aktif" : "Nonaktif"} /><SettingTile label="Updated terakhir" value={formatDateTime(settings.updated_at)} /></div></PresenceSectionCard></div>
         </div>
@@ -354,7 +617,53 @@ export default function HrPresencePageShell({ pageKey }) {
     }
 
     if (pageKey === "hr-presensi-pengaturan-mesin-fingerprint") {
-      return <><div className="grid gap-4 md:grid-cols-3"><PresenceSummaryCard label="Mesin aktif" value={fingerprintDevices.filter((item) => item.is_active).length} note="Perangkat yang masih digunakan." tone="emerald" /><PresenceSummaryCard label="Online" value={fingerprintDevices.filter((item) => item.connection_status === "online").length} note="Terkoneksi dan siap sinkron." tone="sky" /><PresenceSummaryCard label="Perlu cek" value={fingerprintDevices.filter((item) => item.connection_status === "perlu_cek").length} note="Perlu perhatian admin." tone="amber" /></div><PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={RefreshCcw} label="Sinkronisasi" variant="default" onClick={() => setOpenModal(true)} />} /><PresenceSectionCard title="Daftar mesin fingerprint"><PresenceDataTable columns={[{ key: "mesin", label: "Mesin", width: 240 }, { key: "lokasi", label: "Lokasi", width: 230 }, { key: "alamat", label: "IP / endpoint", width: 160 }, { key: "koneksi", label: "Koneksi", width: 130, type: "status" }, { key: "sinkron", label: "Last sync", width: 180 }, { key: "status", label: "Status", width: 120, type: "status" }]} rows={deviceRows} /></PresenceSectionCard></>;
+      return <><div className="grid gap-4 md:grid-cols-3"><DeviceStatusCard label="Mesin aktif" value={fingerprintDevices.filter((item) => item.is_active).length} note="Perangkat yang masih digunakan." tone="emerald" /><DeviceStatusCard label="Online" value={fingerprintDevices.filter((item) => item.connection_status === "online").length} note="Terkoneksi dan siap sinkron." tone="sky" /><DeviceStatusCard label="Butuh perhatian" value={fingerprintDevices.filter((item) => item.connection_status !== "online").length} note="Offline atau perlu cek." tone="amber" /></div><PresenceFilterBar filters={meta.filters} rightActions={<div className="flex gap-2"><ActionButton icon={RefreshCcw} label="Sinkronisasi sekarang" variant="default" onClick={() => setOpenModal(true)} /><ActionButton icon={Upload} label="Import file log" onClick={() => setOpenModal(true)} /></div>} /><PresenceSectionCard title="Daftar mesin fingerprint" description="Halaman ini disiapkan untuk tambah mesin, tes koneksi, sinkronisasi sekarang, dan import file log dari device tertentu."><PresenceDataTable columns={[{ key: "mesin", label: "Mesin", width: 240 }, { key: "lokasi", label: "Lokasi", width: 230 }, { key: "alamat", label: "IP / endpoint", width: 160 }, { key: "mappedUser", label: "User mapped", width: 110 }, { key: "koneksi", label: "Koneksi", width: 130, type: "status" }, { key: "sinkron", label: "Last sync", width: 180 }, { key: "status", label: "Status", width: 120, type: "status" }]} rows={deviceRows} /></PresenceSectionCard></>;
+    }
+
+    if (pageKey === "hr-presensi-pengaturan-integrasi-absensi") {
+      return (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_380px]">
+          <div className="space-y-6">
+            <PresenceSectionCard title="Rule import dan duplicate"><div className="grid gap-3 md:grid-cols-2"><SettingTile label="Duplicate scan window" value={`${settings.duplicate_scan_window_minutes || 0} menit`} note="Scan dalam window ini akan dicek sebagai duplicate." /><SettingTile label="Allow unmatched logs" value={settings.allow_unmatched_logs ? "Ya" : "Tidak"} /><SettingTile label="Auto process imported logs" value={settings.auto_process_imported_logs ? "Aktif" : "Nonaktif"} /><SettingTile label="Require mapping before processing" value={settings.require_employee_mapping_before_processing ? "Ya" : "Tidak"} /></div></PresenceSectionCard>
+            <PresenceSectionCard title="Rule direction dan shift"><div className="grid gap-3 md:grid-cols-2"><SettingTile label="Default direction mode" value={prettify(settings.default_direction_mode || "heuristic")} /><SettingTile label="Max check-in distance" value={`${settings.max_checkin_distance_minutes || 0} menit`} /><SettingTile label="Max checkout distance" value={`${settings.max_checkout_distance_minutes || 0} menit`} /><SettingTile label="Lintas hari" value="Didukung oleh engine pairing dan shift-aware processing" /></div></PresenceSectionCard>
+            <PresenceSectionCard title="Validasi mobile"><div className="grid gap-3 md:grid-cols-2"><SettingTile label="Location validation" value={settings.mobile_location_validation_enabled ? "Aktif" : "Nonaktif"} /><SettingTile label="Selfie validation" value={settings.mobile_selfie_validation_enabled ? "Aktif" : "Nonaktif"} /><SettingTile label="Radius mobile" value={`${settings.attendance_radius_meter} meter`} /><SettingTile label="Face verification" value="Placeholder siap untuk tahap berikutnya" /></div></PresenceSectionCard>
+          </div>
+          <div className="space-y-6">
+            <PresenceSummaryCard label="Source didukung" value="4" note="Fingerprint, mobile, manual, dan face recognition placeholder." tone="emerald" />
+            <PresenceSummaryCard label="Batch terakhir" value={attendanceImportBatches.length} note="Semua import dan sync dicatat per batch." tone="sky" />
+            <PresenceSectionCard title="Checklist kesiapan integrasi"><div className="space-y-3"><SettingTile label="Raw log layer" value="Siap" /><SettingTile label="Conflict layer" value="Siap" /><SettingTile label="Reprocess" value="Siap" /><SettingTile label="SDK device nyata" value="Masih placeholder / mock" /></div></PresenceSectionCard>
+          </div>
+        </div>
+      );
+    }
+
+    if (pageKey === "hr-presensi-pengaturan-mapping-karyawan-mesin") {
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <PresenceSummaryCard label="Mapping aktif" value={employeeDeviceMappingsResolved.filter((item) => item.is_active).length} note="Semua mapping yang masih dipakai sistem." tone="emerald" />
+            <PresenceSummaryCard label="Source fingerprint" value={employeeDeviceMappingsResolved.filter((item) => item.source_type === "fingerprint").length} note="Mapping khusus device." tone="sky" />
+            <PresenceSummaryCard label="Perlu review" value={attendanceConflicts.filter((item) => item.conflict_type === "employee_not_mapped").length} note="Conflict karena employee belum dikenali." tone="amber" />
+          </div>
+          <PresenceFilterBar filters={meta.filters} rightActions={<div className="flex gap-2"><ActionButton icon={Upload} label="Import mapping massal" onClick={() => setOpenModal(true)} /><ActionButton icon={Plus} label="Tambah mapping" variant="default" onClick={() => setShowMappingModal(true)} /></div>} />
+          <PresenceSectionCard title="Daftar mapping employee dan mesin" description="Layer ini penting agar fingerprint log dan source eksternal bisa dikenali sebagai milik siapa sebelum diproses ke attendance record.">
+            <PresenceDataTable
+              columns={[
+                { key: "nama", label: "Nama karyawan", width: 220 },
+                { key: "nik", label: "NIK internal", width: 130 },
+                { key: "source", label: "Source", width: 120 },
+                { key: "mesin", label: "Mesin", width: 220 },
+                { key: "kodeEksternal", label: "Kode eksternal", width: 150 },
+                { key: "namaEksternal", label: "Nama eksternal", width: 170 },
+                { key: "utama", label: "Utama", width: 100 },
+                { key: "status", label: "Status", width: 120, type: "status" },
+                { key: "aksi", label: "Aksi", width: 100 },
+              ]}
+              rows={mappingRows}
+            />
+          </PresenceSectionCard>
+        </>
+      );
     }
 
     return <EmptyState title="Halaman sedang disiapkan" description="Tampilan dasar sudah ada dan akan mengikuti bahasa visual HR Presensi yang sama." actionLabel="Buka placeholder" />;
@@ -381,6 +690,23 @@ export default function HrPresencePageShell({ pageKey }) {
           { title: "Catatan UX", fields: [{ label: "Fokus desain", value: "Profesional, presisi, dan mudah dipakai harian" }, { label: "Komponen", value: "Modal akan berbagi pola yang sama di semua halaman presensi" }] },
         ]}
       />
+      <MappingFormModal
+        open={showMappingModal}
+        onClose={() => setShowMappingModal(false)}
+        selectedMapping={
+          selectedConflict?.employee_id
+            ? {
+                employeeName: employeeMap.get(selectedConflict.employee_id)?.employee_name,
+                source: "Fingerprint",
+                externalCode: attendanceRawLogs.find((item) => item.id === selectedConflict.raw_log_id)?.external_employee_code,
+                externalName: attendanceRawLogs.find((item) => item.id === selectedConflict.raw_log_id)?.employee_name_raw,
+                deviceName: attendanceRawLogs.find((item) => item.id === selectedConflict.raw_log_id)?.device_name,
+                status: "Aktif",
+              }
+            : null
+        }
+      />
+      <RawLogDetailDrawer log={selectedRawLog} onClose={() => setSelectedRawLogId(null)} />
     </div>
   );
 }

@@ -8,3 +8,4 @@ export * from "./testPackages";
 export * from "./hrPresenceSeed";
 export * from "./hrPresenceEngineScenarios";
 export * from "./hrPresenceEmployeeSeed";
+export * from "./hrPresenceIntegrationSeed";

@@ -10,6 +10,7 @@ export type WorkPatternType = "5_2" | "6_1" | "shift_rotation" | "flexible";
 export type DeviceConnectionStatus = "online" | "offline" | "perlu_cek";
 export type EmployeeScheduleSourceType = "manual" | "default_department" | "import" | "system";
 export type AttendanceSource = "mobile" | "fingerprint" | "manual" | "face_recognition";
+export type AttendanceRawLogSourceType = AttendanceSource;
 export type AttendanceStatus =
   | "hadir"
   | "terlambat"
@@ -36,6 +37,22 @@ export type AttendanceExceptionType =
 export type ApprovalStatus = "draft" | "menunggu" | "disetujui" | "ditolak";
 export type AttendanceRequestType = "izin" | "sakit" | "cuti" | "lembur" | "tukar_shift" | "koreksi_absensi";
 export type AttendanceRequestStatus = ApprovalStatus | "dibatalkan";
+export type AttendanceRawDirection = "in" | "out" | "break_in" | "break_out" | "unknown";
+export type AttendanceRawSyncStatus = "imported" | "synced" | "failed" | "duplicate";
+export type AttendanceRawProcessStatus = "pending" | "mapped" | "processed" | "conflict" | "ignored";
+export type AttendanceImportSource = "fingerprint_file" | "fingerprint_sync" | "mobile" | "manual" | "face_recognition";
+export type AttendanceImportBatchStatus = "draft" | "previewed" | "processed" | "failed";
+export type AttendanceSyncJobStatus = "queued" | "running" | "completed" | "failed";
+export type AttendanceConflictType =
+  | "employee_not_mapped"
+  | "duplicate_scan"
+  | "invalid_datetime"
+  | "missing_pair"
+  | "ambiguous_direction"
+  | "out_of_shift_range"
+  | "device_unknown"
+  | "location_invalid";
+export type AttendanceConflictResolutionStatus = "unresolved" | "resolved" | "ignored";
 
 export interface PresenceCompany {
   id: string;
@@ -84,6 +101,15 @@ export interface AttendanceSettings {
   require_selfie: boolean;
   require_location: boolean;
   attendance_radius_meter: number;
+  duplicate_scan_window_minutes?: number;
+  max_checkin_distance_minutes?: number;
+  max_checkout_distance_minutes?: number;
+  allow_unmatched_logs?: boolean;
+  auto_process_imported_logs?: boolean;
+  require_employee_mapping_before_processing?: boolean;
+  default_direction_mode?: "device" | "heuristic";
+  mobile_location_validation_enabled?: boolean;
+  mobile_selfie_validation_enabled?: boolean;
   auto_generate_alpha: boolean;
   default_report_format: AttendanceReportFormat;
   is_active: boolean;
@@ -157,9 +183,11 @@ export interface FingerprintDevice {
   device_name: string;
   device_code: string;
   ip_address: string;
+  port?: number | null;
   api_endpoint: string | null;
   branch_id: string | null;
   location_name: string;
+  timezone?: string;
   connection_status: DeviceConnectionStatus;
   last_sync_at: string | null;
   description: string;
@@ -207,6 +235,10 @@ export interface AttendanceRecord {
   longitude: number | null;
   device_id: string | null;
   note: string | null;
+  source_mix?: AttendanceSource[];
+  validation_status?: "valid" | "warning" | "conflict";
+  raw_log_ids?: string[];
+  had_conflict_before?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -244,6 +276,123 @@ export interface AttendanceRequest {
   approval_note?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AttendanceRawLog {
+  id: string;
+  company_id: string;
+  source_type: AttendanceRawLogSourceType;
+  device_id: string | null;
+  device_name: string | null;
+  external_employee_code: string | null;
+  employee_id: string | null;
+  employee_name_raw: string | null;
+  log_datetime: string;
+  log_date: string;
+  log_time: string;
+  log_type: string | null;
+  verification_type: string | null;
+  direction: AttendanceRawDirection | null;
+  latitude: number | null;
+  longitude: number | null;
+  selfie_url: string | null;
+  location_label?: string | null;
+  mobile_device_id?: string | null;
+  app_version?: string | null;
+  validation_flags?: string[] | null;
+  raw_payload: Record<string, unknown>;
+  import_batch_id: string | null;
+  sync_status: AttendanceRawSyncStatus;
+  process_status: AttendanceRawProcessStatus;
+  process_note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceImportBatch {
+  id: string;
+  company_id: string;
+  batch_code: string;
+  import_source: AttendanceImportSource;
+  file_name: string | null;
+  device_id: string | null;
+  total_rows: number;
+  success_rows: number;
+  failed_rows: number;
+  duplicate_rows: number;
+  conflict_rows: number;
+  imported_by: string | null;
+  import_started_at: string;
+  import_finished_at: string | null;
+  status: AttendanceImportBatchStatus;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeDeviceMapping {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  source_type: AttendanceRawLogSourceType;
+  device_id: string | null;
+  external_employee_code: string;
+  external_employee_name: string | null;
+  is_primary: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceSyncJob {
+  id: string;
+  company_id: string;
+  sync_type: AttendanceImportSource;
+  device_id: string | null;
+  started_at: string;
+  finished_at: string | null;
+  status: AttendanceSyncJobStatus;
+  total_fetched: number;
+  total_processed: number;
+  total_conflict: number;
+  total_duplicate: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceConflict {
+  id: string;
+  company_id: string;
+  raw_log_id: string;
+  employee_id: string | null;
+  attendance_date: string | null;
+  conflict_type: AttendanceConflictType;
+  conflict_description: string;
+  suggested_action: string | null;
+  resolution_status: AttendanceConflictResolutionStatus;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  resolution_note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceProcessedResult {
+  raw_log_ids: string[];
+  employee_id: string | null;
+  attendance_date: string | null;
+  shift_id: string | null;
+  scheduled_checkin: string | null;
+  scheduled_checkout: string | null;
+  actual_checkin: string | null;
+  actual_checkout: string | null;
+  break_checkin: string | null;
+  break_checkout: string | null;
+  source_mix: AttendanceSource[];
+  process_status: "created" | "updated" | "conflict" | "ignored";
+  validation_status: "valid" | "warning" | "conflict";
+  note: string | null;
 }
 
 export interface EmployeeAnnouncement {
