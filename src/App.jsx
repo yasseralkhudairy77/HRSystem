@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import AppErrorBoundary from "@/components/common/AppErrorBoundary";
 import AppSidebar from "@/components/layout/AppSidebar";
 import TopHero from "@/components/layout/TopHero";
 import { sidebarSections } from "@/data";
@@ -55,6 +56,14 @@ export default function App() {
     return routeToMenu[window.location.pathname] || "dashboard";
   };
   const [activeMenu, setActiveMenu] = useState(() => resolveMenuFromPath());
+
+  useEffect(() => {
+    const matchedMenu = routeToMenu[window.location.pathname];
+    if (!matchedMenu && window.location.pathname !== "/" && window.location.pathname !== "/dashboard") {
+      window.history.replaceState({}, "", "/dashboard");
+      setActiveMenu("dashboard");
+    }
+  }, [routeToMenu]);
 
   useEffect(() => {
     function handleNavigate(event) {
@@ -171,7 +180,9 @@ export default function App() {
 
         <main className="px-4 py-4 lg:px-6 lg:py-5 xl:px-7">
           <TopHero activeItem={activeItem} />
-          <ActivePage />
+          <AppErrorBoundary>
+            <ActivePage />
+          </AppErrorBoundary>
         </main>
       </div>
     </div>
