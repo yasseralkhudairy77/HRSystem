@@ -6,7 +6,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { contractDataFields, contractDirectory, contractModuleLinks, contractQuickTabs, employeeDirectory } from "@/data";
+import { contractDataFields, contractModuleLinks, contractQuickTabs } from "@/data";
 import { getEmployeeList, updateEmployee } from "@/services/employeeService";
 import { createHrContract, deleteHrContract, getHrContracts, updateHrContract } from "@/services/contractService";
 import { createHrContractTemplate, getHrContractTemplates, updateHrContractTemplate } from "@/services/contractTemplateService";
@@ -148,19 +148,6 @@ function buildContractNumber(employeeId, effectiveDate, rows) {
   const prefix = employeeId ? String(employeeId).split("-")[0] || "HR" : "HR";
   const seq = String(rows.length + 1).padStart(3, "0");
   return `PKWT/${prefix}/${monthCodes[date.getMonth()]}/${date.getFullYear()}/${seq}`;
-}
-
-function buildFallbackEmployeeOptions() {
-  return employeeDirectory.map((item) => ({
-    rowId: "",
-    employeeId: item.employeeId,
-    namaLengkap: item.namaLengkap,
-    jabatan: item.jabatan,
-    divisi: item.divisi,
-    namaUsaha: item.namaUsaha,
-    namaCabang: item.namaCabang,
-    statusKerja: item.statusAktif || "Aktif",
-  }));
 }
 
 function mapDbRowToContract(item) {
@@ -435,9 +422,8 @@ function FilterSelect({ value, onChange, options }) {
 }
 
 export default function ContractsPage() {
-  const defaultRows = useMemo(() => contractDirectory.map(enrichContract), []);
-  const [rows, setRows] = useState(defaultRows);
-  const [employeeOptions, setEmployeeOptions] = useState(buildFallbackEmployeeOptions);
+  const [rows, setRows] = useState([]);
+  const [employeeOptions, setEmployeeOptions] = useState([]);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("semua");
   const [filters, setFilters] = useState(emptyFilters);
@@ -446,14 +432,15 @@ export default function ContractsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editorMode, setEditorMode] = useState("create");
   const [previewContract, setPreviewContract] = useState(null);
-  const [form, setForm] = useState(createFormFromEmployee(null, defaultRows));
-  const [contractTemplates, setContractTemplates] = useState(defaultTemplateLibrary);
+  const [form, setForm] = useState(createFormFromEmployee(null, []));
+  const [contractTemplates, setContractTemplates] = useState([]);
   const [templateForm, setTemplateForm] = useState({ name: "", description: "" });
   const [feedback, setFeedback] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [contractsTableReady, setContractsTableReady] = useState(false);
   const [templatesTableReady, setTemplatesTableReady] = useState(false);
+  const [employeeLookupReady, setEmployeeLookupReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -472,10 +459,14 @@ export default function ContractsPage() {
           namaCabang: item.cabang,
           statusKerja: item.status_kerja,
         }));
-        setEmployeeOptions(mapped.length ? mapped : buildFallbackEmployeeOptions());
+        setEmployeeOptions(mapped);
+        setEmployeeLookupReady(true);
       } catch (error) {
-        console.warn("Load employee options fallback:", error);
-        if (mounted) setEmployeeOptions(buildFallbackEmployeeOptions());
+        console.warn("Load employee options gagal:", error);
+        if (mounted) {
+          setEmployeeOptions([]);
+          setEmployeeLookupReady(false);
+        }
       }
     };
 
@@ -486,11 +477,11 @@ export default function ContractsPage() {
         setContractsTableReady(true);
         setRows(dbRows.map(mapDbRowToContract));
       } catch (error) {
-        console.warn("Load kontrak HR fallback:", error);
+        console.warn("Load kontrak HR gagal:", error);
         if (!mounted) return;
         setContractsTableReady(false);
-        setRows(defaultRows);
-        setFeedback({ type: "warning", message: "Halaman kontrak masih memakai fallback lokal. Jalankan migration Supabase `hr_contracts` agar data kontrak tersimpan ke database." });
+        setRows([]);
+        setFeedback({ type: "warning", message: "Halaman kontrak belum berhasil dimuat dari Supabase. Periksa koneksi atau struktur tabel `hr_contracts`." });
       }
     };
 
@@ -508,13 +499,13 @@ export default function ContractsPage() {
                 articleClauses: ensureArticleIds(item.article_clauses || []),
                 isDefault: item.is_default,
               }))
-            : defaultTemplateLibrary,
+            : [],
         );
       } catch (error) {
-        console.warn("Load template kontrak fallback:", error);
+        console.warn("Load template kontrak gagal:", error);
         if (!mounted) return;
         setTemplatesTableReady(false);
-        setContractTemplates(defaultTemplateLibrary);
+        setContractTemplates([]);
       }
     };
 
@@ -525,7 +516,7 @@ export default function ContractsPage() {
     return () => {
       mounted = false;
     };
-  }, [defaultRows]);
+  }, []);
 
   useEffect(() => {
     if (!feedback) return undefined;
@@ -710,6 +701,10 @@ export default function ContractsPage() {
   };
 
   const openCreateModal = () => {
+    if (!employeeOptions.length) {
+      setFeedback({ type: "error", message: "Data karyawan aktif belum tersedia dari Supabase. Muat Data Karyawan terlebih dahulu sebelum membuat kontrak baru." });
+      return;
+    }
     setEditorMode("create");
     const next = createFormFromEmployee(employeeOptions[0] || null, rows);
     setForm(next);
@@ -739,22 +734,19 @@ export default function ContractsPage() {
 
     setSaving(true);
     try {
+      if (!contractsTableReady) {
+        throw new Error("Tabel kontrak HR belum siap atau koneksi Supabase belum stabil.");
+      }
+
       if (editorMode === "edit") {
         await persistRowUpdate(normalized, `Kontrak ${normalized.namaLengkap} berhasil diperbarui.`);
       } else {
-        if (contractsTableReady) {
-          const created = await createHrContract(mapContractToPayload(normalized));
-          if (created) {
-            const mapped = mapDbRowToContract(created);
-            setRows((current) => [mapped, ...current]);
-            setSelectedContract(mapped);
-          }
-        } else {
-          const fallbackRow = { ...normalized, id: `local-${Date.now()}` };
-          setRows((current) => [fallbackRow, ...current]);
-          setSelectedContract(fallbackRow);
+        const created = await createHrContract(mapContractToPayload(normalized));
+        if (created) {
+          const mapped = mapDbRowToContract(created);
+          setRows((current) => [mapped, ...current]);
+          setSelectedContract(mapped);
         }
-
         setFeedback({ type: "success", message: `${normalized.namaLengkap} berhasil masuk ke register kontrak kerja.` });
       }
 
@@ -990,7 +982,7 @@ export default function ContractsPage() {
                 </div>
               ))}
 
-              {filteredContracts.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">{contractsTableReady ? "Belum ada data kontrak di database. Klik \"Buat Kontrak\" untuk mulai membuat register kontrak HR." : "Belum ada data yang cocok dengan pencarian atau filter yang dipilih."}</div> : null}
+              {filteredContracts.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">{contractsTableReady ? "Belum ada data kontrak di database. Klik \"Buat Kontrak\" untuk mulai membuat register kontrak HR." : "Daftar kontrak belum tersedia karena koneksi Supabase atau tabel kontrak masih bermasalah."}</div> : null}
             </div>
           </CardContent>
         </Card>
@@ -1316,10 +1308,11 @@ export default function ContractsPage() {
                     <div className="text-lg font-semibold text-slate-900">Template pasal</div>
                     <div className="mt-2 text-sm leading-6 text-slate-500">HR bisa memuat template yang sudah ada, lalu simpan ulang pasal yang sudah disesuaikan agar tidak perlu membuat dari nol setiap kali.</div>
                     <div className="mt-4 space-y-3">
-                      {!templatesTableReady ? <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Template kontrak masih fallback lokal. Jalankan migration Supabase terbaru agar template bisa tersimpan permanen.</div> : null}
+                      {!templatesTableReady ? <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Template kontrak belum berhasil dimuat dari Supabase. Periksa tabel `hr_contract_templates` atau koneksi database.</div> : null}
                       <div>
                         <div className="mb-2 text-sm font-medium text-slate-700">Pilih template</div>
                         <select value={contractTemplates.find((item) => item.templateName === form.templateName)?.id ?? ""} onChange={(event) => applyTemplateToForm(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300">
+                          <option value="">Pilih template kontrak</option>
                           {contractTemplates.map((item) => <option key={String(item.id)} value={String(item.id)}>{item.templateName}</option>)}
                         </select>
                       </div>

@@ -12,7 +12,7 @@ import PersonalInfoForm from "@/components/employees/PersonalInfoForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { employeeDetailTabs, employeeProfileRecords, roleAccessBlueprint, rolePreviewOptions } from "@/data/employeeProfiles";
+import { employeeDetailTabs, roleAccessBlueprint, rolePreviewOptions } from "@/data/employeeProfiles";
 import { mapEmployeeRecordToProfile } from "@/lib/employeeRecordMapper";
 import { buildProbationDecisionHistoryFallback, deriveProbationDisplayStatus, getProbationReminder } from "@/lib/probation";
 import { getProbationDecisionHistoryByEmployeeId } from "@/services/probationDecisionHistoryService";
@@ -461,8 +461,8 @@ export default function EmployeesPage() {
   const [activeTab, setActiveTab] = useState<EmployeeTabKey>("personal");
   const [activeRole, setActiveRole] = useState<EmployeeRole>("hr");
   const [employeeRawRecords, setEmployeeRawRecords] = useState<EmployeeRecord[]>([]);
-  const [employeeRecords, setEmployeeRecords] = useState<EmployeeProfile[]>(employeeProfileRecords);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(employeeProfileRecords[0]?.id || "");
+  const [employeeRecords, setEmployeeRecords] = useState<EmployeeProfile[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<"live" | "fallback">("fallback");
   const [loadError, setLoadError] = useState("");
@@ -569,15 +569,17 @@ export default function EmployeesPage() {
       }
 
       setEmployeeRawRecords([]);
-      setEmployeeRecords(employeeProfileRecords);
+      setEmployeeRecords([]);
+      setSelectedEmployeeId("");
       setDataSource("fallback");
-      setLoadError("Belum ada data karyawan hasil onboarding yang masuk ke database. Menampilkan preview dummy untuk sementara.");
+      setLoadError("Belum ada data karyawan live di database. Tambahkan karyawan dari onboarding atau lewat input manual untuk mulai membangun Data Karyawan.");
     } catch (error) {
       console.error("Load employees gagal:", error);
       setEmployeeRawRecords([]);
-      setEmployeeRecords(employeeProfileRecords);
+      setEmployeeRecords([]);
+      setSelectedEmployeeId("");
       setDataSource("fallback");
-      setLoadError(error instanceof Error ? `${error.message} Menampilkan preview dummy untuk sementara.` : "Gagal memuat data karyawan dari database. Menampilkan preview dummy untuk sementara.");
+      setLoadError(error instanceof Error ? `${error.message} Data Karyawan belum bisa dimuat dari Supabase.` : "Gagal memuat data karyawan dari database Supabase.");
     } finally {
       setLoading(false);
     }
@@ -862,7 +864,88 @@ export default function EmployeesPage() {
     window.dispatchEvent(new CustomEvent("app:navigate", { detail: { menu: "performance" } }));
   }
 
-  if (!selectedEmployee) return null;
+  if (!selectedEmployee) {
+    return (
+      <div className="space-y-4">
+        <Card className={employeeDensity.card}>
+          <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <div className={employeeDensity.overline}>HR Administrasi</div>
+              <h1 className="mt-1.5 text-[28px] font-semibold tracking-[-0.03em] text-[var(--text-main)]">Detail Data Karyawan</h1>
+              <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                Data lengkap karyawan untuk kebutuhan administrasi, payroll, dan dokumentasi HR.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" className="rounded-[10px]" onClick={openManualModal}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Tambah Karyawan Manual
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {loading ? (
+          <div className="flex items-center gap-3 rounded-[12px] border border-[var(--border-soft)] bg-white px-4 py-3 text-sm text-[var(--text-muted)]">
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+            Memuat data karyawan dari database...
+          </div>
+        ) : null}
+
+        {loadError ? (
+          <div className="flex items-start gap-3 rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{loadError}</span>
+          </div>
+        ) : null}
+
+        <Card className={employeeDensity.cardFlat}>
+          <CardContent className="p-10 text-center">
+            <div className="text-lg font-semibold text-[var(--text-main)]">Belum ada data karyawan live</div>
+            <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+              Modul `Data Karyawan` sekarang membaca data langsung dari Supabase. Tambahkan karyawan dari onboarding atau gunakan tombol `Tambah Karyawan Manual` untuk mulai mengisi master data.
+            </div>
+          </CardContent>
+        </Card>
+
+        {showManualModal ? (
+          <ActionModal
+            title="Tambah Karyawan Manual"
+            subtitle="Buat data karyawan baru secara langsung untuk kasus yang tidak melalui proses rekrutmen."
+            onClose={closeManualModal}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <ManualField label="Nama Lengkap" required>
+                <Input value={manualForm.namaLengkap} onChange={(event) => updateManualForm("namaLengkap", event.target.value)} placeholder="Nama lengkap karyawan" className="rounded-[10px] border-[var(--border-soft)]" />
+              </ManualField>
+
+              <ManualField label="Nama Panggilan">
+                <Input value={manualForm.namaPanggilan} onChange={(event) => updateManualForm("namaPanggilan", event.target.value)} placeholder="Nama panggilan" className="rounded-[10px] border-[var(--border-soft)]" />
+              </ManualField>
+
+              <ManualField label="Jabatan" required>
+                <Input value={manualForm.jabatan} onChange={(event) => updateManualForm("jabatan", event.target.value)} placeholder="Contoh: Staff Operasional" className="rounded-[10px] border-[var(--border-soft)]" />
+              </ManualField>
+
+              <ManualField label="Departemen">
+                <Input value={manualForm.departemen} onChange={(event) => updateManualForm("departemen", event.target.value)} placeholder="Contoh: Store Operations" className="rounded-[10px] border-[var(--border-soft)]" />
+              </ManualField>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" className="rounded-[10px]" onClick={closeManualModal} disabled={isCreatingManualEmployee}>
+                Tutup
+              </Button>
+              <Button className="rounded-[10px]" onClick={() => void handleCreateManualEmployee()} disabled={isCreatingManualEmployee}>
+                {isCreatingManualEmployee ? "Menyimpan..." : "Simpan Karyawan"}
+              </Button>
+            </div>
+          </ActionModal>
+        ) : null}
+      </div>
+    );
+  }
 
   const employeePreviewItems = employeeRecords.map((employee) => ({
     key: employee.id,

@@ -6,7 +6,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { documentAutoFeatures, documentDataFields, documentDirectory, documentModuleLinks, documentQuickTabs, employeeDirectory } from "@/data";
+import { documentAutoFeatures, documentDataFields, documentModuleLinks, documentQuickTabs } from "@/data";
 import { getEmployeeList } from "@/services/employeeService";
 import { createHrLetter, getHrLetters, updateHrLetter } from "@/services/hrLetterService";
 
@@ -221,8 +221,7 @@ function createFormFromItem(item) {
 }
 
 export default function LettersPage() {
-  const defaultRows = useMemo(() => documentDirectory.map(enrichDocument), []);
-  const [rows, setRows] = useState(defaultRows);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("semua");
   const [filters, setFilters] = useState(emptyFilters);
@@ -230,7 +229,7 @@ export default function LettersPage() {
   const [feedback, setFeedback] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
   const [editorMode, setEditorMode] = useState("create");
-  const [form, setForm] = useState(defaultForm("surat", defaultRows));
+  const [form, setForm] = useState(defaultForm("surat", []));
   const [employeeLookupRows, setEmployeeLookupRows] = useState([]);
   const [lettersTableReady, setLettersTableReady] = useState(false);
 
@@ -253,15 +252,7 @@ export default function LettersPage() {
 
   const quickTabCounts = useMemo(() => Object.fromEntries(documentQuickTabs.map((tab) => [tab.key, rows.filter((item) => matchQuickTab(item, tab.key)).length])), [rows]);
   const employeeOptions = useMemo(() => {
-    const fallbackRows = employeeDirectory.map((item) => ({
-      employeeId: String(item.employeeId || "").trim().toLowerCase(),
-      namaLengkap: item.namaLengkap || "",
-      jabatan: item.jabatan || "",
-      namaUsaha: item.namaUsaha || "",
-      namaCabang: item.namaCabang || "",
-    }));
-
-    const merged = [...employeeLookupRows, ...fallbackRows];
+    const merged = [...employeeLookupRows];
     const seen = new Set();
 
     return merged.filter((item) => {
@@ -289,7 +280,7 @@ export default function LettersPage() {
           })),
         );
       } catch (error) {
-        console.warn("Lookup karyawan untuk surat belum berhasil dimuat, fallback ke data lokal.", error);
+        console.warn("Lookup karyawan untuk surat belum berhasil dimuat.", error);
       }
     }
 
@@ -308,19 +299,14 @@ export default function LettersPage() {
         const records = await getHrLetters();
         if (!isMounted) return;
 
-        if (records.length) {
-          setRows(records.map(mapDbLetterToRow));
-          setLettersTableReady(true);
-          return;
-        }
-
-        setRows(defaultRows);
-        setLettersTableReady(false);
+        setRows(records.map(mapDbLetterToRow));
+        setLettersTableReady(true);
       } catch (error) {
-        console.warn("Load surat HR dari database belum berhasil, fallback ke data lokal.", error);
+        console.warn("Load surat HR dari database belum berhasil.", error);
         if (isMounted) {
-          setRows(defaultRows);
+          setRows([]);
           setLettersTableReady(false);
+          setFeedback({ type: "error", message: "Daftar surat belum berhasil dimuat dari Supabase. Periksa koneksi atau struktur tabel surat HR." });
         }
       }
     }
@@ -330,7 +316,7 @@ export default function LettersPage() {
     return () => {
       isMounted = false;
     };
-  }, [defaultRows]);
+  }, []);
 
   const filteredDocuments = useMemo(() => rows.filter((item) => {
     const term = search.trim().toLowerCase();
@@ -414,15 +400,8 @@ export default function LettersPage() {
       setShowEditor(false);
       setFeedback({ type: "success", message: `${savedDocument.nomorSurat} berhasil ${editorMode === "create" ? "dibuat" : "diperbarui"} dan masuk ke register HR.` });
     } catch (error) {
-      setRows((current) => [draftDocument, ...current.filter((item) => item.id !== draftDocument.id)].sort((a, b) => String(b.tanggalDibuat || "").localeCompare(String(a.tanggalDibuat || ""))));
-      setSelectedDocument(draftDocument);
-      setShowEditor(false);
-      setLettersTableReady(false);
-      setFeedback({
-        type: "success",
-        message: `${draftDocument.nomorSurat} tersimpan di mode lokal. Jalankan migration Supabase surat HR agar dokumen masuk database.`,
-      });
-      console.warn("Simpan surat HR ke database belum berhasil, fallback ke lokal.", error);
+      setFeedback({ type: "error", message: "Dokumen belum berhasil disimpan ke Supabase. Periksa koneksi atau tabel surat HR." });
+      console.warn("Simpan surat HR ke database belum berhasil.", error);
     }
   }
 
@@ -441,19 +420,13 @@ export default function LettersPage() {
           updatedRow = mapDbLetterToRow(updated);
           setLettersTableReady(true);
         }
-      } else {
-        setLettersTableReady(false);
       }
-
       setRows((currentRows) => currentRows.map((item) => (item.id === id ? updatedRow : item)));
       setSelectedDocument(updatedRow);
       setFeedback({ type: "success", message });
     } catch (error) {
-      setRows((currentRows) => currentRows.map((item) => (item.id === id ? updatedLocal : item)));
-      setSelectedDocument(updatedLocal);
-      setLettersTableReady(false);
-      setFeedback({ type: "success", message: `${message} Dokumen ini masih berjalan di mode lokal sampai migration surat HR dijalankan.` });
-      console.warn("Update status surat HR ke database belum berhasil, fallback ke lokal.", error);
+      setFeedback({ type: "error", message: "Status dokumen belum berhasil diperbarui di Supabase." });
+      console.warn("Update status surat HR ke database belum berhasil.", error);
     }
   }
 
@@ -478,14 +451,14 @@ export default function LettersPage() {
       </div>
 
       {feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>{feedback.message}</div> : null}
-      {!lettersTableReady ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Daftar surat saat ini masih memakai fallback lokal. Jalankan migration `hr_letters_documents` agar dokumen tersimpan penuh di Supabase.</div> : null}
+      {!lettersTableReady ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Daftar surat belum berhasil dimuat dari Supabase. Periksa koneksi atau struktur tabel `hr_letters_documents`.</div> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{summaryCards.map((item) => <SummaryCard key={item.label} {...item} />)}</div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_360px]">
         <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 lg:p-5">
           <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-lg font-semibold text-slate-900">Daftar surat dan pengumuman</div><div className="text-sm text-slate-500">{filteredDocuments.length} data ditemukan. Fokus utamanya dokumen yang perlu diselesaikan, dikirim, atau disimpan ke arsip.</div></div><div className="text-sm text-slate-500">Dokumen personal bisa menempel ke data karyawan, pengumuman tersimpan per nomor surat dan cabang.</div></div>
           <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="flex flex-wrap gap-2 p-4">{documentQuickTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${tab.key === activeTab ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{tab.label} ({quickTabCounts[tab.key] || 0})</button>)}</CardContent></Card>
-          <div className="space-y-3">{filteredDocuments.map((item) => <div key={item.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50/60"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="space-y-3"><div className="flex flex-wrap items-start gap-3"><div><div className="text-lg font-semibold text-slate-900">{item.judulDokumen}</div><div className="text-sm text-slate-500">{item.jenisDokumen} · {item.namaKaryawan ? `${item.namaKaryawan} · ` : ""}{item.namaCabang}</div></div><StatusBadge value={item.statusDokumen} /></div><div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-4"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Nomor surat</div><div className="mt-1 font-medium text-slate-700">{item.nomorSurat}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Tanggal dibuat</div><div className="mt-1 font-medium text-slate-700">{formatDate(item.tanggalDibuat)}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Template</div><div className="mt-1 font-medium text-slate-700">{getTemplate(item.templateKey).typeLabel}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Penanggung jawab</div><div className="mt-1 font-medium text-slate-700">{item.penanggungJawab}</div></div></div></div><div className="flex flex-wrap gap-2 xl:max-w-[260px] xl:justify-end"><Button variant="outline" className="rounded-xl" onClick={() => setSelectedDocument(item)}>Lihat detail</Button><Button variant="outline" className="rounded-xl" onClick={() => openEdit(item)}>Ubah</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(item.id, "Siap dikirim", `${item.nomorSurat} ditandai siap dikirim.`)}>Siap kirim</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(item.id, "Sudah dikirim", `${item.nomorSurat} ditandai sudah dikirim.`)}>Kirim</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(item.id, "Sudah diarsipkan", `${item.nomorSurat} dipindahkan ke arsip.`)}>Arsipkan</Button></div></div></div>)}{filteredDocuments.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">Belum ada data yang cocok dengan pencarian atau filter yang dipilih.</div> : null}</div>
+          <div className="space-y-3">{filteredDocuments.map((item) => <div key={item.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50/60"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="space-y-3"><div className="flex flex-wrap items-start gap-3"><div><div className="text-lg font-semibold text-slate-900">{item.judulDokumen}</div><div className="text-sm text-slate-500">{item.jenisDokumen} · {item.namaKaryawan ? `${item.namaKaryawan} · ` : ""}{item.namaCabang}</div></div><StatusBadge value={item.statusDokumen} /></div><div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-4"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Nomor surat</div><div className="mt-1 font-medium text-slate-700">{item.nomorSurat}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Tanggal dibuat</div><div className="mt-1 font-medium text-slate-700">{formatDate(item.tanggalDibuat)}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Template</div><div className="mt-1 font-medium text-slate-700">{getTemplate(item.templateKey).typeLabel}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Penanggung jawab</div><div className="mt-1 font-medium text-slate-700">{item.penanggungJawab}</div></div></div></div><div className="flex flex-wrap gap-2 xl:max-w-[260px] xl:justify-end"><Button variant="outline" className="rounded-xl" onClick={() => setSelectedDocument(item)}>Lihat detail</Button><Button variant="outline" className="rounded-xl" onClick={() => openEdit(item)}>Ubah</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(item.id, "Siap dikirim", `${item.nomorSurat} ditandai siap dikirim.`)}>Siap kirim</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(item.id, "Sudah dikirim", `${item.nomorSurat} ditandai sudah dikirim.`)}>Kirim</Button><Button variant="outline" className="rounded-xl" onClick={() => void setDocumentStatus(item.id, "Sudah diarsipkan", `${item.nomorSurat} dipindahkan ke arsip.`)}>Arsipkan</Button></div></div></div>)}{filteredDocuments.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">{lettersTableReady ? "Belum ada surat atau pengumuman HR di database. Klik `Buat Surat` atau `Buat Pengumuman` untuk mulai mendokumentasikan arsip HR." : "Daftar surat belum tersedia karena koneksi Supabase atau tabel surat HR masih bermasalah."}</div> : null}</div>
         </CardContent></Card>
 
         <div className="space-y-4">
