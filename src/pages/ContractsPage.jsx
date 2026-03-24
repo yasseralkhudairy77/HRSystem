@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { contractDataFields, contractDirectory, contractModuleLinks, contractQuickTabs, employeeDirectory } from "@/data";
 import { getEmployeeList, updateEmployee } from "@/services/employeeService";
-import { createHrContract, getHrContracts, updateHrContract } from "@/services/contractService";
+import { createHrContract, deleteHrContract, getHrContracts, updateHrContract } from "@/services/contractService";
 import { createHrContractTemplate, getHrContractTemplates, updateHrContractTemplate } from "@/services/contractTemplateService";
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" });
@@ -442,6 +442,7 @@ export default function ContractsPage() {
   const [activeTab, setActiveTab] = useState("semua");
   const [filters, setFilters] = useState(emptyFilters);
   const [selectedContract, setSelectedContract] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editorMode, setEditorMode] = useState("create");
   const [previewContract, setPreviewContract] = useState(null);
@@ -450,6 +451,7 @@ export default function ContractsPage() {
   const [templateForm, setTemplateForm] = useState({ name: "", description: "" });
   const [feedback, setFeedback] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [contractsTableReady, setContractsTableReady] = useState(false);
   const [templatesTableReady, setTemplatesTableReady] = useState(false);
 
@@ -837,6 +839,32 @@ export default function ContractsPage() {
     await persistRowUpdate(next, `Kontrak ${item.namaLengkap} ditandai selesai.`);
   };
 
+  const confirmDeleteContract = (item) => {
+    setDeleteTarget(item);
+  };
+
+  const handleDeleteContract = async () => {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+    try {
+      if (contractsTableReady && typeof deleteTarget.id === "number") {
+        await deleteHrContract(deleteTarget.id);
+      }
+
+      setRows((current) => current.filter((item) => String(item.id) !== String(deleteTarget.id)));
+      setSelectedContract((current) => (current && String(current.id) === String(deleteTarget.id) ? null : current));
+      setPreviewContract((current) => (current && String(current.id) === String(deleteTarget.id) ? null : current));
+      setFeedback({ type: "success", message: `Kontrak ${deleteTarget.namaLengkap} berhasil dihapus.` });
+      setDeleteTarget(null);
+    } catch (error) {
+      console.error("Gagal hapus kontrak:", error);
+      setFeedback({ type: "error", message: "Kontrak belum berhasil dihapus. Cek koneksi Supabase atau coba lagi." });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-4 rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-5 shadow-sm lg:p-6">
@@ -956,6 +984,7 @@ export default function ContractsPage() {
                       <Button variant="outline" className="rounded-xl" onClick={() => setPreviewContract(item)}>Preview draft</Button>
                       <Button variant="outline" className="rounded-xl" onClick={() => downloadContractDraft(item)}><Download className="mr-2 h-4 w-4" />Unduh file</Button>
                       {item.statusKontrak !== "Selesai" ? <Button variant="outline" className="rounded-xl" onClick={() => void handleMarkComplete(item)}>Tandai selesai</Button> : null}
+                      <Button variant="outline" className="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800" onClick={() => confirmDeleteContract(item)}>Hapus kontrak</Button>
                     </div>
                   </div>
                 </div>
@@ -1076,6 +1105,7 @@ export default function ContractsPage() {
                 {selectedContract.statusKontrak === "Belum dibuat" ? <Button className="rounded-xl" onClick={() => void handleCreateContract(selectedContract)}>Buat kontrak</Button> : null}
                 {selectedContract.statusKontrak !== "Selesai" ? <Button variant="outline" className="rounded-xl" onClick={() => void handleExtendContract(selectedContract)}>Perpanjang kontrak</Button> : null}
                 {selectedContract.statusKontrak !== "Selesai" ? <Button variant="outline" className="rounded-xl" onClick={() => void handleMarkComplete(selectedContract)}>Tandai selesai</Button> : null}
+                <Button variant="outline" className="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800" onClick={() => confirmDeleteContract(selectedContract)}>Hapus kontrak</Button>
                 <Button variant="outline" className="rounded-xl" onClick={() => setSelectedContract(null)}>Tutup</Button>
               </div>
             </div>
@@ -1168,6 +1198,31 @@ export default function ContractsPage() {
             <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4">
               <Button variant="outline" className="rounded-xl" onClick={() => setPreviewContract(null)}>Tutup</Button>
               <Button className="rounded-xl" onClick={() => downloadContractDraft(previewContract)}><Download className="mr-2 h-4 w-4" />Unduh draft</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[1px]" onClick={() => setDeleteTarget(null)}>
+          <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="border-b border-slate-200 px-5 py-4">
+              <div className="text-2xl font-semibold text-slate-900">Hapus kontrak</div>
+              <div className="mt-1 text-sm text-slate-500">Konfirmasi ini dibuat untuk mencegah user menghapus kontrak tanpa sengaja.</div>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800">
+                Yakin ingin menghapus kontrak <span className="font-semibold">{deleteTarget.namaLengkap}</span> dengan nomor <span className="font-semibold">{deleteTarget.nomorKontrak || "-"}</span>? Data yang dihapus akan hilang dari daftar kontrak.
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                Jika Anda hanya ingin menutup proses kontrak tanpa menghapus arsipnya, gunakan tombol `Tandai selesai`.
+              </div>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4">
+              <Button variant="outline" className="rounded-xl" onClick={() => setDeleteTarget(null)}>Batal</Button>
+              <Button className="rounded-xl bg-rose-600 text-white hover:bg-rose-700" onClick={() => void handleDeleteContract()} disabled={deleting}>{deleting ? "Menghapus..." : "Ya, hapus kontrak"}</Button>
             </div>
           </div>
         </div>

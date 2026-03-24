@@ -83,3 +83,13 @@ export async function updateHrContract(id: number, payload: UpdateHrContractPayl
 
   return data as HrContractRecord;
 }
+
+export async function deleteHrContract(id: number): Promise<void> {
+  const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
+
+  if (error) {
+    console.error(`Supabase gagal hapus kontrak HR id=${id}:`, error);
+    if (isMissingContractsTable(error)) throw createMissingTableError();
+    throw error;
+  }
+}
