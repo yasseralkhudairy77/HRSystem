@@ -83,7 +83,7 @@ export const sidebarSections = [
     roles: [appRoles.hr, appRoles.owner, appRoles.supervisor],
     hiddenIfEmpty: false,
     items: [
-      { key: "performance", route: "performance", label: "Penilaian Kerja", icon: LineChart, roles: [appRoles.hr, appRoles.owner, appRoles.supervisor], enabled: true },
+      { key: "performance", route: "performance", label: "Penilaian & Probation", icon: LineChart, roles: [appRoles.hr, appRoles.owner, appRoles.supervisor], enabled: true },
     ],
   },
   {

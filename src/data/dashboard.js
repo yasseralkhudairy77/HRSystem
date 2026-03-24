@@ -271,7 +271,7 @@ export const dashboardModuleLinks = [
   "Kontrak Kerja",
   "Surat & Pengumuman",
   "Karyawan Keluar",
-  "Penilaian Kerja",
+  "Penilaian & Probation",
   "Proses Gaji",
   "Slip Gaji",
   "BPJS & Pajak",

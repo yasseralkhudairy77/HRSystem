@@ -58,6 +58,42 @@ function matchQuickTab(item, tabKey) {
   }
 }
 
+function buildContractAlert(item) {
+  if (item.statusKontrak === "Sudah lewat") {
+    return {
+      level: "critical",
+      title: "Kontrak sudah lewat masa berlakunya",
+      description: "Perlu keputusan cepat agar status kerja dan dokumen tidak menggantung.",
+    };
+  }
+
+  if (item.statusKontrak === "Belum dibuat") {
+    return {
+      level: "warning",
+      title: "Kontrak belum dibuat",
+      description: "Dokumen kontrak perlu disiapkan agar administrasi karyawan tetap rapi.",
+    };
+  }
+
+  if (item.statusKontrak === "Akan habis" || item.keputusanBerikutnya === "Perpanjang") {
+    return {
+      level: "warning",
+      title: "Kontrak mendekati keputusan berikutnya",
+      description: `Arah tindak lanjut saat ini: ${item.keputusanBerikutnya}.`,
+    };
+  }
+
+  if (item.statusTandaTangan === "Belum ditandatangani") {
+    return {
+      level: "warning",
+      title: "Kontrak belum ditandatangani",
+      description: "Follow up tanda tangan supaya dokumen aktif bisa dipakai operasional.",
+    };
+  }
+
+  return null;
+}
+
 function SummaryCard({ icon: Icon, label, value, note, tone = "slate" }) {
   const tones = {
     slate: "bg-slate-50 text-slate-700",
@@ -183,6 +219,11 @@ export default function ContractsPage() {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
+  const contractAlerts = useMemo(
+    () => contractDirectory.map((item) => ({ ...item, alert: buildContractAlert(item) })).filter((item) => item.alert),
+    [],
+  );
+
   return (
     <div className="space-y-6">
       <div className="space-y-4 rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-5 shadow-sm lg:p-6">
@@ -243,6 +284,33 @@ export default function ContractsPage() {
           <SummaryCard key={item.label} {...item} />
         ))}
       </div>
+
+      {contractAlerts.length ? (
+        <Card className="rounded-2xl border-slate-200 shadow-sm">
+          <CardContent className="space-y-3 p-5">
+            <div>
+              <div className="text-lg font-semibold text-slate-900">Prioritas tindakan kontrak</div>
+              <div className="mt-1 text-sm text-slate-500">Ringkasan cepat untuk kontrak yang paling butuh tindakan dari HR hari ini.</div>
+            </div>
+            <div className="grid gap-3">
+              {contractAlerts.slice(0, 4).map((item) => (
+                <div key={`contract-alert-${item.id}`} className={`rounded-2xl border px-4 py-3 ${item.alert.level === "critical" ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50"}`}>
+                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <div className={`text-sm font-semibold ${item.alert.level === "critical" ? "text-rose-800" : "text-amber-800"}`}>{item.namaLengkap} • {item.jabatan}</div>
+                      <div className={`mt-1 text-sm ${item.alert.level === "critical" ? "text-rose-700" : "text-amber-700"}`}>{item.alert.title}. {item.alert.description}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge value={item.statusKontrak} />
+                      <StatusBadge value={item.statusTandaTangan} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="rounded-2xl border-slate-200 shadow-sm">
         <CardContent className="flex flex-wrap gap-2 p-4">
@@ -320,6 +388,11 @@ export default function ContractsPage() {
                         <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700">{item.reminder}</span>
                         <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">Keputusan berikutnya: {item.keputusanBerikutnya}</span>
                       </div>
+                      {buildContractAlert(item) ? (
+                        <div className={`rounded-xl border px-3 py-2 text-sm leading-6 ${buildContractAlert(item).level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                          <span className="font-semibold">{buildContractAlert(item).title}</span> {buildContractAlert(item).description}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="flex flex-wrap gap-2 xl:max-w-[280px] xl:justify-end">
@@ -413,6 +486,13 @@ export default function ContractsPage() {
                 <StatusBadge value={selectedContract.statusTandaTangan} />
                 <StatusBadge value={selectedContract.statusKerja} />
               </div>
+
+              {buildContractAlert(selectedContract) ? (
+                <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${buildContractAlert(selectedContract).level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                  <div className="font-semibold">{buildContractAlert(selectedContract).title}</div>
+                  <div>{buildContractAlert(selectedContract).description}</div>
+                </div>
+              ) : null}
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-2xl bg-slate-50 p-4">

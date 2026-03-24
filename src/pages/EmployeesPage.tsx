@@ -14,6 +14,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { employeeDetailTabs, employeeProfileRecords, roleAccessBlueprint, rolePreviewOptions } from "@/data/employeeProfiles";
 import { mapEmployeeRecordToProfile } from "@/lib/employeeRecordMapper";
+import { buildProbationDecisionHistoryFallback, deriveProbationDisplayStatus, getProbationReminder } from "@/lib/probation";
+import { getProbationDecisionHistoryByEmployeeId } from "@/services/probationDecisionHistoryService";
 import { createManualEmployee, getEmployeeList, updateEmployee } from "@/services/employeeService";
 import { ensureProbationReviewForEmployee, getProbationReviewByEmployeeId } from "@/services/probationReviewService";
 import type {
@@ -25,6 +27,7 @@ import type {
   EmployeeTabKey,
 } from "@/types/employeeProfile";
 import type { EmployeeRecord, ManualEmployeeFormInput } from "@/types/employee";
+import type { ProbationDecisionHistoryEntry } from "@/types/probationHistory";
 import type { ProbationReview } from "@/types/probation";
 
 type StructuredTableColumn<T extends Record<string, string>> = {
@@ -47,6 +50,17 @@ const PERFORMANCE_PROBATION_TARGET_KEY = "performance:probation-target";
 function formatShortDate(value: string | null | undefined) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatShortDateTime(value: string | null | undefined) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function defaultManualForm(): ManualEmployeeFormInput {
@@ -459,6 +473,16 @@ export default function EmployeesPage() {
   const [isSavingOrgSettings, setIsSavingOrgSettings] = useState(false);
   const [selectedProbationReview, setSelectedProbationReview] = useState<ProbationReview | null>(null);
   const [isLoadingProbation, setIsLoadingProbation] = useState(false);
+  const [probationDecisionHistory, setProbationDecisionHistory] = useState<ProbationDecisionHistoryEntry[]>([]);
+
+  const selectedEmployee = useMemo(
+    () => employeeRecords.find((employee) => employee.id === selectedEmployeeId) || employeeRecords[0],
+    [employeeRecords, selectedEmployeeId],
+  );
+  const selectedEmployeeRaw = useMemo(
+    () => employeeRawRecords.find((employee) => String(employee.id) === selectedEmployeeId) || null,
+    [employeeRawRecords, selectedEmployeeId],
+  );
 
   useEffect(() => {
     void loadEmployees();
@@ -495,11 +519,13 @@ export default function EmployeesPage() {
     async function loadProbationReview() {
       if (!selectedEmployeeRaw) {
         setSelectedProbationReview(null);
+        setProbationDecisionHistory([]);
         return;
       }
 
       if (String(selectedEmployeeRaw.status_kerja || "").trim().toLowerCase() !== "probation") {
         setSelectedProbationReview(null);
+        setProbationDecisionHistory([]);
         return;
       }
 
@@ -514,9 +540,12 @@ export default function EmployeesPage() {
         });
         const review = await getProbationReviewByEmployeeId(selectedEmployeeRaw.id);
         setSelectedProbationReview(review);
+        const history = await getProbationDecisionHistoryByEmployeeId(selectedEmployeeRaw.id);
+        setProbationDecisionHistory(history.length ? history : buildProbationDecisionHistoryFallback(review));
       } catch (error) {
         console.warn("Load probation review employee belum berhasil:", error);
         setSelectedProbationReview(null);
+        setProbationDecisionHistory([]);
       } finally {
         setIsLoadingProbation(false);
       }
@@ -653,14 +682,6 @@ export default function EmployeesPage() {
     }
   }
 
-  const selectedEmployee = useMemo(
-    () => employeeRecords.find((employee) => employee.id === selectedEmployeeId) || employeeRecords[0],
-    [employeeRecords, selectedEmployeeId],
-  );
-  const selectedEmployeeRaw = useMemo(
-    () => employeeRawRecords.find((employee) => String(employee.id) === selectedEmployeeId) || null,
-    [employeeRawRecords, selectedEmployeeId],
-  );
   const supervisorOptions = useMemo(
     () =>
       employeeRecords
@@ -727,15 +748,18 @@ export default function EmployeesPage() {
     </Card>
   ) : null;
 
+  const probationReminder = selectedProbationReview ? getProbationReminder(selectedProbationReview) : null;
+  const probationDisplayStatus = selectedProbationReview ? (selectedProbationReview.decision || deriveProbationDisplayStatus(selectedProbationReview)) : null;
+
   const probationSection = selectedEmployeeRaw && String(selectedEmployeeRaw.status_kerja || "").trim().toLowerCase() === "probation" ? (
     <Card className={employeeDensity.cardFlat}>
       <CardContent className={employeeDensity.mainPadding}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className={employeeDensity.sectionTitle}>Evaluasi Probation</div>
-            <div className={employeeDensity.sectionDescription}>Status probation karyawan ini tersambung ke modul Penilaian Kerja agar HR dan atasan bisa lanjut menilai tanpa pindah alur.</div>
+            <div className={employeeDensity.sectionDescription}>Status probation karyawan ini tersambung ke modul Penilaian & Probation agar HR dan atasan bisa lanjut menilai tanpa pindah alur.</div>
           </div>
-          {selectedProbationReview ? <StatusBadge value={selectedProbationReview.decision || selectedProbationReview.status_review} /> : null}
+          {probationDisplayStatus ? <StatusBadge value={probationDisplayStatus} /> : null}
         </div>
 
         {isLoadingProbation ? (
@@ -744,14 +768,61 @@ export default function EmployeesPage() {
             Memuat status probation...
           </div>
         ) : (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className={`${employeeDensity.inset} p-3`}>
-              <div className={employeeDensity.fieldLabel}>Evaluator</div>
-              <div className="mt-1.5 font-medium text-[var(--text-main)]">{selectedProbationReview?.evaluator_name || selectedEmployeeRaw.atasan || "Atasan langsung"}</div>
+          <div className="mt-4 space-y-3">
+            {probationReminder ? (
+              <div className={`rounded-[12px] border px-3.5 py-3 text-[13px] leading-5 ${probationReminder.level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                <div className="font-semibold">{probationReminder.title}</div>
+                <div className="mt-1">{probationReminder.description}</div>
+              </div>
+            ) : null}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className={`${employeeDensity.inset} p-3`}>
+                <div className={employeeDensity.fieldLabel}>Evaluator</div>
+                <div className="mt-1.5 font-medium text-[var(--text-main)]">{selectedProbationReview?.evaluator_name || selectedEmployeeRaw.atasan || "Atasan langsung"}</div>
+              </div>
+              <div className={`${employeeDensity.inset} p-3`}>
+                <div className={employeeDensity.fieldLabel}>Tanggal evaluasi</div>
+                <div className="mt-1.5 font-medium text-[var(--text-main)]">{formatShortDate(selectedProbationReview?.evaluation_date || selectedProbationReview?.end_date)}</div>
+              </div>
             </div>
+
             <div className={`${employeeDensity.inset} p-3`}>
-              <div className={employeeDensity.fieldLabel}>Tanggal evaluasi</div>
-              <div className="mt-1.5 font-medium text-[var(--text-main)]">{formatShortDate(selectedProbationReview?.evaluation_date || selectedProbationReview?.end_date)}</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className={employeeDensity.fieldLabel}>Riwayat keputusan probation</div>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">
+                  {probationDecisionHistory.length} catatan
+                </span>
+              </div>
+
+              {probationDecisionHistory.length ? (
+                <div className="mt-3 space-y-2.5">
+                  {probationDecisionHistory.map((item) => (
+                    <div key={`${item.id}-${item.created_at}`} className="rounded-[10px] border border-[var(--border-soft)] bg-white px-3 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {item.decision ? <StatusBadge value={item.decision} /> : null}
+                        {item.status_review ? <StatusBadge value={item.status_review} /> : null}
+                      </div>
+                      <div className="mt-2 text-[13px] leading-5 text-[var(--text-muted)]">
+                        <div>
+                          Dicatat: <span className="font-medium text-[var(--text-main)]">{formatShortDateTime(item.created_at)}</span>
+                        </div>
+                        <div>
+                          Berlaku: <span className="font-medium text-[var(--text-main)]">{formatShortDate(item.effective_date)}</span>
+                        </div>
+                        <div>
+                          Oleh: <span className="font-medium text-[var(--text-main)]">{item.created_by || "HR / Atasan"}</span>
+                          {item.created_role ? ` • ${item.created_role}` : ""}
+                        </div>
+                      </div>
+                      {item.decision_note ? <div className="mt-2 text-[13px] leading-5 text-[var(--text-main)]">{item.decision_note}</div> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 text-[13px] leading-5 text-[var(--text-muted)]">
+                  Belum ada keputusan probation yang tercatat untuk karyawan ini.
+                </div>
+              )}
             </div>
           </div>
         )}

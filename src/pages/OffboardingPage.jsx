@@ -45,6 +45,42 @@ function matchQuickTab(item, tabKey) {
   }
 }
 
+function buildOffboardingAlert(item) {
+  if (item.statusAkses === "Belum ditutup") {
+    return {
+      level: "critical",
+      title: "Akses kerja belum ditutup",
+      description: "Perlu tindakan cepat agar akun dan akses operasional tidak tertinggal.",
+    };
+  }
+
+  if (item.statusAset === "Belum kembali") {
+    return {
+      level: "critical",
+      title: "Aset kerja belum kembali",
+      description: "Pastikan semua aset ditagih sebelum proses keluar dinyatakan selesai.",
+    };
+  }
+
+  if (item.statusProses === "Belum lengkap") {
+    return {
+      level: "warning",
+      title: "Proses keluar belum lengkap",
+      description: "Masih ada checklist penting yang perlu dirapikan oleh HR atau atasan.",
+    };
+  }
+
+  if (item.statusProses === "Akan keluar") {
+    return {
+      level: "warning",
+      title: "Hari kerja terakhir sudah dekat",
+      description: "Pastikan aset, akses, dan surat akhir sudah dijadwalkan.",
+    };
+  }
+
+  return null;
+}
+
 function SummaryCard({ icon: Icon, label, value, note, tone = "slate" }) {
   const tones = {
     slate: "bg-slate-50 text-slate-700",
@@ -170,6 +206,11 @@ export default function OffboardingPage() {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
+  const offboardingAlerts = useMemo(
+    () => offboardingDirectory.map((item) => ({ ...item, alert: buildOffboardingAlert(item) })).filter((item) => item.alert),
+    [],
+  );
+
   return (
     <div className="space-y-6">
       <div className="space-y-4 rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-5 shadow-sm lg:p-6">
@@ -231,6 +272,33 @@ export default function OffboardingPage() {
         ))}
       </div>
 
+      {offboardingAlerts.length ? (
+        <Card className="rounded-2xl border-slate-200 shadow-sm">
+          <CardContent className="space-y-3 p-5">
+            <div>
+              <div className="text-lg font-semibold text-slate-900">Prioritas proses keluar</div>
+              <div className="mt-1 text-sm text-slate-500">Karyawan keluar yang paling butuh penutupan akses, pengembalian aset, atau finalisasi checklist.</div>
+            </div>
+            <div className="grid gap-3">
+              {offboardingAlerts.slice(0, 4).map((item) => (
+                <div key={`offboarding-alert-${item.id}`} className={`rounded-2xl border px-4 py-3 ${item.alert.level === "critical" ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50"}`}>
+                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <div className={`text-sm font-semibold ${item.alert.level === "critical" ? "text-rose-800" : "text-amber-800"}`}>{item.namaLengkap} • {item.jabatan}</div>
+                      <div className={`mt-1 text-sm ${item.alert.level === "critical" ? "text-rose-700" : "text-amber-700"}`}>{item.alert.title}. {item.alert.description}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge value={item.statusProses} />
+                      <StatusBadge value={item.statusAkses} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card className="rounded-2xl border-slate-200 shadow-sm">
         <CardContent className="flex flex-wrap gap-2 p-4">
           {offboardingQuickTabs.map((tab) => {
@@ -279,7 +347,7 @@ export default function OffboardingPage() {
                         <StatusBadge value={item.statusProses} />
                       </div>
 
-                      <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-5">
+	                      <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-5">
                         <div className="rounded-xl bg-slate-50 p-3">
                           <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Alasan keluar</div>
                           <div className="mt-1 font-medium text-slate-700">{item.alasanKeluar}</div>
@@ -299,8 +367,13 @@ export default function OffboardingPage() {
                         <div className="rounded-xl bg-slate-50 p-3">
                           <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status surat akhir</div>
                           <div className="mt-1 font-medium text-slate-700">{item.statusSuratAkhir}</div>
+	                      </div>
+                      {buildOffboardingAlert(item) ? (
+                        <div className={`rounded-xl border px-3 py-2 text-sm leading-6 ${buildOffboardingAlert(item).level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                          <span className="font-semibold">{buildOffboardingAlert(item).title}</span> {buildOffboardingAlert(item).description}
                         </div>
-                      </div>
+                      ) : null}
+                    </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2 xl:max-w-[260px] xl:justify-end">
@@ -391,6 +464,13 @@ export default function OffboardingPage() {
                 <StatusBadge value={selectedProcess.statusAset} />
                 <StatusBadge value={selectedProcess.statusAkses} />
               </div>
+
+              {buildOffboardingAlert(selectedProcess) ? (
+                <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${buildOffboardingAlert(selectedProcess).level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                  <div className="font-semibold">{buildOffboardingAlert(selectedProcess).title}</div>
+                  <div>{buildOffboardingAlert(selectedProcess).description}</div>
+                </div>
+              ) : null}
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-2xl bg-slate-50 p-4">

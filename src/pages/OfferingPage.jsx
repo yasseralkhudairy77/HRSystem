@@ -6,16 +6,17 @@ import StatusBadge from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { getCandidateStageLabel, getOfferingStatusLabel } from "@/lib/recruitmentStatus";
 import { getOfferingLetterMapByPelamarIds, updateOfferingLetter, upsertOfferingLetterByPelamarId } from "@/services/offeringService";
 import { getPelamarList, updatePelamar } from "@/services/pelamarService";
 import { createStageHistory } from "@/services/recruitmentWorkflowService";
 
 const offeringStatusMeta = {
   draft: { label: "Draft", tone: "border-slate-200 bg-slate-50 text-slate-700" },
-  waiting_response: { label: "Menunggu jawaban", tone: "border-sky-200 bg-sky-50 text-sky-700" },
+  waiting_response: { label: "Menunggu respons", tone: "border-sky-200 bg-sky-50 text-sky-700" },
   negotiation: { label: "Negosiasi", tone: "border-amber-200 bg-amber-50 text-amber-700" },
-  accepted: { label: "Diterima", tone: "border-emerald-200 bg-emerald-50 text-emerald-700" },
-  rejected: { label: "Ditolak", tone: "border-rose-200 bg-rose-50 text-rose-700" },
+  accepted: { label: "Diterima kandidat", tone: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  rejected: { label: "Ditolak kandidat", tone: "border-rose-200 bg-rose-50 text-rose-700" },
   expired: { label: "Kadaluarsa", tone: "border-slate-300 bg-slate-100 text-slate-700" },
 };
 
@@ -159,7 +160,7 @@ function mapRow(item, offeringMap) {
     statusTindakLanjut: item.status_tindak_lanjut || "Masuk tahap akhir",
     offering,
     offeringStatus: status,
-    offeringLabel: offeringStatusMeta[status]?.label || "Draft",
+    offeringLabel: getOfferingStatusLabel(status),
     interviewSummary: buildInterviewPreview(item),
   };
 }
@@ -358,9 +359,9 @@ export default function OfferingPage() {
     () => [
       { label: "Total penawaran", value: String(rows.length), note: "Kandidat yang sudah masuk tahap penawaran kerja." },
       { label: "Draft", value: String(rows.filter((item) => item.offeringStatus === "draft").length), note: "Masih perlu dicek sebelum dikirim." },
-      { label: "Menunggu jawaban", value: String(rows.filter((item) => item.offeringStatus === "waiting_response").length), note: "Sudah dikirim dan menunggu respons kandidat." },
+      { label: "Menunggu respons", value: String(rows.filter((item) => item.offeringStatus === "waiting_response").length), note: "Sudah dikirim dan menunggu respons kandidat." },
       { label: "Negosiasi", value: String(rows.filter((item) => item.offeringStatus === "negotiation").length), note: "Perlu revisi atau diskusi ulang dengan kandidat." },
-      { label: "Diterima", value: String(rows.filter((item) => item.offeringStatus === "accepted").length), note: "Sudah siap dipindahkan ke Karyawan Baru." },
+      { label: "Diterima kandidat", value: String(rows.filter((item) => item.offeringStatus === "accepted").length), note: "Sudah siap dipindahkan ke Karyawan Baru." },
     ],
     [rows],
   );
@@ -429,7 +430,7 @@ export default function OfferingPage() {
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="text-lg font-semibold text-[var(--text-main)]">{item.nama}</div>
-                      <StatusBadge value={item.tahapProses} />
+                      <StatusBadge value={getCandidateStageLabel(item.tahapProses)} />
                       <OfferingStatusBadge status={item.offeringStatus} />
                     </div>
                     <div className="text-sm text-[var(--text-muted)]">{item.posisi} / {item.domisili}</div>
@@ -464,7 +465,7 @@ export default function OfferingPage() {
             <div className="grid gap-5 px-6 py-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
               <div className="space-y-5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge value={selected.tahapProses} className="rounded-full px-3 py-1.5" />
+                  <StatusBadge value={getCandidateStageLabel(selected.tahapProses)} className="rounded-full px-3 py-1.5" />
                   <OfferingStatusBadge status={selected.offeringStatus} />
                 </div>
 

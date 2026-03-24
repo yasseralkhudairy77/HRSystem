@@ -6,6 +6,7 @@ import { employeeDensity } from "@/components/employees/employeeDensity";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { getCandidateStageLabel } from "@/lib/recruitmentStatus";
 import { syncEmployeeFromPelamar } from "@/services/employeeService";
 import { getPelamarList, updatePelamar } from "@/services/pelamarService";
 import { createStageHistory } from "@/services/recruitmentWorkflowService";
@@ -17,7 +18,7 @@ const tabs = [
   { key: "semua", label: "Semua" },
   { key: "belum", label: "Belum lengkap" },
   { key: "siapkan", label: "Sedang disiapkan" },
-  { key: "siap", label: "Siap masuk" },
+  { key: "siap", label: "Siap masuk kerja" },
   { key: "masuk", label: "Sudah masuk" },
   { key: "batal", label: "Batal bergabung" },
 ];
@@ -236,6 +237,8 @@ export default function OnboardingPage() {
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState(defaultForm());
   const [submitting, setSubmitting] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
     void loadRows();
@@ -243,6 +246,13 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     setForm(selected ? { ...defaultForm(), ...selected.form } : defaultForm());
+  }, [selected]);
+
+  useEffect(() => {
+    if (!selected) {
+      setIsCancelModalOpen(false);
+      setCancelReason("");
+    }
   }, [selected]);
 
   async function loadRows() {
@@ -340,24 +350,32 @@ export default function OnboardingPage() {
     }
   }
 
+  function openCancelModal() {
+    if (!selected) return;
+    setCancelReason("");
+    setIsCancelModalOpen(true);
+  }
+
+  function closeCancelModal() {
+    if (submitting) return;
+    setIsCancelModalOpen(false);
+    setCancelReason("");
+  }
+
   async function markCancelled() {
     if (!selected) return;
 
-    const reason = window.prompt(
-      "Tulis alasan batal bergabung.\nContoh: menerima tawaran lain, tidak hadir, mengundurkan diri, tidak cocok jadwal / lokasi, alasan pribadi.",
-      "",
-    );
-
-    if (reason === null) return;
-
-    const trimmedReason = String(reason).trim();
+    const trimmedReason = String(cancelReason).trim();
     if (!trimmedReason) {
       setFeedback({ type: "error", message: "Alasan batal bergabung wajib diisi." });
       return;
     }
 
     const next = await persistStage("Batal bergabung", "Batal bergabung", `Kandidat batal bergabung. Alasan: ${trimmedReason}.`);
-    if (next?.mapped) setFeedback({ type: "info", message: `${selected.nama} ditandai batal bergabung.` });
+    if (next?.mapped) {
+      closeCancelModal();
+      setFeedback({ type: "info", message: `${selected.nama} ditandai batal bergabung.` });
+    }
   }
 
   function contactCandidate() {
@@ -435,7 +453,7 @@ export default function OnboardingPage() {
             </div>
 
             <div className={`${employeeDensity.inset} bg-white px-4 py-3 text-[13px] text-[var(--text-muted)]`}>
-              Alur aktif: <span className="font-medium text-[var(--text-main)]">Offering diterima -&gt; Siap masuk -&gt; Sudah masuk kerja</span>
+              Alur aktif: <span className="font-medium text-[var(--text-main)]">Offering diterima -&gt; Siap masuk kerja -&gt; Sudah masuk kerja</span>
             </div>
           </div>
         </CardContent>
@@ -501,7 +519,7 @@ export default function OnboardingPage() {
                         <div className="text-lg font-semibold text-[var(--text-main)]">{item.nama}</div>
                         <div className="text-sm text-[var(--text-muted)]">{item.usia ? `${item.usia} - ` : ""}{item.posisi}</div>
                       </div>
-                      <StatusBadge value={item.tahapProses} />
+                      <StatusBadge value={getCandidateStageLabel(item.tahapProses)} />
                       <StatusBadge value={item.statusPersiapan} />
                     </div>
 
@@ -574,7 +592,7 @@ export default function OnboardingPage() {
 
             <div className="space-y-5 p-5">
               <div className="flex flex-wrap gap-2">
-                <StatusBadge value={selected.tahapProses} />
+                <StatusBadge value={getCandidateStageLabel(selected.tahapProses)} />
                 <StatusBadge value={selected.statusPersiapan} />
               </div>
 
@@ -594,7 +612,7 @@ export default function OnboardingPage() {
                   rows={[
                     ["Interviewer", selected.interviewer],
                     ["Jadwal wawancara", selected.interviewDatetime ? formatDateTime(selected.interviewDatetime) : "-"],
-                    ["Tahap saat ini", selected.tahapProses],
+                    ["Tahap saat ini", getCandidateStageLabel(selected.tahapProses)],
                     ["Status persiapan", selected.statusPersiapan],
                   ]}
                 />
@@ -729,12 +747,56 @@ export default function OnboardingPage() {
                 <Button
                   variant="outline"
                   className="rounded-[10px] border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
-                  onClick={() => void markCancelled()}
+                  onClick={openCancelModal}
                   disabled={submitting || ["Sudah masuk kerja", "Batal bergabung"].includes(selected.tahapProses)}
                 >
                   Tandai batal bergabung
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selected && isCancelModalOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/35 p-4">
+          <div className="w-full max-w-lg rounded-[18px] border border-[var(--border-soft)] bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--border-soft)] px-5 py-4">
+              <div>
+                <div className="text-lg font-semibold text-[var(--text-main)]">Batal bergabung</div>
+                <div className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                  Catat alasan kenapa {selected.nama} tidak jadi masuk kerja agar riwayat kandidat tetap jelas untuk HR.
+                </div>
+              </div>
+              <button type="button" onClick={closeCancelModal} className="rounded-[10px] border border-[var(--border-soft)] p-2 text-[var(--text-muted)] transition hover:bg-[var(--surface-0)]" disabled={submitting}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <div className={`${employeeDensity.inset} p-3 text-[13px] leading-5 text-[var(--text-muted)]`}>
+                Contoh alasan: menerima tawaran lain, mengundurkan diri, tidak hadir di hari pertama, tidak cocok jadwal atau lokasi, alasan pribadi.
+              </div>
+
+              <div>
+                <div className="mb-2 text-sm font-medium text-[var(--text-main)]">Alasan batal bergabung</div>
+                <textarea
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                  rows={5}
+                  placeholder="Tulis alasan lengkap agar recruiter dan HR bisa menindaklanjuti dengan rapi."
+                  className="min-h-[132px] w-full rounded-[10px] border border-[var(--border-soft)] bg-white px-3 py-2.5 text-sm text-[var(--text-main)] outline-none transition focus:border-[var(--brand-700)]"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--border-soft)] px-5 py-4">
+              <Button variant="outline" className="rounded-[10px]" onClick={closeCancelModal} disabled={submitting}>
+                Tutup
+              </Button>
+              <Button variant="outline" className="rounded-[10px] border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800" onClick={() => void markCancelled()} disabled={submitting}>
+                Simpan alasan & tandai batal
+              </Button>
             </div>
           </div>
         </div>

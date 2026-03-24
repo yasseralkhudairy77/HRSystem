@@ -303,7 +303,7 @@ export default function PayrollThrBonusPage() {
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
-                  Data ini nantinya bisa dipakai bersama Proses Gaji dan Slip Gaji, serta terhubung ke Data Karyawan, Kontrak Kerja, dan Penilaian Kerja.
+                  Data ini nantinya bisa dipakai bersama Proses Gaji dan Slip Gaji, serta terhubung ke Data Karyawan, Kontrak Kerja, dan Penilaian & Probation.
                 </div>
               </>
             ) : (
