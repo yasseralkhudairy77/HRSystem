@@ -8,16 +8,29 @@ import { cn } from "@/lib/utils";
 
 function buildInitialOpenState(sections, activeMenu) {
   return sections.reduce((accumulator, section) => {
-    accumulator[section.key] = section.items.some((item) => item.key === activeMenu);
+    accumulator[section.key] = section.items.some((item) => item.key === activeMenu || item.children?.some((child) => child.key === activeMenu));
+    return accumulator;
+  }, {});
+}
+
+function buildInitialGroupState(sections, activeMenu) {
+  return sections.reduce((accumulator, section) => {
+    section.items.forEach((item) => {
+      if (item.children?.length) {
+        accumulator[item.key] = item.children.some((child) => child.key === activeMenu);
+      }
+    });
+
     return accumulator;
   }, {});
 }
 
 export default function AppSidebar({ activeMenu, sections, onMenuSelect, search, onSearchChange }) {
   const [openSections, setOpenSections] = useState(() => buildInitialOpenState(sections, activeMenu));
+  const [openGroups, setOpenGroups] = useState(() => buildInitialGroupState(sections, activeMenu));
 
   const activeSectionKey = useMemo(
-    () => sections.find((section) => section.items.some((item) => item.key === activeMenu))?.key,
+    () => sections.find((section) => section.items.some((item) => item.key === activeMenu || item.children?.some((child) => child.key === activeMenu)))?.key,
     [activeMenu, sections],
   );
 
@@ -43,7 +56,35 @@ export default function AppSidebar({ activeMenu, sections, onMenuSelect, search,
         return accumulator;
       }, {}),
     );
+
+    setOpenGroups(
+      sections.reduce((accumulator, section) => {
+        section.items.forEach((item) => {
+          if (item.children?.length) {
+            accumulator[item.key] = true;
+          }
+        });
+
+        return accumulator;
+      }, {}),
+    );
   }, [search, sections]);
+
+  useEffect(() => {
+    setOpenGroups((current) => {
+      const next = { ...current };
+
+      sections.forEach((section) => {
+        section.items.forEach((item) => {
+          if (item.children?.length && item.children.some((child) => child.key === activeMenu)) {
+            next[item.key] = true;
+          }
+        });
+      });
+
+      return next;
+    });
+  }, [activeMenu, sections]);
 
   const toggleSection = (sectionKey) => {
     setOpenSections((current) => ({
@@ -52,12 +93,19 @@ export default function AppSidebar({ activeMenu, sections, onMenuSelect, search,
     }));
   };
 
+  const toggleGroup = (groupKey) => {
+    setOpenGroups((current) => ({
+      ...current,
+      [groupKey]: !current[groupKey],
+    }));
+  };
+
   return (
     <aside className="border-r border-[var(--border-soft)] bg-[linear-gradient(180deg,#f9fbfd_0%,#f1f5fa_100%)] p-4 lg:p-5">
       <div className="rounded-xl border border-[var(--border-soft)] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_24px_rgba(15,23,42,0.04)]">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-soft)] bg-white">
-          <img src={companyLogo} alt="TEMITRA logo" className="h-full w-full object-contain" />
+            <img src={companyLogo} alt="TEMITRA logo" className="h-full w-full object-contain" />
           </div>
           <div>
             <div className="font-semibold text-[var(--text-main)]">HireUMKM</div>
@@ -87,7 +135,7 @@ export default function AppSidebar({ activeMenu, sections, onMenuSelect, search,
         <div className="space-y-4 pb-2">
           {sections.map((section) => {
             const isOpen = openSections[section.key] ?? false;
-            const hasActiveItem = section.items.some((item) => item.key === activeMenu);
+            const hasActiveItem = section.items.some((item) => item.key === activeMenu || item.children?.some((child) => child.key === activeMenu));
 
             return (
               <div key={section.key} className="space-y-2">
@@ -114,6 +162,56 @@ export default function AppSidebar({ activeMenu, sections, onMenuSelect, search,
                     {section.items.map((item) => {
                       const Icon = item.icon;
                       const active = activeMenu === item.key;
+                      const childActive = item.children?.some((child) => child.key === activeMenu) ?? false;
+                      const groupOpen = openGroups[item.key] ?? false;
+
+                      if (item.children?.length) {
+                        return (
+                          <div key={item.key} className="space-y-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleGroup(item.key)}
+                              className={cn(
+                                "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition",
+                                childActive
+                                  ? "border-[var(--brand-800)] bg-[linear-gradient(180deg,var(--brand-800),var(--brand-900))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                                  : "border-transparent text-[var(--text-muted)] hover:border-[var(--border-soft)] hover:bg-[var(--surface-0)] hover:text-[var(--text-main)]",
+                              )}
+                            >
+                              <span className="flex items-center gap-3">
+                                <Icon className="h-4 w-4 shrink-0" />
+                                <span className="text-sm font-medium">{item.label}</span>
+                              </span>
+                              <ChevronDown className={cn("h-4 w-4 transition-transform", groupOpen ? "rotate-0" : "-rotate-90")} />
+                            </button>
+
+                            {groupOpen ? (
+                              <div className="ml-4 space-y-1 border-l border-[var(--border-soft)] pl-3">
+                                {item.children.map((child) => {
+                                  const ChildIcon = child.icon;
+                                  const isChildActive = activeMenu === child.key;
+
+                                  return (
+                                    <button
+                                      key={child.key}
+                                      onClick={() => onMenuSelect(child.key)}
+                                      className={cn(
+                                        "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition",
+                                        isChildActive
+                                          ? "border-[var(--brand-800)] bg-[var(--surface-0)] text-[var(--brand-900)]"
+                                          : "border-transparent text-[var(--text-muted)] hover:border-[var(--border-soft)] hover:bg-[var(--surface-0)] hover:text-[var(--text-main)]",
+                                      )}
+                                    >
+                                      <ChildIcon className="h-4 w-4 shrink-0" />
+                                      <span className="text-sm font-medium">{child.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      }
 
                       return (
                         <button

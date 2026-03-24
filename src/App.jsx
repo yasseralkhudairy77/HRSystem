@@ -5,37 +5,128 @@ import TopHero from "@/components/layout/TopHero";
 import { sidebarSections } from "@/data";
 import { pageComponents } from "@/pages/pageRegistry";
 
+function flattenNavigationItems(items) {
+  return items.flatMap((item) => [item, ...(item.children ? flattenNavigationItems(item.children) : [])]);
+}
+
+function normalizeRoute(route) {
+  if (!route) {
+    return null;
+  }
+
+  return route.startsWith("/") ? route : `/${route}`;
+}
+
 export default function App() {
-  const [activeMenu, setActiveMenu] = useState("dashboard");
   const [search, setSearch] = useState("");
+
+  const allNavigationItems = useMemo(() => flattenNavigationItems(sidebarSections.flatMap((section) => section.items)), []);
+  const routeToMenu = useMemo(
+    () =>
+      allNavigationItems.reduce((accumulator, item) => {
+        const route = normalizeRoute(item.route);
+
+        if (route) {
+          accumulator[route] = item.key;
+        }
+
+        return accumulator;
+      }, {}),
+    [allNavigationItems],
+  );
+  const menuToRoute = useMemo(
+    () =>
+      allNavigationItems.reduce((accumulator, item) => {
+        const route = normalizeRoute(item.route);
+
+        if (route) {
+          accumulator[item.key] = route;
+        }
+
+        return accumulator;
+      }, {}),
+    [allNavigationItems],
+  );
+  const resolveMenuFromPath = () => {
+    if (typeof window === "undefined") {
+      return "dashboard";
+    }
+
+    return routeToMenu[window.location.pathname] || "dashboard";
+  };
+  const [activeMenu, setActiveMenu] = useState(() => resolveMenuFromPath());
 
   useEffect(() => {
     function handleNavigate(event) {
       const menu = event?.detail?.menu;
       if (typeof menu === "string" && pageComponents[menu]) {
         setActiveMenu(menu);
+        const route = menuToRoute[menu];
+
+        if (route && window.location.pathname !== route) {
+          window.history.pushState({}, "", route);
+        }
       }
     }
 
     window.addEventListener("app:navigate", handleNavigate);
     return () => window.removeEventListener("app:navigate", handleNavigate);
-  }, []);
+  }, [menuToRoute]);
+
+  useEffect(() => {
+    function handlePopState() {
+      setActiveMenu(resolveMenuFromPath());
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [routeToMenu]);
 
   const visibleSidebarSections = useMemo(
     () =>
       sidebarSections
         .map((section) => {
-          const items = section.items.filter((item) => {
-            if (item.enabled === false) {
-              return false;
-            }
+          const items = section.items
+            .map((item) => {
+              if (item.enabled === false) {
+                return null;
+              }
 
-            if (!search) {
-              return true;
-            }
+              if (item.children?.length) {
+                const visibleChildren = item.children.filter((child) => {
+                  if (child.enabled === false) {
+                    return false;
+                  }
 
-            return item.label.toLowerCase().includes(search.toLowerCase());
-          });
+                  if (!search) {
+                    return true;
+                  }
+
+                  return child.label.toLowerCase().includes(search.toLowerCase());
+                });
+
+                if (!search) {
+                  return { ...item, children: visibleChildren };
+                }
+
+                if (item.label.toLowerCase().includes(search.toLowerCase())) {
+                  return { ...item, children: visibleChildren.length ? visibleChildren : item.children };
+                }
+
+                if (visibleChildren.length) {
+                  return { ...item, children: visibleChildren };
+                }
+
+                return null;
+              }
+
+              if (!search) {
+                return item;
+              }
+
+              return item.label.toLowerCase().includes(search.toLowerCase()) ? item : null;
+            })
+            .filter(Boolean);
 
           if (section.hiddenIfEmpty && items.length === 0) {
             return null;
@@ -56,7 +147,16 @@ export default function App() {
   );
 
   const ActivePage = pageComponents[activeMenu] || pageComponents.dashboard;
-  const activeItem = sidebarSections.flatMap((section) => section.items).find((item) => item.key === activeMenu);
+  const activeItem = allNavigationItems.find((item) => item.key === activeMenu);
+
+  const handleMenuSelect = (menuKey) => {
+    setActiveMenu(menuKey);
+
+    const route = menuToRoute[menuKey];
+    if (route && window.location.pathname !== route) {
+      window.history.pushState({}, "", route);
+    }
+  };
 
   return (
     <div className="app-shell text-[var(--text-main)]">
@@ -64,7 +164,7 @@ export default function App() {
         <AppSidebar
           activeMenu={activeMenu}
           sections={visibleSidebarSections}
-          onMenuSelect={setActiveMenu}
+          onMenuSelect={handleMenuSelect}
           search={search}
           onSearchChange={setSearch}
         />

@@ -8,6 +8,15 @@ import ContractsPage from "@/pages/ContractsPage";
 import DashboardPage from "@/pages/DashboardPage";
 import EmployeesPage from "@/pages/EmployeesPage";
 import HiringPlanPage from "@/pages/HiringPlanPage";
+import HrPresenceAbsenceReportPage from "@/pages/HrPresenceAbsenceReportPage";
+import HrPresenceAttendancePage from "@/pages/HrPresenceAttendancePage";
+import HrPresenceScheduleReportPage from "@/pages/HrPresenceScheduleReportPage";
+import HrPresenceSettingsDepartmentHoursPage from "@/pages/HrPresenceSettingsDepartmentHoursPage";
+import HrPresenceSettingsFingerprintPage from "@/pages/HrPresenceSettingsFingerprintPage";
+import HrPresenceSettingsFinesPage from "@/pages/HrPresenceSettingsFinesPage";
+import HrPresenceSettingsGeneralPage from "@/pages/HrPresenceSettingsGeneralPage";
+import HrPresenceSettingsHolidaysPage from "@/pages/HrPresenceSettingsHolidaysPage";
+import HrPresenceSettingsWorkHoursPage from "@/pages/HrPresenceSettingsWorkHoursPage";
 import InterviewAiPage from "@/pages/InterviewAiPage";
 import InterviewPage from "@/pages/InterviewPage";
 import JobsPage from "@/pages/JobsPage";
@@ -48,6 +57,15 @@ export const pageComponents = {
   employees: EmployeesPage,
   "organization-structure": OrganizationStructurePage,
   onboarding: OnboardingPage,
+  "hr-presensi-absensi-karyawan": HrPresenceAttendancePage,
+  "hr-presensi-laporan-jadwal-kerja": HrPresenceScheduleReportPage,
+  "hr-presensi-laporan-ketidakhadiran": HrPresenceAbsenceReportPage,
+  "hr-presensi-pengaturan-setelan-umum": HrPresenceSettingsGeneralPage,
+  "hr-presensi-pengaturan-denda": HrPresenceSettingsFinesPage,
+  "hr-presensi-pengaturan-hari-libur": HrPresenceSettingsHolidaysPage,
+  "hr-presensi-pengaturan-jam-kerja-departemen": HrPresenceSettingsDepartmentHoursPage,
+  "hr-presensi-pengaturan-jam-kerja": HrPresenceSettingsWorkHoursPage,
+  "hr-presensi-pengaturan-mesin-fingerprint": HrPresenceSettingsFingerprintPage,
   contracts: ContractsPage,
   letters: LettersPage,
   performance: PerformancePage,
