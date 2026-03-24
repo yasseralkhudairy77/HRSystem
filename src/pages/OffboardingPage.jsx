@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Archive, CalendarDays, CheckCircle2, Search, ShieldAlert, UserRoundMinus, X } from "lucide-react";
 
 import SectionTitle from "@/components/common/SectionTitle";
@@ -6,541 +6,322 @@ import StatusBadge from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { offboardingDataFields, offboardingDirectory, offboardingModuleLinks, offboardingQuickTabs } from "@/data";
+import { employeeDirectory, offboardingDirectory, offboardingQuickTabs } from "@/data";
+import { getEmployeeList, updateEmployee } from "@/services/employeeService";
+import { createOffboardingProcess, getOffboardingProcesses, updateOffboardingProcess } from "@/services/offboardingService";
 
-const dateFormatter = new Intl.DateTimeFormat("id-ID", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
-const emptyFilters = {
-  usaha: "Semua cabang",
-  statusProses: "Semua status proses",
-  alasanKeluar: "Semua alasan keluar",
-  hariKerjaTerakhir: "Semua hari terakhir",
-  penanggungJawab: "Semua penanggung jawab",
+const dateFormatter = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" });
+const emptyFilters = { statusProses: "Semua status proses", usaha: "Semua cabang" };
+const createFormTemplate = {
+  employeeRowId: "",
+  employeeId: "",
+  namaLengkap: "",
+  jabatan: "",
+  divisi: "",
+  namaUsaha: "",
+  namaCabang: "",
+  alasanKeluar: "Mengundurkan diri",
+  tanggalPengajuanKeluar: new Date().toISOString().slice(0, 10),
+  hariKerjaTerakhir: new Date().toISOString().slice(0, 10),
+  penanggungJawab: "Tim HR",
+  catatanHr: "",
 };
+const defaultChecklist = [
+  { label: "Pengajuan keluar sudah dicatat", done: true, group: "Status keluar" },
+  { label: "Hari kerja terakhir sudah ditentukan", done: true, group: "Status keluar" },
+  { label: "Persetujuan atasan sudah ada", done: false, group: "Status keluar" },
+  { label: "Alasan keluar sudah dicatat", done: true, group: "Status keluar" },
+  { label: "Laptop / HP kerja sudah kembali", done: false, group: "Aset & akses" },
+  { label: "Akun email / sistem sudah ditutup", done: false, group: "Aset & akses" },
+  { label: "Paklaring sudah dibuat", done: false, group: "Dokumen akhir" },
+  { label: "Status karyawan sudah dinonaktifkan", done: false, group: "Dokumen akhir" },
+];
 
 function formatDate(value) {
-  if (!value || value === "-") {
-    return "-";
-  }
-
-  return dateFormatter.format(new Date(value));
+  return !value || value === "-" ? "-" : dateFormatter.format(new Date(value));
 }
 
 function matchQuickTab(item, tabKey) {
-  switch (tabKey) {
-    case "akan-keluar":
-      return item.statusProses === "Akan keluar";
-    case "sedang-diproses":
-      return item.statusProses === "Sedang diproses";
-    case "belum-lengkap":
-      return item.statusProses === "Belum lengkap";
-    case "sudah-selesai":
-      return item.statusProses === "Sudah selesai";
-    default:
-      return true;
-  }
+  if (tabKey === "akan-keluar") return item.statusProses === "Akan keluar";
+  if (tabKey === "sedang-diproses") return item.statusProses === "Sedang diproses";
+  if (tabKey === "belum-lengkap") return item.statusProses === "Belum lengkap";
+  if (tabKey === "sudah-selesai") return item.statusProses === "Sudah selesai";
+  return true;
 }
 
 function buildOffboardingAlert(item) {
-  if (item.statusAkses === "Belum ditutup") {
-    return {
-      level: "critical",
-      title: "Akses kerja belum ditutup",
-      description: "Perlu tindakan cepat agar akun dan akses operasional tidak tertinggal.",
-    };
-  }
-
-  if (item.statusAset === "Belum kembali") {
-    return {
-      level: "critical",
-      title: "Aset kerja belum kembali",
-      description: "Pastikan semua aset ditagih sebelum proses keluar dinyatakan selesai.",
-    };
-  }
-
-  if (item.statusProses === "Belum lengkap") {
-    return {
-      level: "warning",
-      title: "Proses keluar belum lengkap",
-      description: "Masih ada checklist penting yang perlu dirapikan oleh HR atau atasan.",
-    };
-  }
-
-  if (item.statusProses === "Akan keluar") {
-    return {
-      level: "warning",
-      title: "Hari kerja terakhir sudah dekat",
-      description: "Pastikan aset, akses, dan surat akhir sudah dijadwalkan.",
-    };
-  }
-
+  if (item.statusAkses === "Belum ditutup") return { level: "critical", title: "Akses kerja belum ditutup", description: "Perlu tindakan cepat agar akun dan akses operasional tidak tertinggal." };
+  if (item.statusAset === "Belum kembali") return { level: "critical", title: "Aset kerja belum kembali", description: "Pastikan semua aset ditagih sebelum proses keluar dinyatakan selesai." };
+  if (item.statusProses === "Belum lengkap") return { level: "warning", title: "Proses keluar belum lengkap", description: "Masih ada checklist penting yang perlu dirapikan oleh HR atau atasan." };
+  if (item.statusProses === "Akan keluar") return { level: "warning", title: "Hari kerja terakhir sudah dekat", description: "Pastikan aset, akses, dan surat akhir sudah dijadwalkan." };
   return null;
 }
 
-function SummaryCard({ icon: Icon, label, value, note, tone = "slate" }) {
-  const tones = {
-    slate: "bg-slate-50 text-slate-700",
-    amber: "bg-amber-50 text-amber-700",
-    sky: "bg-sky-50 text-sky-700",
-    emerald: "bg-emerald-50 text-emerald-700",
-    rose: "bg-rose-50 text-rose-700",
-  };
+function enrichItem(item) {
+  return { ...item, alert: buildOffboardingAlert(item) };
+}
 
-  return (
-    <Card className="rounded-2xl border-slate-200 shadow-sm">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-sm text-slate-500">{label}</div>
-            <div className="mt-2 text-3xl font-semibold text-slate-900">{value}</div>
-            <div className="mt-2 text-sm text-slate-500">{note}</div>
-          </div>
-          <div className={`rounded-2xl p-3 ${tones[tone] || tones.slate}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+function mapDbRowToProcess(item) {
+  return enrichItem({
+    id: item.id,
+    sourceEmployeeRowId: item.source_employee_row_id,
+    employeeId: item.employee_code,
+    namaLengkap: item.employee_name,
+    jabatan: item.job_title,
+    divisi: item.division_name,
+    namaUsaha: item.business_name,
+    namaCabang: item.branch_name,
+    alasanKeluar: item.exit_reason,
+    tanggalPengajuanKeluar: item.exit_request_date,
+    hariKerjaTerakhir: item.last_working_date,
+    persetujuanAtasan: item.supervisor_approval,
+    statusProses: item.process_status,
+    statusAset: item.asset_status,
+    statusAkses: item.access_status,
+    statusSuratAkhir: item.final_document_status,
+    paklaringSiap: item.certificate_ready,
+    beritaAcaraSiap: item.handover_report_ready,
+    statusKaryawanSudahNonaktif: item.employee_deactivated,
+    penanggungJawab: item.owner_name,
+    catatanHr: item.hr_note,
+    asetKerja: item.asset_note,
+    aksesKerja: item.access_note,
+    suratAkhir: item.final_letter_note,
+    checklist: item.checklist || [],
+    perluPerhatian: item.needs_attention,
+    linkedModules: item.linked_modules || [],
+  });
+}
+
+function mapProcessToPayload(item) {
+  return {
+    source_employee_row_id: item.sourceEmployeeRowId || null,
+    employee_code: item.employeeId,
+    employee_name: item.namaLengkap,
+    job_title: item.jabatan || "-",
+    division_name: item.divisi || "-",
+    business_name: item.namaUsaha || "Perusahaan",
+    branch_name: item.namaCabang || "-",
+    exit_reason: item.alasanKeluar || "-",
+    exit_request_date: item.tanggalPengajuanKeluar || null,
+    last_working_date: item.hariKerjaTerakhir || null,
+    supervisor_approval: item.persetujuanAtasan || "Menunggu persetujuan",
+    process_status: item.statusProses || "Akan keluar",
+    asset_status: item.statusAset || "Belum kembali",
+    access_status: item.statusAkses || "Belum ditutup",
+    final_document_status: item.statusSuratAkhir || "Belum dibuat",
+    certificate_ready: Boolean(item.paklaringSiap),
+    handover_report_ready: Boolean(item.beritaAcaraSiap),
+    employee_deactivated: Boolean(item.statusKaryawanSudahNonaktif),
+    owner_name: item.penanggungJawab || "Tim HR",
+    hr_note: item.catatanHr || "",
+    asset_note: item.asetKerja || "",
+    access_note: item.aksesKerja || "",
+    final_letter_note: item.suratAkhir || "",
+    checklist: item.checklist || [],
+    linked_modules: item.linkedModules || [],
+    needs_attention: Boolean(item.perluPerhatian),
+  };
+}
+
+function SummaryCard({ icon: Icon, label, value, note }) {
+  return <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="flex items-start justify-between gap-3 p-5"><div><div className="text-sm text-slate-500">{label}</div><div className="mt-2 text-3xl font-semibold text-slate-900">{value}</div><div className="mt-2 text-sm text-slate-500">{note}</div></div><div className="rounded-2xl bg-slate-50 p-3 text-slate-700"><Icon className="h-5 w-5" /></div></CardContent></Card>;
 }
 
 function FilterSelect({ value, onChange, options }) {
-  return (
-    <select
-      value={value}
-      onChange={onChange}
-      className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300"
-    >
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
-  );
+  return <select value={value} onChange={onChange} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300">{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
+}
+
+function buildFallbackEmployeeOptions() {
+  return employeeDirectory.map((item) => ({ rowId: "", employeeId: item.employeeId, namaLengkap: item.namaLengkap, jabatan: item.jabatan, divisi: item.divisi, namaUsaha: item.namaUsaha, namaCabang: item.namaCabang, atasan: item.atasanLangsung, statusKaryawan: item.statusAktif }));
 }
 
 export default function OffboardingPage() {
+  const defaultRows = useMemo(() => offboardingDirectory.map(enrichItem), []);
+  const [rows, setRows] = useState(defaultRows);
+  const [employeeOptions, setEmployeeOptions] = useState(buildFallbackEmployeeOptions);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("semua");
   const [filters, setFilters] = useState(emptyFilters);
-  const [selectedProcess, setSelectedProcess] = useState(null);
+  const [selectedProcessId, setSelectedProcessId] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState(createFormTemplate);
+  const [offboardingTableReady, setOffboardingTableReady] = useState(false);
 
-  const filterOptions = useMemo(() => {
-    const usaha = ["Semua cabang", ...new Set(offboardingDirectory.map((item) => item.namaCabang))];
-    const statusProses = ["Semua status proses", "Akan keluar", "Sedang diproses", "Belum lengkap", "Sudah selesai"];
-    const alasanKeluar = ["Semua alasan keluar", ...new Set(offboardingDirectory.map((item) => item.alasanKeluar))];
-    const hariKerjaTerakhir = ["Semua hari terakhir", ...new Set(offboardingDirectory.map((item) => formatDate(item.hariKerjaTerakhir)))];
-    const penanggungJawab = ["Semua penanggung jawab", ...new Set(offboardingDirectory.map((item) => item.penanggungJawab))];
+  const selectedProcess = useMemo(() => rows.find((item) => item.id === selectedProcessId) || null, [rows, selectedProcessId]);
 
-    return { usaha, statusProses, alasanKeluar, hariKerjaTerakhir, penanggungJawab };
+  useEffect(() => {
+    let isMounted = true;
+    async function loadEmployees() {
+      try {
+        const employees = await getEmployeeList();
+        if (!isMounted) return;
+        const mapped = employees.map((item) => ({ rowId: String(item.id), employeeId: item.employee_id, namaLengkap: item.nama_lengkap, jabatan: item.jabatan, divisi: item.departemen, namaUsaha: item.nama_usaha, namaCabang: item.cabang, atasan: item.atasan, statusKaryawan: item.status_karyawan }));
+        setEmployeeOptions((current) => {
+          const merged = [...mapped, ...current];
+          const seen = new Set();
+          return merged.filter((item) => {
+            const key = String(item.employeeId || "").trim().toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        });
+      } catch (error) {
+        console.warn("Lookup karyawan untuk offboarding belum berhasil dimuat, fallback ke data lokal.", error);
+      }
+    }
+    void loadEmployees();
+    return () => { isMounted = false; };
   }, []);
 
-  const summaryCards = useMemo(() => {
-    const total = offboardingDirectory.length;
-    const akanKeluar = offboardingDirectory.filter((item) => item.statusProses === "Akan keluar").length;
-    const sedangDiproses = offboardingDirectory.filter((item) => item.statusProses === "Sedang diproses").length;
-    const belumLengkap = offboardingDirectory.filter((item) => item.statusProses === "Belum lengkap").length;
-    const sudahSelesai = offboardingDirectory.filter((item) => item.statusProses === "Sudah selesai").length;
-    const perluPerhatian = offboardingDirectory.filter((item) => item.perluPerhatian).length;
-
-    return [
-      { label: "Total proses keluar", value: total, note: "Semua proses karyawan keluar dipantau di satu tempat.", icon: UserRoundMinus, tone: "slate" },
-      { label: "Akan keluar", value: akanKeluar, note: "Sudah ada rencana keluar dan hari kerja terakhirnya mulai dekat.", icon: CalendarDays, tone: "sky" },
-      { label: "Sedang diproses", value: sedangDiproses, note: "Aset, akses, atau surat akhir masih berjalan.", icon: Archive, tone: "amber" },
-      { label: "Belum lengkap", value: belumLengkap, note: "Masih ada langkah penting yang belum beres.", icon: ShieldAlert, tone: "amber" },
-      { label: "Sudah selesai", value: sudahSelesai, note: "Semua proses akhir sudah lengkap dan arsip sudah rapi.", icon: CheckCircle2, tone: "emerald" },
-      { label: "Perlu perhatian", value: perluPerhatian, note: "Perlu ditindaklanjuti supaya tidak ada yang tertinggal.", icon: ShieldAlert, tone: "rose" },
-    ];
-  }, []);
-
-  const quickTabCounts = useMemo(
-    () => Object.fromEntries(offboardingQuickTabs.map((tab) => [tab.key, offboardingDirectory.filter((item) => matchQuickTab(item, tab.key)).length])),
-    [],
-  );
-
-  const filteredProcesses = useMemo(() => {
-    const searchLower = search.trim().toLowerCase();
-
-    return offboardingDirectory.filter((item) => {
-      if (!matchQuickTab(item, activeTab)) {
-        return false;
+  useEffect(() => {
+    let isMounted = true;
+    async function loadRows() {
+      try {
+        const records = await getOffboardingProcesses();
+        if (!isMounted) return;
+        if (records.length) {
+          setRows(records.map(mapDbRowToProcess));
+          setOffboardingTableReady(true);
+          return;
+        }
+        setRows(defaultRows);
+        setOffboardingTableReady(false);
+      } catch (error) {
+        console.warn("Load offboarding dari database belum berhasil, fallback ke data lokal.", error);
+        if (isMounted) {
+          setRows(defaultRows);
+          setOffboardingTableReady(false);
+        }
       }
+    }
+    void loadRows();
+    return () => { isMounted = false; };
+  }, [defaultRows]);
 
-      if (filters.usaha !== "Semua cabang" && item.namaCabang !== filters.usaha) {
-        return false;
-      }
+  useEffect(() => {
+    if (!feedback) return undefined;
+    const timer = window.setTimeout(() => setFeedback(null), 3200);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
 
-      if (filters.statusProses !== "Semua status proses" && item.statusProses !== filters.statusProses) {
-        return false;
-      }
-
-      if (filters.alasanKeluar !== "Semua alasan keluar" && item.alasanKeluar !== filters.alasanKeluar) {
-        return false;
-      }
-
-      if (filters.hariKerjaTerakhir !== "Semua hari terakhir" && formatDate(item.hariKerjaTerakhir) !== filters.hariKerjaTerakhir) {
-        return false;
-      }
-
-      if (filters.penanggungJawab !== "Semua penanggung jawab" && item.penanggungJawab !== filters.penanggungJawab) {
-        return false;
-      }
-
-      if (!searchLower) {
-        return true;
-      }
-
-      return [item.namaLengkap, item.jabatan, item.namaCabang, item.alasanKeluar, item.penanggungJawab]
-        .join(" ")
-        .toLowerCase()
-        .includes(searchLower);
+  const filterOptions = useMemo(() => ({ usaha: ["Semua cabang", ...new Set(rows.map((item) => item.namaCabang))], statusProses: ["Semua status proses", "Akan keluar", "Sedang diproses", "Belum lengkap", "Sudah selesai"] }), [rows]);
+  const summaryCards = useMemo(() => [
+    { label: "Total proses keluar", value: rows.length, note: "Semua proses keluar dipantau di satu tempat.", icon: UserRoundMinus },
+    { label: "Akan keluar", value: rows.filter((item) => item.statusProses === "Akan keluar").length, note: "Hari kerja terakhir sudah dekat.", icon: CalendarDays },
+    { label: "Belum lengkap", value: rows.filter((item) => item.statusProses === "Belum lengkap").length, note: "Masih ada langkah penting yang tertahan.", icon: ShieldAlert },
+    { label: "Sudah selesai", value: rows.filter((item) => item.statusProses === "Sudah selesai").length, note: "Siap masuk arsip akhir.", icon: CheckCircle2 },
+  ], [rows]);
+  const quickTabCounts = useMemo(() => Object.fromEntries(offboardingQuickTabs.map((tab) => [tab.key, rows.filter((item) => matchQuickTab(item, tab.key)).length])), [rows]);
+  const filteredProcesses = useMemo(() => rows.filter((item) => {
+    const term = search.trim().toLowerCase();
+    if (!matchQuickTab(item, activeTab)) return false;
+    if (filters.usaha !== "Semua cabang" && item.namaCabang !== filters.usaha) return false;
+    if (filters.statusProses !== "Semua status proses" && item.statusProses !== filters.statusProses) return false;
+    return !term || [item.employeeId, item.namaLengkap, item.jabatan, item.namaCabang, item.alasanKeluar, item.penanggungJawab].join(" ").toLowerCase().includes(term);
+  }), [activeTab, filters, rows, search]);
+  const priorityRows = useMemo(() => rows.filter((item) => item.alert).slice(0, 3), [rows]);
+  const availableEmployees = useMemo(() => {
+    const usedIds = new Set(rows.map((item) => String(item.employeeId || "").trim().toLowerCase()));
+    return employeeOptions.filter((item) => {
+      const employeeId = String(item.employeeId || "").trim().toLowerCase();
+      return employeeId && !usedIds.has(employeeId) && String(item.statusKaryawan || "").trim().toLowerCase() !== "nonaktif";
     });
-  }, [activeTab, filters, search]);
+  }, [employeeOptions, rows]);
 
-  const handleFilterChange = (key, value) => {
-    setFilters((current) => ({ ...current, [key]: value }));
-  };
+  function upsertRow(nextRow) {
+    setRows((current) => [nextRow, ...current.filter((item) => item.id !== nextRow.id)].sort((left, right) => String(right.hariKerjaTerakhir || "").localeCompare(String(left.hariKerjaTerakhir || ""))));
+    setSelectedProcessId(nextRow.id);
+  }
 
-  const offboardingAlerts = useMemo(
-    () => offboardingDirectory.map((item) => ({ ...item, alert: buildOffboardingAlert(item) })).filter((item) => item.alert),
-    [],
-  );
+  async function persistRow(nextRow, message) {
+    try {
+      let saved = nextRow;
+      if (typeof nextRow.id === "number") {
+        const updated = await updateOffboardingProcess(nextRow.id, mapProcessToPayload(nextRow));
+        if (updated) saved = mapDbRowToProcess(updated);
+      } else {
+        const created = await createOffboardingProcess(mapProcessToPayload(nextRow));
+        if (created) saved = mapDbRowToProcess(created);
+      }
+      setOffboardingTableReady(true);
+      upsertRow(saved);
+      setFeedback({ type: "success", message });
+      return saved;
+    } catch (error) {
+      console.error("Simpan offboarding gagal:", error);
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : "Proses keluar belum berhasil disimpan." });
+      return null;
+    }
+  }
+
+  async function handleCreateProcess() {
+    if (!createForm.employeeId || !createForm.namaLengkap || !createForm.hariKerjaTerakhir) {
+      setFeedback({ type: "error", message: "Pilih karyawan dan isi hari kerja terakhir sebelum menyimpan." });
+      return;
+    }
+    const draft = enrichItem({ id: `off-${Date.now()}`, sourceEmployeeRowId: createForm.employeeRowId ? Number(createForm.employeeRowId) : null, employeeId: createForm.employeeId, namaLengkap: createForm.namaLengkap, jabatan: createForm.jabatan, divisi: createForm.divisi, namaUsaha: createForm.namaUsaha, namaCabang: createForm.namaCabang, alasanKeluar: createForm.alasanKeluar, tanggalPengajuanKeluar: createForm.tanggalPengajuanKeluar, hariKerjaTerakhir: createForm.hariKerjaTerakhir, persetujuanAtasan: "Menunggu persetujuan", statusProses: "Akan keluar", statusAset: "Belum kembali", statusAkses: "Belum ditutup", statusSuratAkhir: "Belum dibuat", paklaringSiap: false, beritaAcaraSiap: false, statusKaryawanSudahNonaktif: false, penanggungJawab: createForm.penanggungJawab || "Tim HR", catatanHr: createForm.catatanHr || "Proses offboarding baru dibuat dan siap ditindaklanjuti oleh HR.", asetKerja: "Daftar aset kerja belum diisi.", aksesKerja: "Akses kerja belum ditutup.", suratAkhir: "Dokumen akhir belum dibuat.", checklist: defaultChecklist, perluPerhatian: true, linkedModules: ["Data Karyawan", "Surat & Pengumuman", "Penggajian", "Karyawan Keluar"] });
+    const saved = await persistRow(draft, `Proses keluar ${createForm.namaLengkap} berhasil ditambahkan.`);
+    if (saved) {
+      setShowCreateModal(false);
+      setCreateForm(createFormTemplate);
+    }
+  }
+
+  async function applyAction(item, action) {
+    let nextRow = item;
+    let message = "Perubahan proses keluar berhasil disimpan.";
+    if (action === "start") {
+      nextRow = enrichItem({ ...item, statusProses: item.statusProses === "Sudah selesai" ? "Sudah selesai" : "Sedang diproses", persetujuanAtasan: "Sudah ada", checklist: item.checklist.map((check) => check.label === "Persetujuan atasan sudah ada" ? { ...check, done: true } : check), perluPerhatian: true });
+      message = `${item.namaLengkap} dipindahkan ke status sedang diproses.`;
+    }
+    if (action === "final-letter") {
+      nextRow = enrichItem({ ...item, statusSuratAkhir: "Siap dikirim", paklaringSiap: true, suratAkhir: "Paklaring dan surat akhir sudah disiapkan untuk proses kirim/arsip.", checklist: item.checklist.map((check) => check.group === "Dokumen akhir" ? { ...check, done: true } : check), perluPerhatian: item.statusAkses === "Belum ditutup" || item.statusAset === "Belum kembali" });
+      message = `Dokumen akhir ${item.namaLengkap} ditandai siap dikirim.`;
+    }
+    if (action === "complete") {
+      nextRow = enrichItem({ ...item, persetujuanAtasan: "Sudah ada", statusProses: "Sudah selesai", statusAset: "Sudah kembali", statusAkses: "Sudah ditutup", statusSuratAkhir: "Sudah diarsipkan", paklaringSiap: true, beritaAcaraSiap: true, statusKaryawanSudahNonaktif: true, asetKerja: "Semua aset kerja sudah kembali dan diverifikasi.", aksesKerja: "Seluruh akses kerja sudah ditutup oleh HR/Admin.", suratAkhir: "Paklaring, surat akhir, dan arsip final sudah lengkap.", checklist: item.checklist.map((check) => ({ ...check, done: true })), perluPerhatian: false });
+      message = `${item.namaLengkap} berhasil ditandai selesai.`;
+    }
+    const saved = await persistRow(nextRow, message);
+    if (saved && action === "complete" && saved.sourceEmployeeRowId) {
+      try {
+        await updateEmployee(saved.sourceEmployeeRowId, { status_karyawan: "Nonaktif" });
+      } catch (error) {
+        console.warn("Status karyawan di tabel employees belum ikut diperbarui:", error);
+      }
+    }
+  }
 
   return (
     <div className="space-y-6">
       <div className="space-y-4 rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-5 shadow-sm lg:p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <SectionTitle
-            title="Karyawan Keluar"
-            subtitle="Pusat proses keluar karyawan supaya owner, admin, dan HR bisa cepat lihat siapa yang akan keluar, apa yang belum selesai, dan apakah semua langkah akhir sudah lengkap."
-          />
-
-          <div className="flex flex-wrap gap-3">
-            <Button className="rounded-xl">
-              <UserRoundMinus className="mr-2 h-4 w-4" />
-              Tambah Proses Keluar
-            </Button>
-            <Button variant="outline" className="rounded-xl">
-              <Archive className="mr-2 h-4 w-4" />
-              Lengkapi Proses
-            </Button>
-          </div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <SectionTitle title="Karyawan Keluar" subtitle="Pantau proses keluar karyawan dari pengajuan, penutupan akses, pengembalian aset, sampai arsip akhir di satu halaman." />
+          <Button className="rounded-xl" onClick={() => setShowCreateModal(true)}><UserRoundMinus className="mr-2 h-4 w-4" />Tambah Proses Keluar</Button>
         </div>
-
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cari nama, jabatan, cabang, alasan keluar, atau penanggung jawab"
-              className="rounded-xl border-slate-200 bg-white pl-9"
-            />
-          </div>
-          <FilterSelect value={filters.usaha} onChange={(event) => handleFilterChange("usaha", event.target.value)} options={filterOptions.usaha} />
-          <FilterSelect
-            value={filters.statusProses}
-            onChange={(event) => handleFilterChange("statusProses", event.target.value)}
-            options={filterOptions.statusProses}
-          />
-          <FilterSelect
-            value={filters.alasanKeluar}
-            onChange={(event) => handleFilterChange("alasanKeluar", event.target.value)}
-            options={filterOptions.alasanKeluar}
-          />
-          <FilterSelect
-            value={filters.hariKerjaTerakhir}
-            onChange={(event) => handleFilterChange("hariKerjaTerakhir", event.target.value)}
-            options={filterOptions.hariKerjaTerakhir}
-          />
-          <FilterSelect
-            value={filters.penanggungJawab}
-            onChange={(event) => handleFilterChange("penanggungJawab", event.target.value)}
-            options={filterOptions.penanggungJawab}
-          />
+        {!offboardingTableReady ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Daftar offboarding saat ini masih memakai fallback lokal. Jalankan migration Supabase `hr_offboarding_processes` agar data proses keluar tersimpan permanen.</div> : null}
+        {feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type === "error" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{feedback.message}</div> : null}
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,1fr))]">
+          <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, ID, jabatan, cabang, alasan keluar" className="rounded-xl border-slate-200 bg-white pl-9" /></div>
+          <FilterSelect value={filters.usaha} onChange={(event) => setFilters((current) => ({ ...current, usaha: event.target.value }))} options={filterOptions.usaha} />
+          <FilterSelect value={filters.statusProses} onChange={(event) => setFilters((current) => ({ ...current, statusProses: event.target.value }))} options={filterOptions.statusProses} />
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {summaryCards.map((item) => (
-          <SummaryCard key={item.label} {...item} />
-        ))}
-      </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{summaryCards.map((item) => <SummaryCard key={item.label} {...item} />)}</div>
 
-      {offboardingAlerts.length ? (
-        <Card className="rounded-2xl border-slate-200 shadow-sm">
-          <CardContent className="space-y-3 p-5">
-            <div>
-              <div className="text-lg font-semibold text-slate-900">Prioritas proses keluar</div>
-              <div className="mt-1 text-sm text-slate-500">Karyawan keluar yang paling butuh penutupan akses, pengembalian aset, atau finalisasi checklist.</div>
-            </div>
-            <div className="grid gap-3">
-              {offboardingAlerts.slice(0, 4).map((item) => (
-                <div key={`offboarding-alert-${item.id}`} className={`rounded-2xl border px-4 py-3 ${item.alert.level === "critical" ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50"}`}>
-                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <div className={`text-sm font-semibold ${item.alert.level === "critical" ? "text-rose-800" : "text-amber-800"}`}>{item.namaLengkap} • {item.jabatan}</div>
-                      <div className={`mt-1 text-sm ${item.alert.level === "critical" ? "text-rose-700" : "text-amber-700"}`}>{item.alert.title}. {item.alert.description}</div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <StatusBadge value={item.statusProses} />
-                      <StatusBadge value={item.statusAkses} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+      {priorityRows.length ? <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="space-y-3 p-5"><div><div className="text-lg font-semibold text-slate-900">Prioritas proses keluar</div><div className="mt-1 text-sm text-slate-500">Daftar yang paling butuh tindakan cepat dari HR.</div></div><div className="grid gap-3">{priorityRows.map((item) => <div key={item.id} className={`rounded-2xl border px-4 py-3 ${item.alert.level === "critical" ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50"}`}><div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between"><div><div className={`text-sm font-semibold ${item.alert.level === "critical" ? "text-rose-800" : "text-amber-800"}`}>{item.namaLengkap} ? {item.jabatan}</div><div className={`mt-1 text-sm ${item.alert.level === "critical" ? "text-rose-700" : "text-amber-700"}`}>{item.alert.title}. {item.alert.description}</div></div><div className="flex flex-wrap gap-2"><StatusBadge value={item.statusProses} /><StatusBadge value={item.statusAkses} /></div></div></div>)}</div></CardContent></Card> : null}
 
-      <Card className="rounded-2xl border-slate-200 shadow-sm">
-        <CardContent className="flex flex-wrap gap-2 p-4">
-          {offboardingQuickTabs.map((tab) => {
-            const active = tab.key === activeTab;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                  active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {tab.label} ({quickTabCounts[tab.key] || 0})
-              </button>
-            );
-          })}
-        </CardContent>
-      </Card>
+      <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="flex flex-wrap gap-2 p-4">{offboardingQuickTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${tab.key === activeTab ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{tab.label} ({quickTabCounts[tab.key] || 0})</button>)}</CardContent></Card>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_360px]">
-        <Card className="rounded-2xl border-slate-200 shadow-sm">
-          <CardContent className="space-y-4 p-4 lg:p-5">
-            <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="text-lg font-semibold text-slate-900">Daftar proses keluar</div>
-                <div className="text-sm text-slate-500">
-                  {filteredProcesses.length} data ditemukan. Fokus utamanya siapa yang akan keluar, apa yang belum lengkap, dan apa yang harus segera ditutup.
-                </div>
-              </div>
-              <div className="text-sm text-slate-500">Klik "Lihat detail" untuk buka checklist lengkap tanpa pindah halaman.</div>
-            </div>
+      <Card className="rounded-2xl border-slate-200 shadow-sm"><CardContent className="space-y-3 p-5">{filteredProcesses.map((item) => <div key={item.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="space-y-3"><div className="flex flex-wrap items-start gap-3"><div><div className="text-lg font-semibold text-slate-900">{item.namaLengkap}</div><div className="text-sm text-slate-500">{item.employeeId} ? {item.jabatan} ? {item.namaCabang}</div></div><StatusBadge value={item.statusProses} /></div><div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-5"><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Alasan keluar</div><div className="mt-1 font-medium text-slate-700">{item.alasanKeluar}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Hari kerja terakhir</div><div className="mt-1 font-medium text-slate-700">{formatDate(item.hariKerjaTerakhir)}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status aset</div><div className="mt-1 font-medium text-slate-700">{item.statusAset}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status akses</div><div className="mt-1 font-medium text-slate-700">{item.statusAkses}</div></div><div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase tracking-[0.18em] text-slate-400">Surat akhir</div><div className="mt-1 font-medium text-slate-700">{item.statusSuratAkhir}</div></div></div>{item.alert ? <div className={`rounded-xl border px-3 py-2 text-sm leading-6 ${item.alert.level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}><span className="font-semibold">{item.alert.title}</span> {item.alert.description}</div> : null}</div><div className="flex flex-wrap gap-2 xl:max-w-[320px] xl:justify-end"><Button variant="outline" className="rounded-xl" onClick={() => setSelectedProcessId(item.id)}>Lihat detail</Button><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(item, "start")}>Lengkapi proses</Button><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(item, "final-letter")}>Buat surat akhir</Button><Button variant="outline" className="rounded-xl" onClick={() => void applyAction(item, "complete")}>Tandai selesai</Button></div></div></div>)}{filteredProcesses.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">Belum ada data yang cocok dengan pencarian atau filter yang dipilih.</div> : null}</CardContent></Card>
 
-            <div className="space-y-3">
-              {filteredProcesses.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50/60">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-start gap-3">
-                        <div>
-                          <div className="text-lg font-semibold text-slate-900">{item.namaLengkap}</div>
-                          <div className="text-sm text-slate-500">
-                            {item.jabatan} • {item.namaCabang}
-                          </div>
-                        </div>
-                        <StatusBadge value={item.statusProses} />
-                      </div>
+      {selectedProcess ? <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/25 backdrop-blur-[1px]"><div className="h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4"><div><div className="text-xl font-semibold text-slate-900">{selectedProcess.namaLengkap}</div><div className="mt-1 text-sm text-slate-500">{selectedProcess.employeeId} ? {selectedProcess.jabatan} ? {selectedProcess.namaCabang}</div></div><button type="button" onClick={() => setSelectedProcessId(null)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"><X className="h-4 w-4" /></button></div><div className="space-y-5 p-5"><div className="flex flex-wrap gap-2"><StatusBadge value={selectedProcess.statusProses} /><StatusBadge value={selectedProcess.statusAset} /><StatusBadge value={selectedProcess.statusAkses} /></div><div className="grid gap-3 md:grid-cols-2"><div className="rounded-2xl bg-slate-50 p-4"><div className="text-sm font-medium text-slate-700">Data proses keluar</div><div className="mt-3 space-y-2 text-sm text-slate-600"><div>Alasan keluar: {selectedProcess.alasanKeluar}</div><div>Tanggal pengajuan: {formatDate(selectedProcess.tanggalPengajuanKeluar)}</div><div>Hari kerja terakhir: {formatDate(selectedProcess.hariKerjaTerakhir)}</div><div>Penanggung jawab: {selectedProcess.penanggungJawab}</div><div>Persetujuan atasan: {selectedProcess.persetujuanAtasan}</div></div></div><div className="rounded-2xl bg-slate-50 p-4"><div className="text-sm font-medium text-slate-700">Status proses</div><div className="mt-3 space-y-2 text-sm text-slate-600"><div>Aset kerja: {selectedProcess.asetKerja}</div><div>Akses kerja: {selectedProcess.aksesKerja}</div><div>Surat akhir: {selectedProcess.suratAkhir}</div><div>Paklaring: {selectedProcess.paklaringSiap ? "Sudah siap" : "Belum siap"}</div><div>Status karyawan: {selectedProcess.statusKaryawanSudahNonaktif ? "Sudah nonaktif" : "Masih aktif"}</div></div></div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="text-sm font-medium text-slate-800">Checklist</div><div className="mt-3 space-y-2">{selectedProcess.checklist.map((item) => <div key={item.label} className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600"><CheckCircle2 className={`h-4 w-4 ${item.done ? "text-emerald-600" : "text-slate-300"}`} /><span>{item.label}</span></div>)}</div></div><div className="rounded-2xl border border-slate-200 p-4"><div className="text-sm font-medium text-slate-800">Catatan HR</div><div className="mt-2 text-sm leading-6 text-slate-600">{selectedProcess.catatanHr || "Belum ada catatan tambahan."}</div></div></div></div></div> : null}
 
-	                      <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-5">
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Alasan keluar</div>
-                          <div className="mt-1 font-medium text-slate-700">{item.alasanKeluar}</div>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Hari kerja terakhir</div>
-                          <div className="mt-1 font-medium text-slate-700">{formatDate(item.hariKerjaTerakhir)}</div>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status aset</div>
-                          <div className="mt-1 font-medium text-slate-700">{item.statusAset}</div>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status akses</div>
-                          <div className="mt-1 font-medium text-slate-700">{item.statusAkses}</div>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Status surat akhir</div>
-                          <div className="mt-1 font-medium text-slate-700">{item.statusSuratAkhir}</div>
-	                      </div>
-                      {buildOffboardingAlert(item) ? (
-                        <div className={`rounded-xl border px-3 py-2 text-sm leading-6 ${buildOffboardingAlert(item).level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-                          <span className="font-semibold">{buildOffboardingAlert(item).title}</span> {buildOffboardingAlert(item).description}
-                        </div>
-                      ) : null}
-                    </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 xl:max-w-[260px] xl:justify-end">
-                      <Button variant="outline" className="rounded-xl" onClick={() => setSelectedProcess(item)}>
-                        Lihat detail
-                      </Button>
-                      <Button variant="outline" className="rounded-xl">
-                        Lengkapi proses
-                      </Button>
-                      <Button variant="outline" className="rounded-xl">
-                        Buat surat akhir
-                      </Button>
-                      <Button variant="outline" className="rounded-xl">
-                        Tandai selesai
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {filteredProcesses.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                  Belum ada data yang cocok dengan pencarian atau filter yang dipilih.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          <Card className="rounded-2xl border-slate-200 shadow-sm">
-            <CardContent className="p-5">
-              <div className="text-lg font-semibold text-slate-900">Terhubung ke modul lain</div>
-              <div className="mt-2 text-sm leading-6 text-slate-500">
-                Proses keluar tidak berdiri sendiri. Data akhir harus tetap nyambung ke modul lain supaya administrasi tetap rapi.
-              </div>
-              <div className="mt-4 space-y-3">
-                {offboardingModuleLinks.map((item) => (
-                  <div key={item.title} className="rounded-xl border border-slate-200 p-3">
-                    <div className="font-medium text-slate-800">{item.title}</div>
-                    <div className="mt-1 text-sm leading-6 text-slate-500">{item.detail}</div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-slate-200 shadow-sm">
-            <CardContent className="p-5">
-              <div className="text-lg font-semibold text-slate-900">Struktur data proses keluar</div>
-              <div className="mt-2 text-sm leading-6 text-slate-500">
-                Field ini mendukung proses keluar dari awal pengajuan sampai arsip akhir tersimpan.
-              </div>
-              <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-1">
-                {offboardingDataFields.map((field) => (
-                  <div key={field} className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    {field}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {selectedProcess && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/25 backdrop-blur-[1px]">
-          <div className="h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
-              <div>
-                <div className="text-xl font-semibold text-slate-900">{selectedProcess.namaLengkap}</div>
-                <div className="mt-1 text-sm text-slate-500">
-                  {selectedProcess.jabatan} • {selectedProcess.namaCabang}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedProcess(null)}
-                className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-5 p-5">
-              <div className="flex flex-wrap gap-2">
-                <StatusBadge value={selectedProcess.statusProses} />
-                <StatusBadge value={selectedProcess.statusAset} />
-                <StatusBadge value={selectedProcess.statusAkses} />
-              </div>
-
-              {buildOffboardingAlert(selectedProcess) ? (
-                <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${buildOffboardingAlert(selectedProcess).level === "critical" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-                  <div className="font-semibold">{buildOffboardingAlert(selectedProcess).title}</div>
-                  <div>{buildOffboardingAlert(selectedProcess).description}</div>
-                </div>
-              ) : null}
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <div className="text-sm font-medium text-slate-700">Data proses keluar</div>
-                  <div className="mt-3 space-y-2 text-sm text-slate-600">
-                    <div>Nama lengkap: {selectedProcess.namaLengkap}</div>
-                    <div>Jabatan: {selectedProcess.jabatan}</div>
-                    <div>Cabang: {selectedProcess.namaCabang}</div>
-                    <div>Alasan keluar: {selectedProcess.alasanKeluar}</div>
-                    <div>Tanggal pengajuan keluar: {formatDate(selectedProcess.tanggalPengajuanKeluar)}</div>
-                    <div>Hari kerja terakhir: {formatDate(selectedProcess.hariKerjaTerakhir)}</div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <div className="text-sm font-medium text-slate-700">Status proses</div>
-                  <div className="mt-3 space-y-2 text-sm text-slate-600">
-                    <div>Persetujuan atasan: {selectedProcess.persetujuanAtasan}</div>
-                    <div>Aset kerja: {selectedProcess.asetKerja}</div>
-                    <div>Akses kerja: {selectedProcess.aksesKerja}</div>
-                    <div>Surat akhir: {selectedProcess.suratAkhir}</div>
-                    <div>Paklaring: {selectedProcess.paklaringSiap ? "Sudah siap" : "Belum siap"}</div>
-                    <div>Berita acara: {selectedProcess.beritaAcaraSiap ? "Sudah ada" : "Belum ada"}</div>
-                  </div>
-                </div>
-              </div>
-
-              {["Status keluar", "Aset & akses", "Dokumen akhir"].map((group) => (
-                <div key={group} className="rounded-2xl border border-slate-200 p-4">
-                  <div className="text-sm font-medium text-slate-800">{group}</div>
-                  <div className="mt-3 space-y-2">
-                    {selectedProcess.checklist
-                      .filter((item) => item.group === group)
-                      .map((item) => (
-                        <div key={item.label} className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                          <CheckCircle2 className={`h-4 w-4 ${item.done ? "text-emerald-600" : "text-slate-300"}`} />
-                          <span>{item.label}</span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              ))}
-
-              <div className="rounded-2xl border border-slate-200 p-4">
-                <div className="text-sm font-medium text-slate-800">Catatan HR</div>
-                <div className="mt-2 text-sm leading-6 text-slate-600">{selectedProcess.catatanHr}</div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Status surat akhir: {selectedProcess.statusSuratAkhir}</div>
-                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-                    Status karyawan: {selectedProcess.statusKaryawanSudahNonaktif ? "Sudah nonaktif" : "Masih aktif"}
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Penanggung jawab: {selectedProcess.penanggungJawab}</div>
-                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Persetujuan atasan: {selectedProcess.persetujuanAtasan}</div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-4">
-                <div className="text-sm font-medium text-slate-800">Terhubung ke modul</div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedProcess.linkedModules.map((item) => (
-                    <span key={item} className="rounded-full bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700">
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {showCreateModal ? <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/35 p-4"><div className="mx-auto w-full max-w-3xl rounded-[24px] border border-slate-200 bg-white shadow-2xl"><div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4"><div><div className="text-lg font-semibold text-slate-900">Tambah proses keluar</div><div className="mt-1 text-sm leading-6 text-slate-500">Pilih karyawan aktif, isi alasan keluar, lalu simpan agar proses offboarding langsung tercatat.</div></div><button type="button" onClick={() => setShowCreateModal(false)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"><X className="h-4 w-4" /></button></div><div className="grid gap-4 px-5 py-5 md:grid-cols-2"><div className="md:col-span-2"><div className="mb-2 text-sm font-medium text-slate-700">Pilih karyawan</div><select value={createForm.employeeId} onChange={(event) => { const selected = availableEmployees.find((item) => item.employeeId === event.target.value); if (!selected) { setCreateForm(createFormTemplate); return; } setCreateForm((current) => ({ ...current, employeeRowId: selected.rowId, employeeId: selected.employeeId, namaLengkap: selected.namaLengkap, jabatan: selected.jabatan, divisi: selected.divisi, namaUsaha: selected.namaUsaha, namaCabang: selected.namaCabang, penanggungJawab: selected.atasan || current.penanggungJawab })); }} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300"><option value="">Pilih karyawan aktif</option>{availableEmployees.map((item) => <option key={item.employeeId} value={item.employeeId}>{item.employeeId} - {item.namaLengkap} - {item.namaCabang}</option>)}</select></div><div><div className="mb-2 text-sm font-medium text-slate-700">Nama karyawan</div><Input value={createForm.namaLengkap} readOnly className="rounded-xl border-slate-200 bg-slate-50" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Jabatan</div><Input value={createForm.jabatan} readOnly className="rounded-xl border-slate-200 bg-slate-50" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Alasan keluar</div><Input value={createForm.alasanKeluar} onChange={(event) => setCreateForm((current) => ({ ...current, alasanKeluar: event.target.value }))} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Penanggung jawab</div><Input value={createForm.penanggungJawab} onChange={(event) => setCreateForm((current) => ({ ...current, penanggungJawab: event.target.value }))} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Tanggal pengajuan keluar</div><Input type="date" value={createForm.tanggalPengajuanKeluar} onChange={(event) => setCreateForm((current) => ({ ...current, tanggalPengajuanKeluar: event.target.value }))} className="rounded-xl border-slate-200" /></div><div><div className="mb-2 text-sm font-medium text-slate-700">Hari kerja terakhir</div><Input type="date" value={createForm.hariKerjaTerakhir} onChange={(event) => setCreateForm((current) => ({ ...current, hariKerjaTerakhir: event.target.value }))} className="rounded-xl border-slate-200" /></div><div className="md:col-span-2"><div className="mb-2 text-sm font-medium text-slate-700">Catatan HR awal</div><textarea value={createForm.catatanHr} onChange={(event) => setCreateForm((current) => ({ ...current, catatanHr: event.target.value }))} rows={4} className="min-h-[120px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300" /></div></div><div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4"><Button variant="outline" className="rounded-xl" onClick={() => setShowCreateModal(false)}>Tutup</Button><Button className="rounded-xl" onClick={() => void handleCreateProcess()}>Simpan proses keluar</Button></div></div></div> : null}
     </div>
   );
 }
