@@ -6,7 +6,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { documentAutoFeatures, documentDataFields, documentDirectory, documentModuleLinks, documentQuickTabs } from "@/data";
+import { documentAutoFeatures, documentDataFields, documentDirectory, documentModuleLinks, documentQuickTabs, employeeDirectory } from "@/data";
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" });
 const emptyFilters = { jenisDokumen: "Semua jenis dokumen", usaha: "Semua cabang", namaKaryawan: "Semua karyawan", statusDokumen: "Semua status dokumen", periodeTanggal: "Semua periode" };
@@ -196,6 +196,13 @@ export default function LettersPage() {
   ], [rows]);
 
   const quickTabCounts = useMemo(() => Object.fromEntries(documentQuickTabs.map((tab) => [tab.key, rows.filter((item) => matchQuickTab(item, tab.key)).length])), [rows]);
+  const employeeOptions = useMemo(() => employeeDirectory.map((item) => ({
+    employeeId: String(item.employeeId || "").trim().toLowerCase(),
+    namaLengkap: item.namaLengkap || "",
+    jabatan: item.jabatan || "",
+    namaUsaha: item.namaUsaha || "",
+    namaCabang: item.namaCabang || "",
+  })), []);
 
   const filteredDocuments = useMemo(() => rows.filter((item) => {
     const term = search.trim().toLowerCase();
@@ -218,6 +225,17 @@ export default function LettersPage() {
   function updateForm(key, value) {
     setForm((current) => {
       const next = { ...current, [key]: value };
+      if (key === "employeeId") {
+        const normalizedEmployeeId = String(value || "").trim().toLowerCase();
+        const matchedEmployee = employeeOptions.find((item) => item.employeeId === normalizedEmployeeId);
+        if (matchedEmployee) {
+          next.employeeId = String(value || "").trim();
+          next.namaKaryawan = matchedEmployee.namaLengkap;
+          next.jabatan = matchedEmployee.jabatan || next.jabatan;
+          next.namaUsaha = matchedEmployee.namaUsaha || next.namaUsaha;
+          next.namaCabang = matchedEmployee.namaCabang || next.namaCabang;
+        }
+      }
       if (key === "tanggalDibuat") next.nomorSurat = buildNumber(extractSequence(current.nomorSurat) || nextSequence(rows), getTemplate(next.templateKey).code, value);
       return refreshBody(next);
     });
