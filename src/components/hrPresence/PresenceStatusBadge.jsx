@@ -12,6 +12,8 @@ const presenceStatusClasses = {
   "Pulang cepat": "border-orange-200 bg-orange-50 text-orange-700",
   "Tidak absen masuk": "border-rose-200 bg-rose-50 text-rose-700",
   "Tidak absen pulang": "border-amber-200 bg-amber-50 text-amber-700",
+  "Hari libur": "border-sky-200 bg-sky-50 text-sky-700",
+  "Off schedule": "border-slate-200 bg-slate-100 text-slate-700",
   Online: "border-emerald-200 bg-emerald-50 text-emerald-700",
   Offline: "border-slate-200 bg-slate-100 text-slate-700",
   "Perlu cek": "border-amber-200 bg-amber-50 text-amber-700",
@@ -33,6 +35,7 @@ const presenceStatusClasses = {
   Fingerprint: "border-emerald-200 bg-emerald-50 text-emerald-700",
   Mobile: "border-sky-200 bg-sky-50 text-sky-700",
   "Face recognition": "border-violet-200 bg-violet-50 text-violet-700",
+  Draft: "border-slate-200 bg-slate-100 text-slate-700",
 };
 
 export default function PresenceStatusBadge({ value, className }) {

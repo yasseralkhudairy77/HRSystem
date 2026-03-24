@@ -13,7 +13,6 @@ import ShiftColorBadge from "@/components/hrPresence/ShiftColorBadge";
 import { Button } from "@/components/ui/button";
 import {
   attendancePenalties,
-  attendanceRecords,
   attendanceSettings,
   departmentWorkShifts,
   fingerprintDevices,
@@ -23,6 +22,7 @@ import {
   presenceBranches,
   presenceDepartments,
   presenceEmployees,
+  resolvedAttendanceRecords,
   workShifts,
 } from "@/data";
 import { formatAttendanceStatusLabel } from "@/lib/hrPresence";
@@ -172,7 +172,7 @@ export default function HrPresencePageShell({ pageKey }) {
   const summaryStatus = hrPresenceUiHelpers.attendanceSummary.byStatus;
   const settings = attendanceSettings[0];
 
-  const attendanceRows = attendanceRecords.slice(0, 18).map((record) => {
+  const attendanceRows = resolvedAttendanceRecords.slice(0, 18).map((record) => {
     const employee = employeeMap.get(record.employee_id);
     const shift = record.shift_id ? shiftMap.get(record.shift_id) : null;
     return {
@@ -189,11 +189,11 @@ export default function HrPresencePageShell({ pageKey }) {
       status: formatAttendanceStatusLabel(record.status),
       terlambat: record.late_minutes ? `${record.late_minutes} mnt` : "-",
       lembur: record.overtime_minutes ? `${record.overtime_minutes} mnt` : "-",
-      sumber: prettify(record.attendance_source),
+      sumber: prettify(record.source),
     };
   });
 
-  const exceptionRows = attendanceRecords.filter((item) => item.status !== "hadir").slice(0, 18).map((record) => {
+  const exceptionRows = resolvedAttendanceRecords.filter((item) => item.status_main !== "hadir" && item.status_main !== "hari_libur" && item.status_main !== "off_schedule").slice(0, 18).map((record) => {
     const employee = employeeMap.get(record.employee_id);
     return {
       id: record.id,
@@ -201,9 +201,9 @@ export default function HrPresencePageShell({ pageKey }) {
       nama: <div><div className="font-semibold">{employee?.employee_name}</div><div className="text-xs text-[var(--text-muted)]">{employee?.employee_id}</div></div>,
       cabang: branchMap.get(record.branch_id || "") || "-",
       departemen: departmentMap.get(record.department_id || "") || "-",
-      jenis: formatAttendanceStatusLabel(record.status),
-      approval: ["izin", "sakit", "cuti"].includes(record.status) ? "Disetujui" : record.status === "alpha" ? "Menunggu" : "Draft",
-      keterangan: record.note || "Perlu review HR dan atasan.",
+      jenis: formatAttendanceStatusLabel(record.status_main),
+      approval: ["izin", "sakit", "cuti"].includes(record.status_main) ? "Disetujui" : record.status_main === "alpha" ? "Menunggu" : "Draft",
+      keterangan: record.reason || record.note || "Perlu review HR dan atasan.",
     };
   });
 

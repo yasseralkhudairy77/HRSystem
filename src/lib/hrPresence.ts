@@ -88,6 +88,8 @@ export function formatAttendanceStatusLabel(status: AttendanceStatus) {
     pulang_cepat: "Pulang cepat",
     tidak_absen_masuk: "Tidak absen masuk",
     tidak_absen_pulang: "Tidak absen pulang",
+    hari_libur: "Hari libur",
+    off_schedule: "Off schedule",
   };
 
   return labels[status] || status;
@@ -234,13 +236,13 @@ export function summarizeAttendanceExceptions(exceptions: AttendanceException[])
   );
 }
 
-export function groupAttendanceRecordsByEmployee(records: AttendanceRecord[]) {
+export function groupAttendanceRecordsByEmployee(records: Array<{ employee_id: string }>) {
   return records.reduce<Record<string, AttendanceRecord[]>>((accumulator, record) => {
     if (!accumulator[record.employee_id]) {
       accumulator[record.employee_id] = [];
     }
 
-    accumulator[record.employee_id].push(record);
+    accumulator[record.employee_id].push(record as AttendanceRecord);
     return accumulator;
   }, {});
 }

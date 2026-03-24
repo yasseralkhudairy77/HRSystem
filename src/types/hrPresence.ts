@@ -20,7 +20,9 @@ export type AttendanceStatus =
   | "lembur"
   | "pulang_cepat"
   | "tidak_absen_masuk"
-  | "tidak_absen_pulang";
+  | "tidak_absen_pulang"
+  | "hari_libur"
+  | "off_schedule";
 export type AttendanceExceptionType =
   | "izin"
   | "sakit"
@@ -258,4 +260,63 @@ export interface AttendanceExceptionSummary {
   totalExceptions: number;
   byType: Record<string, number>;
   byStatus: Record<ApprovalStatus, number>;
+}
+
+export interface AttendanceFlags {
+  is_late: boolean;
+  is_early_leave: boolean;
+  is_overtime: boolean;
+  is_cross_day: boolean;
+  is_holiday: boolean;
+  is_holiday_attendance: boolean;
+  has_break_record: boolean;
+}
+
+export interface AttendanceResolutionResult {
+  id: string;
+  employee_id: string;
+  attendance_date: string;
+  shift_id: string | null;
+  branch_id: string | null;
+  department_id: string | null;
+  scheduled_checkin: string | null;
+  scheduled_checkout: string | null;
+  actual_checkin: string | null;
+  actual_checkout: string | null;
+  break_checkin?: string | null;
+  break_checkout?: string | null;
+  status_main: AttendanceStatus;
+  late_minutes: number;
+  early_leave_minutes: number;
+  overtime_minutes: number;
+  is_late: boolean;
+  is_early_leave: boolean;
+  is_overtime: boolean;
+  is_cross_day: boolean;
+  is_holiday: boolean;
+  is_holiday_attendance: boolean;
+  has_break_record: boolean;
+  note: string | null;
+  reason: string;
+  source: AttendanceSource | "system";
+}
+
+export interface AttendanceEngineTestCase {
+  id: string;
+  title: string;
+  work_date: string;
+  expected_status: AttendanceStatus;
+  expected_late_minutes?: number;
+  expected_early_leave_minutes?: number;
+  expected_overtime_minutes?: number;
+  description: string;
+}
+
+export interface AttendanceGeneratedSummary {
+  total: number;
+  byStatus: Record<AttendanceStatus, number>;
+  lateCount: number;
+  earlyLeaveCount: number;
+  overtimeCount: number;
+  holidayCount: number;
 }

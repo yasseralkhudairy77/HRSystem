@@ -1,9 +1,11 @@
 import {
   calculateShiftWorkMinutes,
-  createAttendanceUiHelpers,
   detectCrossDayShift,
   formatAttendanceStatusLabel,
+  generateMonthlyScheduleMatrix,
+  groupAttendanceRecordsByEmployee,
 } from "@/lib/hrPresence";
+import { evaluateAttendanceRecords } from "@/services/attendanceEngineService";
 import type {
   AttendanceException,
   AttendancePenalty,
@@ -612,6 +614,24 @@ export const attendanceExceptions: AttendanceException[] = attendanceRecords
     updated_at: updatedAt,
   }));
 
+const attendanceEvaluation = evaluateAttendanceRecords({
+  employees: presenceEmployees,
+  attendanceDates: getDatesInMonth(demoYear, demoMonth),
+  settings: attendanceSettings[0],
+  employeeSchedules,
+  departmentWorkShifts,
+  workShifts,
+  holidays,
+  attendanceRecords,
+  attendanceExceptions,
+  minimumOvertimeMinutes: 30,
+  earlyLeaveToleranceMinutes: 5,
+});
+
+export const resolvedAttendanceRecords = attendanceEvaluation.records;
+export const attendanceResolvedSummary = attendanceEvaluation.attendanceSummary;
+export const absenceResolvedSummary = attendanceEvaluation.absenceSummary;
+
 export const hrPresenceEntityRelations: HrPresenceEntityRelation[] = [
   {
     from: "WorkShift",
@@ -682,20 +702,26 @@ export const hrPresenceDemoBundle = {
   fingerprintDevices,
   employeeSchedules,
   attendanceRecords,
+  resolvedAttendanceRecords,
   attendanceExceptions,
   relations: hrPresenceEntityRelations,
 };
 
-export const hrPresenceUiHelpers = createAttendanceUiHelpers({
-  employees: presenceEmployees,
-  schedules: employeeSchedules,
-  attendanceRecords,
-  attendanceExceptions,
-  shifts: workShifts,
-  holidays,
-  month: demoMonth,
-  year: demoYear,
-});
+export const hrPresenceUiHelpers = {
+  shiftColorMap: attendanceEvaluation.shiftColorMap,
+  attendanceSummary: attendanceResolvedSummary,
+  absenceSummary: absenceResolvedSummary,
+  scheduleMatrix: generateMonthlyScheduleMatrix({
+    employees: presenceEmployees,
+    schedules: employeeSchedules,
+    shifts: workShifts,
+    holidays,
+    month: demoMonth,
+    year: demoYear,
+  }),
+  attendanceByEmployee: groupAttendanceRecordsByEmployee(resolvedAttendanceRecords),
+  resolvedRecords: resolvedAttendanceRecords,
+};
 
 export const hrPresenceDemoMeta = {
   companyId,
@@ -710,6 +736,7 @@ export const hrPresenceDemoMeta = {
     devices: fingerprintDevices.length,
     schedules: employeeSchedules.length,
     attendanceRecords: attendanceRecords.length,
+    resolvedAttendanceRecords: resolvedAttendanceRecords.length,
     attendanceExceptions: attendanceExceptions.length,
   },
 };
