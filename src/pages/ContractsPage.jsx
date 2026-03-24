@@ -227,6 +227,61 @@ function createFormFromEmployee(employee, rows) {
   return enrichContract(next);
 }
 
+function createFormFromContract(item) {
+  return enrichContract({
+    ...createFormTemplate,
+    ...item,
+    sourceEmployeeRowId: item?.sourceEmployeeRowId ? String(item.sourceEmployeeRowId) : "",
+  });
+}
+
+function buildContractPreview(item) {
+  return [
+    "PERJANJIAN KERJA",
+    "",
+    `Nomor Kontrak: ${item.nomorKontrak || "-"}`,
+    `Jenis Kontrak: ${item.jenisKontrak || "-"}`,
+    `Tanggal Mulai: ${formatDate(item.tanggalMulai)}`,
+    `Tanggal Berakhir: ${formatDate(item.tanggalBerakhir)}`,
+    "",
+    "Pihak Pertama:",
+    `${item.namaUsaha || "Perusahaan"}`,
+    `${item.namaCabang || "Unit kerja"}`,
+    "",
+    "Pihak Kedua:",
+    `${item.namaLengkap || "-"}`,
+    `${item.employeeId || "-"}`,
+    `${item.jabatan || "-"}`,
+    "",
+    "Ruang lingkup pokok:",
+    `${item.namaLengkap || "Karyawan"} ditempatkan sebagai ${item.jabatan || "jabatan terkait"} di ${item.namaCabang || "unit kerja"} dengan status kerja ${item.statusKerja || "Kontrak"}.`,
+    "",
+    `Gaji pokok: ${item.gajiPokok || "-"}`,
+    `Tunjangan utama: ${item.tunjanganUtama || "-"}`,
+    `Status tanda tangan: ${item.statusTandaTangan || "-"}`,
+    `Keputusan berikutnya: ${item.keputusanBerikutnya || "-"}`,
+    "",
+    "Catatan HR:",
+    item.catatanHr || "Tidak ada catatan tambahan.",
+    "",
+    `${item.penanggungJawab || "Tim HR"}`,
+    "Human Resources",
+  ].join("\n");
+}
+
+function downloadContractDraft(item) {
+  const body = buildContractPreview(item);
+  const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${String(item.fileKontrak || item.nomorKontrak || item.namaLengkap || "draft_kontrak").replace(/[^\w.-]/g, "_")}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 function SummaryCard({ icon: Icon, label, value, note, tone = "slate" }) {
   const tones = { slate: "bg-slate-50 text-slate-700", amber: "bg-amber-50 text-amber-700", rose: "bg-rose-50 text-rose-700", emerald: "bg-emerald-50 text-emerald-700", sky: "bg-sky-50 text-sky-700" };
   return (
@@ -264,6 +319,8 @@ export default function ContractsPage() {
   const [filters, setFilters] = useState(emptyFilters);
   const [selectedContract, setSelectedContract] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editorMode, setEditorMode] = useState("create");
+  const [previewContract, setPreviewContract] = useState(null);
   const [form, setForm] = useState(createFormFromEmployee(null, defaultRows));
   const [feedback, setFeedback] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -413,7 +470,14 @@ export default function ContractsPage() {
   };
 
   const openCreateModal = () => {
+    setEditorMode("create");
     setForm(createFormFromEmployee(employeeOptions[0] || null, rows));
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (item) => {
+    setEditorMode("edit");
+    setForm(createFormFromContract(item));
     setShowCreateModal(true);
   };
 
@@ -431,21 +495,26 @@ export default function ContractsPage() {
 
     setSaving(true);
     try {
-      if (contractsTableReady) {
-        const created = await createHrContract(mapContractToPayload(normalized));
-        if (created) {
-          const mapped = mapDbRowToContract(created);
-          setRows((current) => [mapped, ...current]);
-          setSelectedContract(mapped);
-        }
+      if (editorMode === "edit") {
+        await persistRowUpdate(normalized, `Kontrak ${normalized.namaLengkap} berhasil diperbarui.`);
       } else {
-        const fallbackRow = { ...normalized, id: `local-${Date.now()}` };
-        setRows((current) => [fallbackRow, ...current]);
-        setSelectedContract(fallbackRow);
+        if (contractsTableReady) {
+          const created = await createHrContract(mapContractToPayload(normalized));
+          if (created) {
+            const mapped = mapDbRowToContract(created);
+            setRows((current) => [mapped, ...current]);
+            setSelectedContract(mapped);
+          }
+        } else {
+          const fallbackRow = { ...normalized, id: `local-${Date.now()}` };
+          setRows((current) => [fallbackRow, ...current]);
+          setSelectedContract(fallbackRow);
+        }
+
+        setFeedback({ type: "success", message: `${normalized.namaLengkap} berhasil masuk ke register kontrak kerja.` });
       }
 
       setShowCreateModal(false);
-      setFeedback({ type: "success", message: `${normalized.namaLengkap} berhasil masuk ke register kontrak kerja.` });
     } catch (error) {
       console.error("Gagal simpan kontrak:", error);
       setFeedback({ type: "error", message: "Kontrak belum berhasil disimpan. Cek koneksi Supabase atau migration kontrak HR." });
@@ -642,7 +711,8 @@ export default function ContractsPage() {
                       <Button variant="outline" className="rounded-xl" onClick={() => setSelectedContract(item)}>Lihat detail</Button>
                       {item.statusKontrak === "Belum dibuat" ? <Button variant="outline" className="rounded-xl" onClick={() => void handleCreateContract(item)}>Buat kontrak</Button> : null}
                       {item.statusKontrak === "Aktif" || item.statusKontrak === "Akan habis" || item.statusKontrak === "Sudah lewat" ? <Button variant="outline" className="rounded-xl" onClick={() => void handleExtendContract(item)}>Perpanjang</Button> : null}
-                      <Button variant="outline" className="rounded-xl"><Download className="mr-2 h-4 w-4" />Unduh file</Button>
+                      <Button variant="outline" className="rounded-xl" onClick={() => setPreviewContract(item)}>Preview draft</Button>
+                      <Button variant="outline" className="rounded-xl" onClick={() => downloadContractDraft(item)}><Download className="mr-2 h-4 w-4" />Unduh file</Button>
                       {item.statusKontrak !== "Selesai" ? <Button variant="outline" className="rounded-xl" onClick={() => void handleMarkComplete(item)}>Tandai selesai</Button> : null}
                     </div>
                   </div>
@@ -753,6 +823,9 @@ export default function ContractsPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
+                <Button variant="outline" className="rounded-xl" onClick={() => openEditModal(selectedContract)}>Ubah kontrak</Button>
+                <Button variant="outline" className="rounded-xl" onClick={() => setPreviewContract(selectedContract)}>Preview draft</Button>
+                <Button variant="outline" className="rounded-xl" onClick={() => downloadContractDraft(selectedContract)}><Download className="mr-2 h-4 w-4" />Unduh file</Button>
                 {selectedContract.statusKontrak === "Belum dibuat" ? <Button className="rounded-xl" onClick={() => void handleCreateContract(selectedContract)}>Buat kontrak</Button> : null}
                 {selectedContract.statusKontrak !== "Selesai" ? <Button variant="outline" className="rounded-xl" onClick={() => void handleExtendContract(selectedContract)}>Perpanjang kontrak</Button> : null}
                 {selectedContract.statusKontrak !== "Selesai" ? <Button variant="outline" className="rounded-xl" onClick={() => void handleMarkComplete(selectedContract)}>Tandai selesai</Button> : null}
@@ -763,13 +836,41 @@ export default function ContractsPage() {
         </div>
       ) : null}
 
+      {previewContract ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-[1px]" onClick={() => setPreviewContract(null)}>
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
+              <div>
+                <div className="text-2xl font-semibold text-slate-900">Preview draft kontrak</div>
+                <div className="mt-1 text-sm text-slate-500">{previewContract.nomorKontrak || "Nomor kontrak belum diisi"} / {previewContract.namaLengkap}</div>
+              </div>
+              <button type="button" onClick={() => setPreviewContract(null)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                Preview ini dibuat dari data kontrak yang tersimpan saat ini. Jika ada yang perlu dibenahi, gunakan tombol `Ubah kontrak` lalu generate ulang.
+              </div>
+              <pre className="whitespace-pre-wrap rounded-2xl bg-white p-5 text-sm leading-7 text-slate-700">{buildContractPreview(previewContract)}</pre>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4">
+              <Button variant="outline" className="rounded-xl" onClick={() => setPreviewContract(null)}>Tutup</Button>
+              <Button className="rounded-xl" onClick={() => downloadContractDraft(previewContract)}><Download className="mr-2 h-4 w-4" />Unduh draft</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showCreateModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-[1px]" onClick={() => setShowCreateModal(false)}>
           <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[28px] border border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
               <div>
-                <div className="text-2xl font-semibold text-slate-900">Buat kontrak kerja</div>
-                <div className="mt-1 text-sm text-slate-500">Pilih karyawan aktif, rapikan masa kontrak, lalu simpan agar register kontrak HR tetap rapi di database.</div>
+                <div className="text-2xl font-semibold text-slate-900">{editorMode === "edit" ? "Ubah kontrak kerja" : "Buat kontrak kerja"}</div>
+                <div className="mt-1 text-sm text-slate-500">{editorMode === "edit" ? "Perbarui detail kontrak, lalu simpan agar register dan detail kontrak tetap sinkron." : "Pilih karyawan aktif, rapikan masa kontrak, lalu simpan agar register kontrak HR tetap rapi di database."}</div>
               </div>
               <button type="button" onClick={() => setShowCreateModal(false)} className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50">
                 <X className="h-4 w-4" />
@@ -849,7 +950,7 @@ export default function ContractsPage() {
 
             <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4">
               <Button variant="outline" className="rounded-xl" onClick={() => setShowCreateModal(false)}>Tutup</Button>
-              <Button className="rounded-xl" onClick={() => void saveContract()} disabled={saving}>{saving ? "Menyimpan..." : "Simpan kontrak"}</Button>
+              <Button className="rounded-xl" onClick={() => void saveContract()} disabled={saving}>{saving ? "Menyimpan..." : editorMode === "edit" ? "Simpan perubahan" : "Simpan kontrak"}</Button>
             </div>
           </div>
         </div>
