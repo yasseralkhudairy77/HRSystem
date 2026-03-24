@@ -39,6 +39,8 @@ export type HrContractRecord = {
   reminder: string;
   needs_attention: boolean;
   linked_modules: string[];
+  template_name: string;
+  article_clauses: Array<{ id?: string; title?: string; body?: string }>;
   created_at: string;
   updated_at: string;
 };

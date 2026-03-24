@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { contractDataFields, contractDirectory, contractModuleLinks, contractQuickTabs, employeeDirectory } from "@/data";
 import { getEmployeeList, updateEmployee } from "@/services/employeeService";
 import { createHrContract, getHrContracts, updateHrContract } from "@/services/contractService";
+import { createHrContractTemplate, getHrContractTemplates, updateHrContractTemplate } from "@/services/contractTemplateService";
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" });
 
@@ -23,6 +24,7 @@ const emptyFilters = {
 const decisionOptions = ["Masih dipertimbangkan", "Perpanjang", "Jadikan tetap", "Selesai"];
 const signingOptions = ["Belum ditandatangani", "Siap ditandatangani", "Sudah ditandatangani"];
 const contractStatusOptions = ["Belum dibuat", "Aktif", "Akan habis", "Sudah lewat", "Selesai"];
+const placeholderGuide = ["{{namaLengkap}}", "{{employeeId}}", "{{jabatan}}", "{{namaCabang}}", "{{namaUsaha}}", "{{tanggalMulai}}", "{{tanggalBerakhir}}", "{{jenisKontrak}}", "{{gajiPokok}}", "{{tunjanganUtama}}", "{{statusTandaTangan}}", "{{keputusanBerikutnya}}"];
 
 const createFormTemplate = {
   sourceEmployeeRowId: "",
@@ -47,8 +49,25 @@ const createFormTemplate = {
   keputusanBerikutnya: "Masih dipertimbangkan",
   penanggungJawab: "Tim HR",
   catatanHr: "",
+  templateName: "Template standar kontrak",
+  articleClauses: [],
   linkedModules: ["Data Karyawan", "Penggajian", "Surat & Pengumuman"],
 };
+
+const defaultTemplateLibrary = [
+  {
+    id: "default-standard",
+    templateName: "Template standar kontrak",
+    description: "Template dasar untuk kontrak kerja operasional umum.",
+    isDefault: true,
+    articleClauses: [
+      { id: "penempatan", title: "Pasal 1 - Penempatan", body: "{{namaLengkap}} ditempatkan sebagai {{jabatan}} pada {{namaCabang}} di {{namaUsaha}}." },
+      { id: "masa-kerja", title: "Pasal 2 - Masa Kerja", body: "Perjanjian ini berlaku sejak {{tanggalMulai}} sampai dengan {{tanggalBerakhir}} dengan jenis {{jenisKontrak}}." },
+      { id: "kompensasi", title: "Pasal 3 - Kompensasi", body: "Gaji pokok yang disepakati adalah {{gajiPokok}} dengan tunjangan utama {{tunjanganUtama}}." },
+      { id: "ketentuan", title: "Pasal 4 - Ketentuan Lanjutan", body: "Status tanda tangan saat ini {{statusTandaTangan}}, dan keputusan berikutnya diarahkan ke {{keputusanBerikutnya}}." },
+    ],
+  },
+];
 
 function formatDate(value) {
   if (!value || value === "-") return "-";
@@ -171,6 +190,8 @@ function mapDbRowToContract(item) {
     catatanHr: item.hr_note,
     reminder: item.reminder,
     perluPerhatian: item.needs_attention,
+    templateName: item.template_name,
+    articleClauses: ensureArticleIds(item.article_clauses || []),
     linkedModules: item.linked_modules || [],
   });
 }
@@ -201,6 +222,8 @@ function mapContractToPayload(item) {
     hr_note: item.catatanHr || "",
     reminder: item.reminder || "",
     needs_attention: Boolean(item.perluPerhatian),
+    template_name: item.templateName || "Template standar kontrak",
+    article_clauses: ensureArticleIds(item.articleClauses || []),
     linked_modules: item.linkedModules || [],
   };
 }
@@ -224,6 +247,7 @@ function createFormFromEmployee(employee, rows) {
     tanggalReview: endDate.toISOString().slice(0, 10),
   };
   next.nomorKontrak = buildContractNumber(next.employeeId, next.tanggalMulai, rows);
+  next.articleClauses = ensureArticleIds(defaultTemplateLibrary[0].articleClauses);
   return enrichContract(next);
 }
 
@@ -235,25 +259,45 @@ function createFormFromContract(item) {
   });
 }
 
+function ensureArticleIds(articles = []) {
+  return articles.map((article, index) => ({
+    id: article?.id || `article-${index + 1}`,
+    title: article?.title || `Pasal ${index + 1}`,
+    body: article?.body || "",
+  }));
+}
+
+function getTemplateVariables(item) {
+  return {
+    namaLengkap: item.namaLengkap || "Karyawan",
+    employeeId: item.employeeId || "-",
+    jabatan: item.jabatan || "jabatan terkait",
+    namaCabang: item.namaCabang || "unit kerja",
+    namaUsaha: item.namaUsaha || "perusahaan",
+    tanggalMulai: formatDate(item.tanggalMulai),
+    tanggalBerakhir: formatDate(item.tanggalBerakhir),
+    jenisKontrak: item.jenisKontrak || "-",
+    gajiPokok: item.gajiPokok || "-",
+    tunjanganUtama: item.tunjanganUtama || "-",
+    statusTandaTangan: item.statusTandaTangan || "-",
+    keputusanBerikutnya: item.keputusanBerikutnya || "-",
+  };
+}
+
+function renderTemplateText(text, item) {
+  const variables = getTemplateVariables(item);
+  return String(text || "").replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] ?? "-");
+}
+
 function buildContractArticles(item) {
-  return [
-    {
-      title: "Pasal 1 - Penempatan",
-      body: `${item.namaLengkap || "Karyawan"} ditempatkan sebagai ${item.jabatan || "jabatan terkait"} pada ${item.namaCabang || "unit kerja"} di ${item.namaUsaha || "perusahaan"}.`,
-    },
-    {
-      title: "Pasal 2 - Masa Kerja",
-      body: `Perjanjian ini berlaku sejak ${formatDate(item.tanggalMulai)} sampai dengan ${formatDate(item.tanggalBerakhir)} dengan jenis ${item.jenisKontrak || "-"}.`,
-    },
-    {
-      title: "Pasal 3 - Kompensasi",
-      body: `Gaji pokok yang disepakati adalah ${item.gajiPokok || "-"} dengan tunjangan utama ${item.tunjanganUtama || "-"}.`,
-    },
-    {
-      title: "Pasal 4 - Ketentuan Lanjutan",
-      body: `Status tanda tangan saat ini ${item.statusTandaTangan || "-"}, dan keputusan berikutnya diarahkan ke ${item.keputusanBerikutnya || "-"}.`,
-    },
-  ];
+  const sourceArticles = ensureArticleIds(item.articleClauses?.length ? item.articleClauses : defaultTemplateLibrary[0].articleClauses);
+  return sourceArticles.map((article) => ({
+    id: article.id,
+    title: renderTemplateText(article.title, item),
+    body: renderTemplateText(article.body, item),
+    rawTitle: article.title,
+    rawBody: article.body,
+  }));
 }
 
 function buildContractPreviewText(item) {
@@ -402,9 +446,12 @@ export default function ContractsPage() {
   const [editorMode, setEditorMode] = useState("create");
   const [previewContract, setPreviewContract] = useState(null);
   const [form, setForm] = useState(createFormFromEmployee(null, defaultRows));
+  const [contractTemplates, setContractTemplates] = useState(defaultTemplateLibrary);
+  const [templateForm, setTemplateForm] = useState({ name: "", description: "" });
   const [feedback, setFeedback] = useState(null);
   const [saving, setSaving] = useState(false);
   const [contractsTableReady, setContractsTableReady] = useState(false);
+  const [templatesTableReady, setTemplatesTableReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -445,8 +492,33 @@ export default function ContractsPage() {
       }
     };
 
+    const loadTemplates = async () => {
+      try {
+        const rows = await getHrContractTemplates();
+        if (!mounted) return;
+        setTemplatesTableReady(true);
+        setContractTemplates(
+          rows.length
+            ? rows.map((item) => ({
+                id: item.id,
+                templateName: item.template_name,
+                description: item.description,
+                articleClauses: ensureArticleIds(item.article_clauses || []),
+                isDefault: item.is_default,
+              }))
+            : defaultTemplateLibrary,
+        );
+      } catch (error) {
+        console.warn("Load template kontrak fallback:", error);
+        if (!mounted) return;
+        setTemplatesTableReady(false);
+        setContractTemplates(defaultTemplateLibrary);
+      }
+    };
+
     void loadEmployees();
     void loadContracts();
+    void loadTemplates();
 
     return () => {
       mounted = false;
@@ -549,15 +621,105 @@ export default function ContractsPage() {
     });
   };
 
+  const applyTemplateToForm = (templateId) => {
+    const selectedTemplate = contractTemplates.find((item) => String(item.id) === String(templateId) || item.id === templateId);
+    if (!selectedTemplate) return;
+    setForm((current) =>
+      enrichContract({
+        ...current,
+        templateName: selectedTemplate.templateName,
+        articleClauses: ensureArticleIds(selectedTemplate.articleClauses),
+      }),
+    );
+    setTemplateForm((current) => ({ ...current, name: selectedTemplate.templateName, description: selectedTemplate.description || "" }));
+  };
+
+  const updateArticleField = (articleId, key, value) => {
+    setForm((current) => ({
+      ...current,
+      articleClauses: ensureArticleIds(current.articleClauses).map((article) => (article.id === articleId ? { ...article, [key]: value } : article)),
+    }));
+  };
+
+  const addArticleClause = () => {
+    setForm((current) => ({
+      ...current,
+      articleClauses: [...ensureArticleIds(current.articleClauses), { id: `article-${Date.now()}`, title: `Pasal ${current.articleClauses.length + 1}`, body: "" }],
+    }));
+  };
+
+  const removeArticleClause = (articleId) => {
+    setForm((current) => ({
+      ...current,
+      articleClauses: ensureArticleIds(current.articleClauses).filter((article) => article.id !== articleId),
+    }));
+  };
+
+  const saveContractTemplate = async () => {
+    if (!templateForm.name.trim()) {
+      setFeedback({ type: "error", message: "Nama template wajib diisi sebelum template kontrak disimpan." });
+      return;
+    }
+
+    const payload = {
+      template_name: templateForm.name.trim(),
+      description: templateForm.description.trim(),
+      article_clauses: ensureArticleIds(form.articleClauses),
+      is_default: false,
+    };
+
+    try {
+      const existing = contractTemplates.find((item) => item.templateName.trim().toLowerCase() === templateForm.name.trim().toLowerCase() && typeof item.id === "number");
+      if (templatesTableReady) {
+        const saved = existing
+          ? await updateHrContractTemplate(Number(existing.id), payload)
+          : await createHrContractTemplate(payload);
+
+        if (saved) {
+          const next = {
+            id: saved.id,
+            templateName: saved.template_name,
+            description: saved.description,
+            articleClauses: ensureArticleIds(saved.article_clauses || []),
+            isDefault: saved.is_default,
+          };
+          setContractTemplates((current) => {
+            const filtered = current.filter((item) => String(item.id) !== String(next.id) && item.templateName !== next.templateName);
+            return [...filtered, next].sort((a, b) => a.templateName.localeCompare(b.templateName));
+          });
+        }
+      } else {
+        const next = {
+          id: `local-${Date.now()}`,
+          templateName: payload.template_name,
+          description: payload.description,
+          articleClauses: ensureArticleIds(payload.article_clauses),
+          isDefault: false,
+        };
+        setContractTemplates((current) => [...current.filter((item) => item.templateName !== next.templateName), next]);
+      }
+
+      setForm((current) => ({ ...current, templateName: templateForm.name.trim() }));
+      setFeedback({ type: "success", message: `Template kontrak "${templateForm.name.trim()}" berhasil disimpan.` });
+    } catch (error) {
+      console.error("Gagal simpan template kontrak:", error);
+      setFeedback({ type: "error", message: "Template kontrak belum berhasil disimpan. Cek Supabase atau coba lagi." });
+    }
+  };
+
   const openCreateModal = () => {
     setEditorMode("create");
-    setForm(createFormFromEmployee(employeeOptions[0] || null, rows));
+    const next = createFormFromEmployee(employeeOptions[0] || null, rows);
+    setForm(next);
+    setTemplateForm({ name: next.templateName || "Template standar kontrak", description: "" });
     setShowCreateModal(true);
   };
 
   const openEditModal = (item) => {
     setEditorMode("edit");
-    setForm(createFormFromContract(item));
+    const next = createFormFromContract(item);
+    setForm(next);
+    setTemplateForm({ name: next.templateName || "Template standar kontrak", description: "" });
     setShowCreateModal(true);
   };
 
@@ -902,6 +1064,11 @@ export default function ContractsPage() {
                 <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{selectedContract.catatanHr || "Belum ada catatan HR."}</div>
               </div>
 
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <div className="text-sm font-medium text-slate-700">Template pasal</div>
+                <div className="mt-3 text-sm leading-6 text-slate-600">{selectedContract.templateName || "Template standar kontrak"}</div>
+              </div>
+
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" className="rounded-xl" onClick={() => openEditModal(selectedContract)}>Ubah kontrak</Button>
                 <Button variant="outline" className="rounded-xl" onClick={() => setPreviewContract(selectedContract)}>Preview draft</Button>
@@ -1073,6 +1240,7 @@ export default function ContractsPage() {
                       <div className="rounded-xl border border-slate-200 p-3">Periode: {formatDate(form.tanggalMulai)} - {formatDate(form.tanggalBerakhir)}</div>
                       <div className="rounded-xl border border-slate-200 p-3">Reminder: {enrichContract(form).reminder}</div>
                       <div className="rounded-xl border border-slate-200 p-3">Keputusan berikutnya: {form.keputusanBerikutnya}</div>
+                      <div className="rounded-xl border border-slate-200 p-3">Template aktif: {form.templateName || "Template standar kontrak"}</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1087,6 +1255,66 @@ export default function ContractsPage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                <Card className="rounded-2xl border-slate-200 shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="text-lg font-semibold text-slate-900">Template pasal</div>
+                    <div className="mt-2 text-sm leading-6 text-slate-500">HR bisa memuat template yang sudah ada, lalu simpan ulang pasal yang sudah disesuaikan agar tidak perlu membuat dari nol setiap kali.</div>
+                    <div className="mt-4 space-y-3">
+                      {!templatesTableReady ? <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Template kontrak masih fallback lokal. Jalankan migration Supabase terbaru agar template bisa tersimpan permanen.</div> : null}
+                      <div>
+                        <div className="mb-2 text-sm font-medium text-slate-700">Pilih template</div>
+                        <select value={contractTemplates.find((item) => item.templateName === form.templateName)?.id ?? ""} onChange={(event) => applyTemplateToForm(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus-visible:ring-2 focus-visible:ring-slate-300">
+                          {contractTemplates.map((item) => <option key={String(item.id)} value={String(item.id)}>{item.templateName}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div className="mb-2 text-sm font-medium text-slate-700">Nama template</div>
+                        <Input value={templateForm.name} onChange={(event) => setTemplateForm((current) => ({ ...current, name: event.target.value }))} className="rounded-xl border-slate-200" placeholder="Contoh: Template PKWT Retail" />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-sm font-medium text-slate-700">Deskripsi template</div>
+                        <textarea value={templateForm.description} onChange={(event) => setTemplateForm((current) => ({ ...current, description: event.target.value }))} rows={3} className="min-h-[88px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300" placeholder="Contoh: Dipakai untuk kontrak staff operasional cabang retail." />
+                      </div>
+                      <Button variant="outline" className="w-full rounded-xl" onClick={() => void saveContractTemplate()}>Simpan template pasal ini</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 px-5 py-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold text-slate-900">Isi pasal kontrak</div>
+                  <div className="mt-1 text-sm text-slate-500">Pasal di bawah ini bisa diedit langsung sesuai kebutuhan perusahaan. Anda juga bisa memakai placeholder agar template tetap fleksibel.</div>
+                </div>
+                <Button variant="outline" className="rounded-xl" onClick={addArticleClause}>Tambah pasal</Button>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                {placeholderGuide.map((token) => <span key={token} className="rounded-full bg-slate-100 px-2.5 py-1">{token}</span>)}
+              </div>
+
+              <div className="mt-5 space-y-4">
+                {ensureArticleIds(form.articleClauses).map((article) => (
+                  <div key={article.id} className="rounded-2xl border border-slate-200 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-medium text-slate-700">Pasal editable</div>
+                      <Button variant="ghost" className="rounded-xl text-rose-700 hover:bg-rose-50 hover:text-rose-800" onClick={() => removeArticleClause(article.id)}>Hapus</Button>
+                    </div>
+                    <div className="mt-3 grid gap-3">
+                      <div>
+                        <div className="mb-2 text-sm font-medium text-slate-700">Judul pasal</div>
+                        <Input value={article.title} onChange={(event) => updateArticleField(article.id, "title", event.target.value)} className="rounded-xl border-slate-200" />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-sm font-medium text-slate-700">Isi pasal</div>
+                        <textarea value={article.body} onChange={(event) => updateArticleField(article.id, "body", event.target.value)} rows={4} className="min-h-[120px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
