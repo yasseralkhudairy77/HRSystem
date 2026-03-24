@@ -10,6 +10,7 @@
     "git:auto-commit": "powershell -ExecutionPolicy Bypass -File scripts/git-auto-commit.ps1",
     "git:auto-sync": "powershell -ExecutionPolicy Bypass -File scripts/git-auto-sync.ps1",
     "piper:api": "node server/piper-api.mjs",
+    "reconcile:hr-admin": "node scripts/reconcile-hr-admin-data.mjs",
     "seed:recruitment-dummy": "node scripts/seed-hr-recruitment-dummy.mjs",
     "seed:psychotest-dummy": "node scripts/seed-psychotest-dummy.mjs",
     "seed:interview-ai-dummy": "node scripts/seed-interview-ai-dummy.mjs"
