@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarPlus2, Download, FileSpreadsheet, Filter, Link2, Plus, Printer, RefreshCcw, Save, ShieldAlert, Upload } from "lucide-react";
+import { CalendarPlus2, Download, FileSpreadsheet, Filter, LineChart, Link2, Plus, Printer, RefreshCcw, Save, ShieldAlert, Upload } from "lucide-react";
 
 import EmptyState from "@/components/common/EmptyState";
 import PageHeader from "@/components/common/PageHeader";
