@@ -7,6 +7,18 @@ import ClientsPage from "@/pages/ClientsPage";
 import ContractsPage from "@/pages/ContractsPage";
 import DashboardPage from "@/pages/DashboardPage";
 import EmployeesPage from "@/pages/EmployeesPage";
+import EmployeeAttendanceActionPage from "@/pages/EmployeeAttendanceActionPage";
+import EmployeeAttendanceHistoryPage from "@/pages/EmployeeAttendanceHistoryPage";
+import EmployeeBreakPage from "@/pages/EmployeeBreakPage";
+import EmployeeFaceIdPage from "@/pages/EmployeeFaceIdPage";
+import EmployeeHomePage from "@/pages/EmployeeHomePage";
+import EmployeeOvertimePage from "@/pages/EmployeeOvertimePage";
+import EmployeeProfilePage from "@/pages/EmployeeProfilePage";
+import EmployeeRequestFormPage from "@/pages/EmployeeRequestFormPage";
+import EmployeeRequestsPage from "@/pages/EmployeeRequestsPage";
+import EmployeeSchedulePage from "@/pages/EmployeeSchedulePage";
+import EmployeeServicesPage from "@/pages/EmployeeServicesPage";
+import EmployeeShiftSwapPage from "@/pages/EmployeeShiftSwapPage";
 import HiringPlanPage from "@/pages/HiringPlanPage";
 import HrPresenceAbsenceReportPage from "@/pages/HrPresenceAbsenceReportPage";
 import HrPresenceAttendancePage from "@/pages/HrPresenceAttendancePage";
@@ -57,6 +69,18 @@ export const pageComponents = {
   employees: EmployeesPage,
   "organization-structure": OrganizationStructurePage,
   onboarding: OnboardingPage,
+  "employee-home": EmployeeHomePage,
+  "employee-schedule": EmployeeSchedulePage,
+  "employee-history": EmployeeAttendanceHistoryPage,
+  "employee-requests": EmployeeRequestsPage,
+  "employee-services": EmployeeServicesPage,
+  "employee-profile": EmployeeProfilePage,
+  "employee-attendance-action": EmployeeAttendanceActionPage,
+  "employee-break": EmployeeBreakPage,
+  "employee-request-form": EmployeeRequestFormPage,
+  "employee-face-id": EmployeeFaceIdPage,
+  "employee-overtime": EmployeeOvertimePage,
+  "employee-shift-swap": EmployeeShiftSwapPage,
   "hr-presensi-absensi-karyawan": HrPresenceAttendancePage,
   "hr-presensi-laporan-jadwal-kerja": HrPresenceScheduleReportPage,
   "hr-presensi-laporan-ketidakhadiran": HrPresenceAbsenceReportPage,

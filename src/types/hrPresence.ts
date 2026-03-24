@@ -34,6 +34,8 @@ export type AttendanceExceptionType =
   | "tidak_absen_pulang"
   | "anomali_perangkat";
 export type ApprovalStatus = "draft" | "menunggu" | "disetujui" | "ditolak";
+export type AttendanceRequestType = "izin" | "sakit" | "cuti" | "lembur" | "tukar_shift" | "koreksi_absensi";
+export type AttendanceRequestStatus = ApprovalStatus | "dibatalkan";
 
 export interface PresenceCompany {
   id: string;
@@ -221,6 +223,45 @@ export interface AttendanceException {
   status: ApprovalStatus;
   created_at: string;
   updated_at: string;
+}
+
+export interface AttendanceRequest {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  request_type: AttendanceRequestType;
+  title: string;
+  description: string;
+  request_date: string;
+  start_date: string;
+  end_date: string | null;
+  attendance_record_id?: string | null;
+  schedule_id?: string | null;
+  related_employee_id?: string | null;
+  attachment_url?: string | null;
+  status: AttendanceRequestStatus;
+  approved_by?: string | null;
+  approval_note?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeAnnouncement {
+  id: string;
+  company_id: string;
+  title: string;
+  summary: string;
+  published_at: string;
+  audience: string;
+  tone?: "info" | "warning" | "success";
+}
+
+export interface EmployeeFaceRegistration {
+  id: string;
+  employee_id: string;
+  status: "belum_terdaftar" | "aktif" | "perlu_perbarui";
+  registered_at: string | null;
+  verification_note: string;
 }
 
 export interface HrPresenceEntityRelation {
