@@ -5,3 +5,4 @@ export * from "./workforce";
 export * from "./platform";
 export * from "./payroll";
 export * from "./testPackages";
+export * from "./hrPresenceSeed";
