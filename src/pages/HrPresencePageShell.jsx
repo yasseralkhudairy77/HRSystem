@@ -439,7 +439,7 @@ export default function HrPresencePageShell({ pageKey }) {
 
   const summaryStatus = hrPresenceUiHelpers.attendanceSummary.byStatus;
   const settings = attendanceSettings[0];
-  const attendancePageSize = 10;
+  const attendancePageSize = 20;
   const filteredAttendanceRecords = useMemo(() => {
     return resolvedAttendanceRecords
       .filter((record) => {
