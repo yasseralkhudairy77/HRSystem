@@ -1,4 +1,5 @@
 import type {
+  AttendanceSettings,
   AttendanceRequest,
   AttendanceResolutionResult,
   AttendanceRequestStatus,
@@ -14,6 +15,113 @@ import type {
 
 function monthKeyFromDate(value: string) {
   return value.slice(0, 7);
+}
+
+function buildAttendanceSourceOptions(settings: AttendanceSettings) {
+  return [
+    settings.allow_fingerprint_attendance ? { key: "fingerprint", label: "Fingerprint", description: "Mesin siap dipakai untuk scan jari.", verification: "Biometrik device" } : null,
+    settings.allow_mobile_attendance ? { key: "mobile", label: "Mobile Device", description: "Presensi mobile dengan lokasi dan selfie.", verification: "GPS + selfie" } : null,
+    settings.allow_face_recognition ? { key: "face_recognition", label: "Face Recognition", description: "Verifikasi wajah untuk touchless attendance.", verification: "Face verification" } : null,
+    { key: "manual", label: "Manual / Admin", description: "Fallback jika device gagal atau perlu koreksi.", verification: "Approval admin" },
+  ].filter(Boolean);
+}
+
+function buildAttendanceWorkflow({
+  statusMain,
+  hasCheckedIn,
+  hasCheckedOut,
+  isOnBreak,
+  hasBreakSchedule,
+  hasBreakStarted,
+  hasBreakEnded,
+}: {
+  statusMain: AttendanceResolutionResult["status_main"];
+  hasCheckedIn: boolean;
+  hasCheckedOut: boolean;
+  isOnBreak: boolean;
+  hasBreakSchedule: boolean;
+  hasBreakStarted: boolean;
+  hasBreakEnded: boolean;
+}) {
+  const blockedStatuses = ["hari_libur", "off_schedule", "izin", "sakit", "cuti"];
+  const isBlocked = blockedStatuses.includes(statusMain);
+
+  const steps = [
+    {
+      key: "device_ready",
+      label: "Cek sumber presensi",
+      description: "Pastikan fingerprint, mobile, atau source lain siap dipakai.",
+      status: "completed",
+    },
+    {
+      key: "check_in",
+      label: "Initiate check-in",
+      description: "Masuk kerja dan tunggu verifikasi sukses.",
+      status: hasCheckedIn ? "completed" : isBlocked ? "blocked" : "current",
+    },
+  ];
+
+  if (hasBreakSchedule) {
+    steps.push({
+      key: "break_out",
+      label: "Break out",
+      description: "Catat mulai istirahat saat meninggalkan pekerjaan.",
+      status: hasBreakStarted ? "completed" : hasCheckedIn && !hasCheckedOut ? "current" : isBlocked ? "blocked" : "upcoming",
+    });
+    steps.push({
+      key: "break_return",
+      label: "Return from break",
+      description: "Masuk lagi setelah istirahat selesai.",
+      status: hasBreakEnded ? "completed" : isOnBreak ? "current" : hasBreakStarted ? "upcoming" : isBlocked ? "blocked" : "upcoming",
+    });
+  }
+
+  steps.push({
+    key: "check_out",
+    label: "Complete check-out",
+    description: "Tutup hari kerja saat semua aktivitas selesai.",
+    status: hasCheckedOut ? "completed" : hasCheckedIn && (!hasBreakSchedule || hasBreakEnded || !hasBreakStarted) ? "current" : isBlocked ? "blocked" : "upcoming",
+  });
+
+  let nextAction = "check_in";
+  let nextActionLabel = "Check-in";
+  let verificationMessage = "Menunggu scan atau verifikasi pertama.";
+
+  if (isBlocked) {
+    nextAction = "blocked";
+    nextActionLabel = "Tidak ada aksi";
+    verificationMessage = "Presensi hari ini tidak memerlukan alur scan aktif.";
+  } else if (!hasCheckedIn) {
+    nextAction = "check_in";
+    nextActionLabel = "Check-in";
+    verificationMessage = "Setelah scan berhasil, sistem menandai masuk kerja.";
+  } else if (hasBreakSchedule && !hasBreakStarted && !hasCheckedOut) {
+    nextAction = "break_out";
+    nextActionLabel = "Mulai istirahat";
+    verificationMessage = "Gunakan break out saat mulai jeda kerja.";
+  } else if (isOnBreak) {
+    nextAction = "break_return";
+    nextActionLabel = "Kembali dari istirahat";
+    verificationMessage = "Lakukan check-in lagi untuk kembali dari break.";
+  } else if (!hasCheckedOut) {
+    nextAction = "check_out";
+    nextActionLabel = "Check-out";
+    verificationMessage = "Akhiri hari kerja dengan scan keluar.";
+  } else {
+    nextAction = "completed";
+    nextActionLabel = "Selesai";
+    verificationMessage = "Semua tahapan presensi hari ini sudah lengkap.";
+  }
+
+  const failedScanGuidance = "Jika scan gagal, ulangi sekali lalu hubungi admin untuk fallback manual.";
+
+  return {
+    steps,
+    nextAction,
+    nextActionLabel,
+    verificationMessage,
+    failedScanGuidance,
+  };
 }
 
 export function formatEmployeeRequestTypeLabel(type: AttendanceRequestType) {
@@ -85,12 +193,14 @@ export function buildEmployeeTodayState({
   records,
   schedules,
   shifts,
+  settings,
 }: {
   employeeId: string;
   workDate: string;
   records: AttendanceResolutionResult[];
   schedules: EmployeeSchedule[];
   shifts: WorkShift[];
+  settings: AttendanceSettings;
 }) {
   const shiftMap = new Map(shifts.map((item) => [item.id, item]));
   const schedule = getEmployeeScheduleForDate(schedules, employeeId, workDate);
@@ -99,9 +209,21 @@ export function buildEmployeeTodayState({
   const hasCheckedIn = Boolean(attendance?.actual_checkin);
   const hasCheckedOut = Boolean(attendance?.actual_checkout);
   const isOnBreak = Boolean(attendance?.break_checkin && !attendance?.break_checkout);
+  const hasBreakStarted = Boolean(attendance?.break_checkin);
+  const hasBreakEnded = Boolean(attendance?.break_checkout);
 
   const statusMain = attendance?.status_main || (schedule ? "off_schedule" : "off_schedule");
   const stateLabel = attendance ? formatTodayStateLabel(attendance.status_main) : schedule ? "Belum Absen" : "Tidak Ada Jadwal";
+  const sourceOptions = buildAttendanceSourceOptions(settings);
+  const workflow = buildAttendanceWorkflow({
+    statusMain,
+    hasCheckedIn,
+    hasCheckedOut,
+    isOnBreak,
+    hasBreakSchedule: Boolean(shift?.has_break),
+    hasBreakStarted,
+    hasBreakEnded,
+  });
 
   return {
     schedule,
@@ -116,6 +238,15 @@ export function buildEmployeeTodayState({
     checkoutButtonDisabled: !hasCheckedIn || hasCheckedOut || ["hari_libur", "off_schedule", "izin", "sakit", "cuti"].includes(statusMain),
     breakStartDisabled: !hasCheckedIn || hasCheckedOut || isOnBreak || !shift?.has_break,
     breakEndDisabled: !isOnBreak,
+    sourceOptions,
+    preferredSource: sourceOptions[0] || null,
+    verificationMessage: workflow.verificationMessage,
+    failedScanGuidance: workflow.failedScanGuidance,
+    nextAction: workflow.nextAction,
+    nextActionLabel: workflow.nextActionLabel,
+    workflowSteps: workflow.steps,
+    hasBreakStarted,
+    hasBreakEnded,
   };
 }
 

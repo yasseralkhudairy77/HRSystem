@@ -144,8 +144,8 @@ export default function EmployeeSelfServicePageShell({ pageKey }) {
       <EmployeeHeaderCard employee={currentEmployee} branchName={branchName} departmentName={departmentName} />
       <TodayAttendanceCard nowLabel={nowLabel} dateLabel={dateLabel} todayState={employeeSelfServiceDemo.todayState} settings={employeeSelfServiceDemo.settings} />
       <div className="grid grid-cols-2 gap-3">
-        <AttendanceActionButton icon={Fingerprint} label="Absen Masuk" subtitle={employeeSelfServiceDemo.todayState.hasCheckedIn ? "Masuk sudah tercatat" : "Siap check-in dari mobile"} tone="primary" disabled={employeeSelfServiceDemo.todayState.checkinButtonDisabled} onClick={() => showFeedback("Check-in demo berhasil direkam.")} />
-        <AttendanceActionButton icon={Clock3} label="Absen Pulang" subtitle={employeeSelfServiceDemo.todayState.hasCheckedOut ? "Pulang sudah tercatat" : "Selesaikan shift hari ini"} disabled={employeeSelfServiceDemo.todayState.checkoutButtonDisabled} onClick={() => showFeedback("Check-out demo berhasil direkam.")} />
+        <AttendanceActionButton icon={Fingerprint} label="Absen Masuk" subtitle={employeeSelfServiceDemo.todayState.hasCheckedIn ? "Masuk sudah tercatat" : `Siap check-in via ${employeeSelfServiceDemo.todayState.preferredSource?.label || "device"}`} tone="primary" disabled={employeeSelfServiceDemo.todayState.checkinButtonDisabled} onClick={() => showFeedback("Check-in demo berhasil direkam.")} />
+        <AttendanceActionButton icon={Clock3} label="Absen Pulang" subtitle={employeeSelfServiceDemo.todayState.hasCheckedOut ? "Pulang sudah tercatat" : `Akhiri shift dengan ${employeeSelfServiceDemo.todayState.preferredSource?.label || "scan keluar"}`} disabled={employeeSelfServiceDemo.todayState.checkoutButtonDisabled} onClick={() => showFeedback("Check-out demo berhasil direkam.")} />
       </div>
       {employeeSelfServiceDemo.todayState.shift?.has_break ? (
         <div className="grid grid-cols-2 gap-3">
@@ -250,6 +250,18 @@ export default function EmployeeSelfServicePageShell({ pageKey }) {
     <>
       <TodayAttendanceCard nowLabel={nowLabel} dateLabel={dateLabel} todayState={employeeSelfServiceDemo.todayState} settings={employeeSelfServiceDemo.settings} />
       <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+        <SectionTitle title="Source input yang didukung" description="Semua source masuk ke workflow yang sama: verifikasi, pairing, break, return, lalu checkout akhir hari." />
+        <div className="mt-4 grid gap-3">
+          {employeeSelfServiceDemo.todayState.sourceOptions.map((source) => (
+            <div key={source.key} className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="text-sm font-semibold text-slate-900">{source.label}</div>
+              <div className="mt-1 text-xs text-slate-500">{source.description}</div>
+              <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{source.verification}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
         <SectionTitle title="Verifikasi presensi" description="Struktur selfie, GPS, dan Face ID disiapkan dari sekarang agar mudah disambung ke device nanti." />
         <div className="mt-4 grid gap-3">
           <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
@@ -264,8 +276,8 @@ export default function EmployeeSelfServicePageShell({ pageKey }) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <AttendanceActionButton icon={Fingerprint} label="Absen Masuk" subtitle={employeeSelfServiceDemo.todayState.hasCheckedIn ? "Sudah check-in" : "Rekam jam masuk sekarang"} tone="primary" disabled={employeeSelfServiceDemo.todayState.checkinButtonDisabled} onClick={() => showFeedback("Absen masuk tersimpan (demo).")} />
-        <AttendanceActionButton icon={Clock3} label="Absen Pulang" subtitle={employeeSelfServiceDemo.todayState.hasCheckedOut ? "Sudah check-out" : "Tutup shift hari ini"} disabled={employeeSelfServiceDemo.todayState.checkoutButtonDisabled} onClick={() => showFeedback("Absen pulang tersimpan (demo).")} />
+        <AttendanceActionButton icon={Fingerprint} label="Absen Masuk" subtitle={employeeSelfServiceDemo.todayState.hasCheckedIn ? "Sudah check-in" : `Rekam jam masuk via ${employeeSelfServiceDemo.todayState.preferredSource?.label || "source aktif"}`} tone="primary" disabled={employeeSelfServiceDemo.todayState.checkinButtonDisabled} onClick={() => showFeedback("Absen masuk tersimpan (demo).")} />
+        <AttendanceActionButton icon={Clock3} label="Absen Pulang" subtitle={employeeSelfServiceDemo.todayState.hasCheckedOut ? "Sudah check-out" : "Tutup shift setelah semua step selesai"} disabled={employeeSelfServiceDemo.todayState.checkoutButtonDisabled} onClick={() => showFeedback("Absen pulang tersimpan (demo).")} />
       </div>
     </>
   );

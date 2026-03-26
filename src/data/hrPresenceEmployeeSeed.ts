@@ -171,6 +171,7 @@ const todayState = buildEmployeeTodayState({
   records: resolvedAttendanceRecords,
   schedules: employeeSchedules,
   shifts: workShifts,
+  settings: attendanceSettings[0],
 });
 const monthSummary = buildEmployeeMonthSummary(resolvedAttendanceRecords, currentEmployeeId, activeMonthKey);
 const requestsBundle = buildEmployeeRequests({

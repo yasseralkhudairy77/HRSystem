@@ -31,11 +31,43 @@ function normalizeDirection(direction) {
   if (["in", "out", "break_in", "break_out", "unknown"].includes(normalized)) {
     return normalized;
   }
+  if (["check_in", "checkin", "login", "scan_in", "masuk"].includes(normalized)) return "in";
+  if (["check_out", "checkout", "exit", "scan_out", "pulang"].includes(normalized)) return "out";
+  if (["break_start", "breakout", "break_out", "istirahat_keluar"].includes(normalized)) return "break_in";
+  if (["break_end", "breakreturn", "break_return", "return_from_break", "istirahat_masuk"].includes(normalized)) return "break_out";
   if (normalized.includes("checkin") || normalized.includes("masuk")) return "in";
   if (normalized.includes("checkout") || normalized.includes("pulang")) return "out";
   if (normalized.includes("breakin")) return "break_in";
   if (normalized.includes("breakout")) return "break_out";
   return "unknown";
+}
+
+export function normalizeAttendanceAction(action) {
+  if (!action) return "check_in";
+  const normalized = String(action).toLowerCase();
+  if (["check_in", "checkin", "masuk", "login"].includes(normalized)) return "check_in";
+  if (["check_out", "checkout", "pulang", "exit"].includes(normalized)) return "check_out";
+  if (["break_out", "break_start", "mulai_istirahat"].includes(normalized)) return "break_out";
+  if (["break_return", "break_end", "return_from_break", "selesai_istirahat"].includes(normalized)) return "break_return";
+  return "check_in";
+}
+
+function actionToDirection(action) {
+  return {
+    check_in: "in",
+    break_out: "break_in",
+    break_return: "break_out",
+    check_out: "out",
+  }[normalizeAttendanceAction(action)] || "in";
+}
+
+function defaultVerificationBySource(sourceType) {
+  return {
+    fingerprint: "finger_scan",
+    mobile: "selfie_location",
+    manual: "admin_override",
+    face_recognition: "face_match",
+  }[sourceType] || "generic_verification";
 }
 
 function isWithinWindow(left, right, windowMinutes) {
@@ -520,6 +552,59 @@ export function submitManualAttendance(payload) {
     sync_status: "synced",
     process_status: "pending",
     process_note: payload.reason || "Input manual HR.",
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+}
+
+export function submitAttendanceEvent(payload) {
+  const sourceType = payload.source_type || "manual";
+  const action = normalizeAttendanceAction(payload.action || payload.direction);
+  const basePayload = {
+    ...payload,
+    direction: actionToDirection(action),
+    verification_type: payload.verification_type || defaultVerificationBySource(sourceType),
+    log_type: payload.log_type || action,
+  };
+
+  if (sourceType === "mobile") {
+    return submitMobileAttendance(basePayload);
+  }
+
+  if (sourceType === "manual") {
+    return submitManualAttendance(basePayload);
+  }
+
+  const timestamp = payload.log_datetime || new Date().toISOString();
+  const dateParts = buildDateParts(timestamp);
+
+  return {
+    id: payload.id || `raw-${sourceType}-${payload.employee_id || payload.external_employee_code || "unknown"}-${dateParts.log_date}-${dateParts.log_time.replace(":", "")}`,
+    company_id: payload.company_id,
+    source_type: sourceType,
+    device_id: payload.device_id || null,
+    device_name: payload.device_name || (sourceType === "fingerprint" ? "Fingerprint Device" : "Attendance Device"),
+    external_employee_code: payload.external_employee_code || payload.employee_id || null,
+    employee_id: payload.employee_id || null,
+    employee_name_raw: payload.employee_name || null,
+    log_datetime: timestamp,
+    log_date: dateParts.log_date,
+    log_time: dateParts.log_time,
+    log_type: basePayload.log_type,
+    verification_type: basePayload.verification_type,
+    direction: basePayload.direction,
+    latitude: payload.latitude ?? null,
+    longitude: payload.longitude ?? null,
+    selfie_url: payload.selfie_url || null,
+    location_label: payload.location_label || null,
+    mobile_device_id: payload.mobile_device_id || null,
+    app_version: payload.app_version || null,
+    validation_flags: payload.validation_flags || [],
+    raw_payload: payload.raw_payload || payload,
+    import_batch_id: payload.import_batch_id || null,
+    sync_status: payload.sync_status || "synced",
+    process_status: "pending",
+    process_note: payload.process_note || `Event ${action} dari ${sourceType} berhasil diterima.`,
     created_at: timestamp,
     updated_at: timestamp,
   };
