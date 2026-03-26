@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarPlus2, Download, FileSpreadsheet, Filter, LineChart, Link2, Plus, Printer, RefreshCcw, Save, SendHorizontal, ShieldAlert, ShieldPlus, Upload } from "lucide-react";
 
 import EmptyState from "@/components/common/EmptyState";
@@ -27,6 +27,7 @@ import PresenceFilterBar from "@/components/hrPresence/PresenceFilterBar";
 import PresenceModalForm from "@/components/hrPresence/PresenceModalForm";
 import PresenceSectionCard from "@/components/hrPresence/PresenceSectionCard";
 import PresenceSummaryCard from "@/components/hrPresence/PresenceSummaryCard";
+import PresenceStatusBadge from "@/components/hrPresence/PresenceStatusBadge";
 import RawLogDetailDrawer from "@/components/hrPresence/RawLogDetailDrawer";
 import RawLogTable from "@/components/hrPresence/RawLogTable";
 import ScheduleMatrix from "@/components/hrPresence/ScheduleMatrix";
@@ -35,6 +36,7 @@ import SourceBadge from "@/components/hrPresence/SourceBadge";
 import SyncStatusBadge from "@/components/hrPresence/SyncStatusBadge";
 import TeamAttendanceWidget from "@/components/hrPresence/TeamAttendanceWidget";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   attendancePenalties,
   attendanceConflicts,
@@ -63,6 +65,83 @@ import {
 } from "@/data";
 import { formatAttendanceStatusLabel } from "@/lib/hrPresence";
 import { exportAttendancePayrollRecap, lockAttendanceForPayroll, markAttendanceDataReadyForPayroll, unlockAttendanceForPayroll } from "@/services/attendanceMonitoringService";
+
+const attendanceStatusOrder = ["alpha", "tidak_absen_masuk", "tidak_absen_pulang", "pulang_cepat", "terlambat", "izin", "sakit", "cuti", "lembur", "hadir", "hari_libur", "off_schedule"];
+
+function createEmptyAttendanceSummary() {
+  return {
+    hadir: 0,
+    terlambat: 0,
+    alpha: 0,
+    izin: 0,
+    sakit: 0,
+    cuti: 0,
+    lembur: 0,
+    pulang_cepat: 0,
+    tidak_absen_masuk: 0,
+    tidak_absen_pulang: 0,
+    hari_libur: 0,
+    off_schedule: 0,
+  };
+}
+
+function summarizeResolvedAttendance(records) {
+  return records.reduce((summary, record) => {
+    summary[record.status_main] = (summary[record.status_main] || 0) + 1;
+    return summary;
+  }, createEmptyAttendanceSummary());
+}
+
+function getAttendanceStatusPriority(status) {
+  const index = attendanceStatusOrder.indexOf(status);
+  return index === -1 ? attendanceStatusOrder.length : index;
+}
+
+function compareValues(left, right, direction = "asc") {
+  const normalizedLeft = left ?? "";
+  const normalizedRight = right ?? "";
+
+  if (typeof normalizedLeft === "number" && typeof normalizedRight === "number") {
+    return direction === "asc" ? normalizedLeft - normalizedRight : normalizedRight - normalizedLeft;
+  }
+
+  const result = String(normalizedLeft).localeCompare(String(normalizedRight), "id", { numeric: true, sensitivity: "base" });
+  return direction === "asc" ? result : -result;
+}
+
+function buildAttendanceTrendPoints(records, limit = 7) {
+  const grouped = records.reduce((map, record) => {
+    if (!map.has(record.attendance_date)) {
+      map.set(record.attendance_date, { date: record.attendance_date, hadir: 0, terlambat: 0, alpha: 0, lembur: 0 });
+    }
+
+    const bucket = map.get(record.attendance_date);
+    if (["hadir", "pulang_cepat"].includes(record.status_main)) {
+      bucket.hadir += 1;
+    }
+    if (record.status_main === "terlambat") {
+      bucket.terlambat += 1;
+    }
+    if (["alpha", "tidak_absen_masuk", "tidak_absen_pulang"].includes(record.status_main)) {
+      bucket.alpha += 1;
+    }
+    if (record.overtime_minutes > 0 || record.status_main === "lembur") {
+      bucket.lembur += 1;
+    }
+
+    return map;
+  }, new Map());
+
+  return [...grouped.values()].sort((left, right) => left.date.localeCompare(right.date)).slice(-limit);
+}
+
+const attendanceDateRange = resolvedAttendanceRecords.reduce(
+  (range, record) => ({
+    from: !range.from || record.attendance_date < range.from ? record.attendance_date : range.from,
+    to: !range.to || record.attendance_date > range.to ? record.attendance_date : range.to,
+  }),
+  { from: "", to: "" },
+);
 
 const pageMeta = {
   "hr-presensi-absensi-karyawan": {
@@ -335,6 +414,18 @@ export default function HrPresencePageShell({ pageKey }) {
   const [selectedConflictId, setSelectedConflictId] = useState(null);
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [selectedPayrollSummaryId, setSelectedPayrollSummaryId] = useState(null);
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState(null);
+  const [attendanceSort, setAttendanceSort] = useState({ key: "tanggal", direction: "asc" });
+  const [attendancePage, setAttendancePage] = useState(1);
+  const [attendanceFilters, setAttendanceFilters] = useState(() => ({
+    dateFrom: attendanceDateRange.from,
+    dateTo: attendanceDateRange.to,
+    branchId: "",
+    departmentId: "",
+    employeeId: "",
+    status: "",
+    search: "",
+  }));
   const meta = pageMeta[pageKey];
 
   const branchMap = useMemo(() => new Map(presenceBranches.map((item) => [item.id, item.branch_name])), []);
@@ -346,31 +437,154 @@ export default function HrPresencePageShell({ pageKey }) {
   const selectedConflict = attendanceConflicts.find((item) => item.id === selectedConflictId) || null;
   const selectedPayrollSummary = attendancePayrollSummaries.find((item) => item.id === selectedPayrollSummaryId) || null;
 
+  const summaryStatus = hrPresenceUiHelpers.attendanceSummary.byStatus;
+  const settings = attendanceSettings[0];
+  const attendancePageSize = 10;
+  const filteredAttendanceRecords = useMemo(() => {
+    return resolvedAttendanceRecords
+      .filter((record) => {
+        const employee = employeeMap.get(record.employee_id);
+        const searchValue = attendanceFilters.search.trim().toLowerCase();
+
+        if (attendanceFilters.dateFrom && record.attendance_date < attendanceFilters.dateFrom) {
+          return false;
+        }
+        if (attendanceFilters.dateTo && record.attendance_date > attendanceFilters.dateTo) {
+          return false;
+        }
+        if (attendanceFilters.branchId && record.branch_id !== attendanceFilters.branchId) {
+          return false;
+        }
+        if (attendanceFilters.departmentId && record.department_id !== attendanceFilters.departmentId) {
+          return false;
+        }
+        if (attendanceFilters.employeeId && record.employee_id !== attendanceFilters.employeeId) {
+          return false;
+        }
+        if (attendanceFilters.status && record.status_main !== attendanceFilters.status) {
+          return false;
+        }
+        if (searchValue) {
+          const haystack = [employee?.employee_name, employee?.employee_id, employee?.job_title, branchMap.get(record.branch_id || ""), departmentMap.get(record.department_id || "")]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          if (!haystack.includes(searchValue)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+  }, [attendanceFilters, branchMap, departmentMap, employeeMap]);
+
+  const sortedAttendanceRecords = useMemo(() => {
+    const sortResolvers = {
+      tanggal: (record) => record.attendance_date,
+      nik: (record) => employeeMap.get(record.employee_id)?.employee_id || "",
+      nama: (record) => employeeMap.get(record.employee_id)?.employee_name || "",
+      departemen: (record) => departmentMap.get(record.department_id || "") || "",
+      shift: (record) => shiftMap.get(record.shift_id || "")?.shift_name || "",
+      jadwalMasuk: (record) => record.scheduled_checkin || "",
+      jadwalPulang: (record) => record.scheduled_checkout || "",
+      masukAktual: (record) => record.actual_checkin || "",
+      pulangAktual: (record) => record.actual_checkout || "",
+      status: (record) => formatAttendanceStatusLabel(record.status_main),
+      terlambat: (record) => record.late_minutes,
+      lembur: (record) => record.overtime_minutes,
+      sumber: (record) => record.source,
+      catatan: (record) => record.reason || record.note || "",
+    };
+
+    const resolver = sortResolvers[attendanceSort.key] || sortResolvers.tanggal;
+
+    return [...filteredAttendanceRecords].sort((left, right) => {
+      const primary = compareValues(resolver(left), resolver(right), attendanceSort.direction);
+      if (primary !== 0) {
+        return primary;
+      }
+
+      const priorityDiff = getAttendanceStatusPriority(left.status_main) - getAttendanceStatusPriority(right.status_main);
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+
+      return compareValues(employeeMap.get(left.employee_id)?.employee_name || "", employeeMap.get(right.employee_id)?.employee_name || "", "asc");
+    });
+  }, [attendanceSort, departmentMap, employeeMap, filteredAttendanceRecords, shiftMap]);
+
+  const attendanceTotalPages = Math.max(1, Math.ceil(sortedAttendanceRecords.length / attendancePageSize));
+  const paginatedAttendanceRecords = useMemo(() => {
+    const startIndex = (attendancePage - 1) * attendancePageSize;
+    return sortedAttendanceRecords.slice(startIndex, startIndex + attendancePageSize);
+  }, [attendancePage, sortedAttendanceRecords]);
+
+  useEffect(() => {
+    setAttendancePage(1);
+  }, [attendanceFilters, attendanceSort]);
+
+  useEffect(() => {
+    if (attendancePage > attendanceTotalPages) {
+      setAttendancePage(attendanceTotalPages);
+    }
+  }, [attendancePage, attendanceTotalPages]);
+
+  const attendanceSummary = useMemo(() => summarizeResolvedAttendance(sortedAttendanceRecords), [sortedAttendanceRecords]);
+  const attendanceTrend = useMemo(() => buildAttendanceTrendPoints(sortedAttendanceRecords, 7), [sortedAttendanceRecords]);
+  const attendanceIssueRecords = useMemo(
+    () => sortedAttendanceRecords.filter((record) => !["hadir", "hari_libur", "off_schedule"].includes(record.status_main)).slice(0, 8),
+    [sortedAttendanceRecords],
+  );
+  const attendanceSourceSummary = useMemo(
+    () =>
+      sortedAttendanceRecords.reduce(
+        (summary, record) => {
+          summary[record.source] = (summary[record.source] || 0) + 1;
+          return summary;
+        },
+        { fingerprint: 0, mobile: 0, manual: 0, face_recognition: 0, system: 0 },
+      ),
+    [sortedAttendanceRecords],
+  );
+  const selectedAttendanceRecord = useMemo(() => {
+    return sortedAttendanceRecords.find((item) => item.id === selectedAttendanceId) || sortedAttendanceRecords[0] || null;
+  }, [selectedAttendanceId, sortedAttendanceRecords]);
+
   if (!meta) {
     return null;
   }
 
-  const summaryStatus = hrPresenceUiHelpers.attendanceSummary.byStatus;
-  const settings = attendanceSettings[0];
-
-  const attendanceRows = resolvedAttendanceRecords.slice(0, 18).map((record) => {
+  const attendanceRows = paginatedAttendanceRecords.map((record) => {
     const employee = employeeMap.get(record.employee_id);
     const shift = record.shift_id ? shiftMap.get(record.shift_id) : null;
+    const isAttention = !["hadir", "hari_libur", "off_schedule"].includes(record.status_main);
+
     return {
       id: record.id,
-      tanggal: formatDate(record.attendance_date),
+      tanggal: (
+        <div>
+          <div className="font-semibold">{formatDate(record.attendance_date)}</div>
+          <div className="text-xs text-[var(--text-muted)]">{branchMap.get(record.branch_id || "") || "-"}</div>
+        </div>
+      ),
       nik: employee?.employee_id || "-",
       nama: <div><div className="font-semibold">{employee?.employee_name}</div><div className="text-xs text-[var(--text-muted)]">{employee?.job_title}</div></div>,
       departemen: departmentMap.get(record.department_id || "") || "-",
       shift: shift ? <ShiftColorBadge label={shift.shift_name} time={`${shift.checkin_time} - ${shift.checkout_time}`} color={shift.color_hex} crossDay={shift.cross_day} className="rounded-xl px-2.5 py-1.5" /> : "-",
-      jadwalMasuk: shift?.checkin_time || "-",
-      jadwalPulang: shift?.checkout_time || "-",
+      jadwalMasuk: formatTime(record.scheduled_checkin),
+      jadwalPulang: formatTime(record.scheduled_checkout),
       masukAktual: formatTime(record.actual_checkin),
       pulangAktual: formatTime(record.actual_checkout),
-      status: formatAttendanceStatusLabel(record.status),
-      terlambat: record.late_minutes ? `${record.late_minutes} mnt` : "-",
-      lembur: record.overtime_minutes ? `${record.overtime_minutes} mnt` : "-",
-      sumber: prettify(record.source),
+      status: formatAttendanceStatusLabel(record.status_main),
+      terlambat: record.late_minutes ? <LateMinutesBadge minutes={record.late_minutes} /> : "-",
+      lembur: record.overtime_minutes ? <OvertimeBadge minutes={record.overtime_minutes} /> : "-",
+      sumber: <SourceBadge value={record.source} />,
+      catatan: (
+        <div className={isAttention ? "text-amber-700" : "text-[var(--text-muted)]"}>
+          <div className="font-medium">{record.reason || "Tidak ada catatan tambahan."}</div>
+          {record.note ? <div className="mt-1 text-xs text-[var(--text-muted)]">{record.note}</div> : null}
+        </div>
+      ),
     };
   });
 
@@ -572,23 +786,217 @@ export default function HrPresencePageShell({ pageKey }) {
 
   const renderContent = () => {
     if (pageKey === "hr-presensi-absensi-karyawan") {
+      const detailEmployee = selectedAttendanceRecord ? employeeMap.get(selectedAttendanceRecord.employee_id) : null;
+      const detailShift = selectedAttendanceRecord?.shift_id ? shiftMap.get(selectedAttendanceRecord.shift_id) : null;
+      const activeFilterCount = Object.values(attendanceFilters).filter(Boolean).length;
+
       return (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
             {[
-              ["Hadir", summaryStatus.hadir, "emerald"],
-              ["Terlambat", summaryStatus.terlambat, "amber"],
-              ["Tidak Hadir", summaryStatus.alpha, "rose"],
-              ["Izin", summaryStatus.izin, "sky"],
-              ["Sakit", summaryStatus.sakit, "violet"],
-              ["Cuti", summaryStatus.cuti, "slate"],
+              ["Hadir", attendanceSummary.hadir, "emerald"],
+              ["Terlambat", attendanceSummary.terlambat, "amber"],
+              ["Tidak Hadir", attendanceSummary.alpha, "rose"],
+              ["Izin", attendanceSummary.izin, "sky"],
+              ["Sakit", attendanceSummary.sakit, "violet"],
+              ["Cuti", attendanceSummary.cuti, "slate"],
             ].map(([label, value, tone]) => <PresenceSummaryCard key={label} label={label} value={value} note="Ringkasan status periode aktif." tone={tone} />)}
           </div>
-          <PresenceFilterBar filters={meta.filters} rightActions={<ActionButton icon={Filter} label="Filter" onClick={() => setOpenModal(true)} />} />
-          <PresenceSectionCard title="Daftar absensi harian" description="Kolom-kolom dibuat lebih presisi agar admin cepat menemukan anomali tanpa terasa sesak.">
-            <PresenceDataTable dense stickyColumns={2} columns={[
-              { key: "tanggal", label: "Tanggal", width: 130 }, { key: "nik", label: "NIK", width: 130 }, { key: "nama", label: "Nama karyawan", width: 220 }, { key: "departemen", label: "Departemen", width: 180 }, { key: "shift", label: "Shift", width: 180 }, { key: "jadwalMasuk", label: "Jadwal masuk", width: 120 }, { key: "jadwalPulang", label: "Jadwal pulang", width: 120 }, { key: "masukAktual", label: "Masuk aktual", width: 120 }, { key: "pulangAktual", label: "Pulang aktual", width: 120 }, { key: "status", label: "Status", width: 130, type: "status" }, { key: "terlambat", label: "Terlambat", width: 110 }, { key: "lembur", label: "Lembur", width: 110 }, { key: "sumber", label: "Sumber", width: 150, type: "status" },
-            ]} rows={attendanceRows} />
+          <PresenceFilterBar
+            filters={[]}
+            onReset={() => {
+              setAttendanceFilters({
+                dateFrom: attendanceDateRange.from,
+                dateTo: attendanceDateRange.to,
+                branchId: "",
+                departmentId: "",
+                employeeId: "",
+                status: "",
+                search: "",
+              });
+              setSelectedAttendanceId(null);
+            }}
+            rightActions={<ActionButton icon={Filter} label={`${activeFilterCount} filter aktif`} onClick={() => setOpenModal(true)} />}
+          >
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <label className="rounded-2xl border border-[var(--border-soft)] bg-white p-3 shadow-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">Tanggal mulai</div>
+                <Input type="date" className="mt-2" value={attendanceFilters.dateFrom} onChange={(event) => setAttendanceFilters((current) => ({ ...current, dateFrom: event.target.value }))} />
+              </label>
+              <label className="rounded-2xl border border-[var(--border-soft)] bg-white p-3 shadow-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">Tanggal akhir</div>
+                <Input type="date" className="mt-2" value={attendanceFilters.dateTo} onChange={(event) => setAttendanceFilters((current) => ({ ...current, dateTo: event.target.value }))} />
+              </label>
+              <label className="rounded-2xl border border-[var(--border-soft)] bg-white p-3 shadow-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">Cabang</div>
+                <select className="mt-2 flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm" value={attendanceFilters.branchId} onChange={(event) => setAttendanceFilters((current) => ({ ...current, branchId: event.target.value }))}>
+                  <option value="">Semua cabang</option>
+                  {presenceBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.branch_name}</option>)}
+                </select>
+              </label>
+              <label className="rounded-2xl border border-[var(--border-soft)] bg-white p-3 shadow-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">Departemen</div>
+                <select className="mt-2 flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm" value={attendanceFilters.departmentId} onChange={(event) => setAttendanceFilters((current) => ({ ...current, departmentId: event.target.value }))}>
+                  <option value="">Semua departemen</option>
+                  {presenceDepartments.map((department) => <option key={department.id} value={department.id}>{department.department_name}</option>)}
+                </select>
+              </label>
+              <label className="rounded-2xl border border-[var(--border-soft)] bg-white p-3 shadow-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">Karyawan</div>
+                <select className="mt-2 flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm" value={attendanceFilters.employeeId} onChange={(event) => setAttendanceFilters((current) => ({ ...current, employeeId: event.target.value }))}>
+                  <option value="">Semua karyawan</option>
+                  {presenceEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.employee_name}</option>)}
+                </select>
+              </label>
+              <label className="rounded-2xl border border-[var(--border-soft)] bg-white p-3 shadow-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">Status</div>
+                <select className="mt-2 flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm" value={attendanceFilters.status} onChange={(event) => setAttendanceFilters((current) => ({ ...current, status: event.target.value }))}>
+                  <option value="">Semua status</option>
+                  {attendanceStatusOrder.map((status) => <option key={status} value={status}>{formatAttendanceStatusLabel(status)}</option>)}
+                </select>
+              </label>
+              <label className="rounded-2xl border border-[var(--border-soft)] bg-white p-3 shadow-sm md:col-span-2">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">Cari cepat</div>
+                <Input className="mt-2" placeholder="Cari nama, NIK, jabatan, cabang, atau departemen" value={attendanceFilters.search} onChange={(event) => setAttendanceFilters((current) => ({ ...current, search: event.target.value }))} />
+              </label>
+            </div>
+          </PresenceFilterBar>
+          <div className="grid gap-4 xl:grid-cols-[1.8fr_1fr]">
+            <AttendanceTrendChart title="Tren absensi dari hasil filter aktif" points={attendanceTrend} />
+            <PresenceSectionCard title="Distribusi source presensi" description="Membantu HR mengecek apakah volume mobile, fingerprint, manual, atau system-generated masih sehat.">
+              <div className="space-y-3">
+                {Object.entries(attendanceSourceSummary).map(([source, total]) => (
+                  <div key={source} className="flex items-center justify-between rounded-2xl border border-[var(--border-soft)] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <SourceBadge value={source} />
+                      <span className="text-sm text-[var(--text-main)]">{source === "system" ? "Fallback sistem" : "Log terekam"}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-[var(--text-main)]">{total}</span>
+                  </div>
+                ))}
+              </div>
+            </PresenceSectionCard>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-[1.35fr_0.95fr]">
+            <PresenceSectionCard
+              title="Daftar absensi harian"
+              description="Klik header kolom untuk mengurutkan data. Pagination membatasi isi per halaman supaya admin lebih enak scanning."
+              action={[
+                <div key="summary" className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-0)] px-3 py-2 text-xs font-medium text-[var(--text-muted)]">
+                  Menampilkan {paginatedAttendanceRecords.length} dari {sortedAttendanceRecords.length} record
+                </div>,
+                <div key="pager" className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setAttendancePage((current) => Math.max(1, current - 1))} disabled={attendancePage === 1}>
+                    Sebelumnya
+                  </Button>
+                  <div className="rounded-xl border border-[var(--border-soft)] bg-white px-3 py-2 text-xs font-medium text-[var(--text-main)]">
+                    Halaman {attendancePage} / {attendanceTotalPages}
+                  </div>
+                  <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setAttendancePage((current) => Math.min(attendanceTotalPages, current + 1))} disabled={attendancePage === attendanceTotalPages}>
+                    Berikutnya
+                  </Button>
+                </div>,
+              ]}
+            >
+              <PresenceDataTable
+                dense
+                stickyColumns={3}
+                actionLabel="Pilih"
+                onRowAction={(row) => setSelectedAttendanceId(row.id)}
+                sortState={attendanceSort}
+                onSortChange={(key) =>
+                  setAttendanceSort((current) => ({
+                    key,
+                    direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+                  }))
+                }
+                columns={[
+                  { key: "tanggal", label: "Tanggal", width: 170, sortable: true },
+                  { key: "nik", label: "NIK", width: 130, sortable: true },
+                  { key: "nama", label: "Nama karyawan", width: 220, sortable: true },
+                  { key: "departemen", label: "Departemen", width: 180, sortable: true },
+                  { key: "shift", label: "Shift", width: 180, sortable: true },
+                  { key: "jadwalMasuk", label: "Jadwal masuk", width: 120, sortable: true },
+                  { key: "jadwalPulang", label: "Jadwal pulang", width: 120, sortable: true },
+                  { key: "masukAktual", label: "Masuk aktual", width: 120, sortable: true },
+                  { key: "pulangAktual", label: "Pulang aktual", width: 120, sortable: true },
+                  { key: "status", label: "Status", width: 140, type: "status", sortable: true },
+                  { key: "terlambat", label: "Terlambat", width: 130, sortable: true },
+                  { key: "lembur", label: "Lembur", width: 130, sortable: true },
+                  { key: "sumber", label: "Sumber", width: 150, sortable: true },
+                  { key: "catatan", label: "Catatan", width: 300, sortable: true },
+                ]}
+                rows={attendanceRows}
+                emptyState="Belum ada record absensi yang cocok dengan filter aktif."
+              />
+            </PresenceSectionCard>
+            <div className="space-y-4">
+              <PresenceSectionCard title="Record terpilih" description="Panel ini membantu HR membaca konteks record tanpa kehilangan posisi di tabel.">
+                {selectedAttendanceRecord ? (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-0)] p-4">
+                      <div className="text-lg font-semibold text-[var(--text-main)]">{detailEmployee?.employee_name || "-"}</div>
+                      <div className="mt-1 text-sm text-[var(--text-muted)]">{detailEmployee?.employee_id || "-"} | {detailEmployee?.job_title || "-"}</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <PresenceStatusBadge value={formatAttendanceStatusLabel(selectedAttendanceRecord.status_main)} />
+                        <SourceBadge value={selectedAttendanceRecord.source} />
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <SettingTile label="Tanggal kerja" value={formatDate(selectedAttendanceRecord.attendance_date)} />
+                      <SettingTile label="Cabang" value={branchMap.get(selectedAttendanceRecord.branch_id || "") || "-"} />
+                      <SettingTile label="Departemen" value={departmentMap.get(selectedAttendanceRecord.department_id || "") || "-"} />
+                      <SettingTile label="Shift" value={detailShift ? `${detailShift.shift_name} (${detailShift.checkin_time} - ${detailShift.checkout_time})` : "-"} />
+                      <SettingTile label="Jadwal" value={`${formatTime(selectedAttendanceRecord.scheduled_checkin)} - ${formatTime(selectedAttendanceRecord.scheduled_checkout)}`} />
+                      <SettingTile label="Aktual" value={`${formatTime(selectedAttendanceRecord.actual_checkin)} - ${formatTime(selectedAttendanceRecord.actual_checkout)}`} />
+                      <SettingTile label="Terlambat" value={selectedAttendanceRecord.late_minutes ? `${selectedAttendanceRecord.late_minutes} menit` : "Tidak"} />
+                      <SettingTile label="Lembur" value={selectedAttendanceRecord.overtime_minutes ? `${selectedAttendanceRecord.overtime_minutes} menit` : "Tidak"} />
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border-soft)] bg-white p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">Alasan / catatan record</div>
+                      <div className="mt-2 text-sm leading-6 text-[var(--text-main)]">{selectedAttendanceRecord.reason || "Tidak ada alasan spesifik pada record ini."}</div>
+                      {selectedAttendanceRecord.note ? <div className="mt-2 text-sm text-[var(--text-muted)]">{selectedAttendanceRecord.note}</div> : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-[var(--text-muted)]">Belum ada record yang bisa ditampilkan.</div>
+                )}
+              </PresenceSectionCard>
+              <PresenceSectionCard title="Perlu follow-up" description="Prioritas cepat untuk admin HR dari hasil filter aktif.">
+                <div className="space-y-3">
+                  {attendanceIssueRecords.length ? attendanceIssueRecords.map((record) => {
+                    const employee = employeeMap.get(record.employee_id);
+                    return (
+                      <button
+                        key={record.id}
+                        type="button"
+                        onClick={() => setSelectedAttendanceId(record.id)}
+                        className="w-full rounded-2xl border border-[var(--border-soft)] px-4 py-3 text-left transition hover:border-[var(--brand-400)] hover:bg-[var(--surface-0)]"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-[var(--text-main)]">{employee?.employee_name || "-"}</div>
+                            <div className="mt-1 text-xs text-[var(--text-muted)]">{formatDate(record.attendance_date)} | {branchMap.get(record.branch_id || "") || "-"}</div>
+                          </div>
+                          <PresenceStatusBadge value={formatAttendanceStatusLabel(record.status_main)} />
+                        </div>
+                        <div className="mt-2 text-sm text-[var(--text-muted)]">{record.reason || "Perlu pengecekan detail record."}</div>
+                      </button>
+                    );
+                  }) : <div className="text-sm text-[var(--text-muted)]">Tidak ada issue aktif pada hasil filter ini.</div>}
+                </div>
+              </PresenceSectionCard>
+            </div>
+          </div>
+          <PresenceSectionCard
+            title="Kesimpulan filter aktif"
+            description="Ringkasan ini membantu HR membaca volume record yang sedang ditampilkan tanpa perlu menghitung manual."
+            contentClassName="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+          >
+            <SettingTile label="Total record" value={`${filteredAttendanceRecords.length} record`} note="Semua baris yang lolos filter saat ini." />
+            <SettingTile label="Butuh perhatian" value={`${attendanceIssueRecords.length} record`} note="Status selain hadir, hari libur, dan off schedule." />
+            <SettingTile label="Masih belum check-out" value={`${filteredAttendanceRecords.filter((item) => item.actual_checkin && !item.actual_checkout).length} record`} note="Perlu dicek sebelum cutoff harian." />
+            <SettingTile label="Lembur terdeteksi" value={`${filteredAttendanceRecords.filter((item) => item.overtime_minutes > 0 || item.status_main === "lembur").length} record`} note="Kandidat approval atau payroll impact." />
           </PresenceSectionCard>
         </>
       );

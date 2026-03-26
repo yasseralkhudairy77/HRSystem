@@ -15,27 +15,34 @@ function PresenceFilterField({ icon: Icon = Search, label, value, wide = false }
   );
 }
 
-export default function PresenceFilterBar({ filters = [], rightActions, className }) {
+export default function PresenceFilterBar({ filters = [], rightActions, className, children, onReset, hideReset = false }) {
   return (
     <div className={cn("rounded-[28px] border border-[var(--border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,250,252,0.96))] p-4 shadow-sm lg:p-5", className)}>
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {filters.map((filter) => (
-            <PresenceFilterField
-              key={filter.label}
-              icon={filter.type === "date" ? CalendarRange : filter.type === "advanced" ? SlidersHorizontal : Search}
-              label={filter.label}
-              value={filter.placeholder}
-              wide={filter.wide}
-            />
-          ))}
+        <div className="flex-1 space-y-4">
+          {filters.length ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              {filters.map((filter) => (
+                <PresenceFilterField
+                  key={filter.label}
+                  icon={filter.type === "date" ? CalendarRange : filter.type === "advanced" ? SlidersHorizontal : Search}
+                  label={filter.label}
+                  value={filter.placeholder}
+                  wide={filter.wide}
+                />
+              ))}
+            </div>
+          ) : null}
+          {children ? <div>{children}</div> : null}
         </div>
 
         <div className="flex flex-wrap gap-2 xl:justify-end">
-          <Button variant="outline" className="rounded-xl">
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Reset
-          </Button>
+          {!hideReset ? (
+            <Button variant="outline" className="rounded-xl" onClick={onReset}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reset
+            </Button>
+          ) : null}
           {rightActions}
         </div>
       </div>
