@@ -3,6 +3,7 @@ import { AlertCircle, ArrowRight, CalendarClock, CheckCircle2, Settings2, Shield
 
 import EmptyState from "@/components/common/EmptyState";
 import HrPresensiDailyAttendanceWorkspace from "@/components/hrPresensi/HrPresensiDailyAttendanceWorkspace";
+import HrPresensiTimeOffWorkspace from "@/components/hrPresensi/HrPresensiTimeOffWorkspace";
 import PageHeader from "@/components/common/PageHeader";
 import HrPresensiSettingsWorkspace from "@/components/hrPresensi/HrPresensiSettingsWorkspace";
 import HrPresensiStatusStrip from "@/components/hrPresensi/HrPresensiStatusStrip";
@@ -380,7 +381,7 @@ export default function HrPresensiPageShell({ pageKey }) {
       {pageKey === "hr-presensi-dashboard" ? renderDashboard() : null}
       {pageKey === "hr-presensi-absensi-harian" ? <HrPresensiDailyAttendanceWorkspace /> : null}
       {pageKey === "hr-presensi-dinas-luar" ? renderPlaceholderShell("Dinas Luar", "Area ini menyiapkan shell untuk pengajuan, monitoring, dan validasi aktivitas di luar lokasi kantor.", hrPresensiPlaceholderRows["hr-presensi-dinas-luar"]) : null}
-      {pageKey === "hr-presensi-cuti-izin-sakit" ? renderPlaceholderShell("Cuti, Izin & Sakit", "Area ini menjadi fondasi policy global perusahaan untuk cuti, izin, sakit, dan koreksi kehadiran.", hrPresensiPlaceholderRows["hr-presensi-cuti-izin-sakit"]) : null}
+      {pageKey === "hr-presensi-cuti-izin-sakit" ? <HrPresensiTimeOffWorkspace access={access} /> : null}
       {pageKey === "hr-presensi-persetujuan" ? renderPlaceholderShell("Persetujuan", "Area ini disiapkan untuk approval presensi berbasis peran atasan dan HR, tanpa membangun engine approval penuh di fase ini.", hrPresensiPlaceholderRows["hr-presensi-persetujuan"]) : null}
       {pageKey === "hr-presensi-laporan" ? renderPlaceholderShell("Laporan", "Area ini menyiapkan struktur laporan operasional dan kesiapan data presensi sebelum diperdalam lebih lanjut.", hrPresensiPlaceholderRows["hr-presensi-laporan"]) : null}
       {pageKey === "hr-presensi-pengaturan" ? (
