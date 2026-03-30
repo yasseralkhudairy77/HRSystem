@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock3, Fingerprint, LogIn, LogOut, MapPin } from "lucide-react";
 
 import EmptyState from "@/components/common/EmptyState";
+import HrPresensiCorrectionWorkspace from "@/components/hrPresensi/HrPresensiCorrectionWorkspace";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useHrPresensiAccess } from "@/hooks/useHrPresensiAccess";
@@ -120,6 +121,7 @@ function getBrowserPosition() {
 
 export default function HrPresensiDailyAttendanceWorkspace() {
   const access = useHrPresensiAccess();
+  const [activeView, setActiveView] = useState("attendance");
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [todayContext, setTodayContext] = useState({ serverNow: "", row: null });
@@ -203,6 +205,31 @@ export default function HrPresensiDailyAttendanceWorkspace() {
 
   return (
     <div className="space-y-4">
+      <div className="overflow-x-auto rounded-[14px] border border-[var(--border-soft)] bg-white px-2 py-2 shadow-sm">
+        <div className="flex min-w-max gap-1.5">
+          {[
+            { key: "attendance", label: "Data Absensi" },
+            { key: "correction", label: "Koreksi Absensi" },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setActiveView(item.key)}
+              className={`rounded-[10px] border px-3.5 py-2 text-sm font-medium transition ${
+                activeView === item.key
+                  ? "border-[var(--brand-800)] bg-[var(--brand-800)] text-white"
+                  : "border-transparent text-[var(--text-muted)] hover:border-[var(--border-soft)] hover:bg-[var(--surface-0)] hover:text-[var(--text-main)]"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeView === "correction" ? <HrPresensiCorrectionWorkspace access={access} onAttendanceChanged={loadAttendance} /> : null}
+      {activeView !== "attendance" ? null : (
+        <>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="rounded-[14px] border-[rgba(191,204,220,0.78)] bg-white shadow-sm">
           <CardContent className="p-5">
@@ -392,6 +419,8 @@ export default function HrPresensiDailyAttendanceWorkspace() {
             </CardContent>
           </Card>
         </div>
+      )}
+        </>
       )}
     </div>
   );
