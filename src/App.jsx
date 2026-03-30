@@ -4,6 +4,7 @@ import AppErrorBoundary from "@/components/common/AppErrorBoundary";
 import AppSidebar from "@/components/layout/AppSidebar";
 import TopHero from "@/components/layout/TopHero";
 import { sidebarSections } from "@/data";
+import { hrPresensiInternalRouteItems } from "@/data/hrPresensi";
 import { pageComponents } from "@/pages/pageRegistry";
 
 function flattenNavigationItems(items) {
@@ -21,7 +22,7 @@ function normalizeRoute(route) {
 export default function App() {
   const [search, setSearch] = useState("");
 
-  const allNavigationItems = useMemo(() => flattenNavigationItems(sidebarSections.flatMap((section) => section.items)), []);
+  const allNavigationItems = useMemo(() => [...flattenNavigationItems(sidebarSections.flatMap((section) => section.items)), ...hrPresensiInternalRouteItems], []);
   const routeToMenu = useMemo(
     () =>
       allNavigationItems.reduce((accumulator, item) => {
