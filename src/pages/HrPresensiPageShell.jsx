@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { AlertCircle, ArrowRight, CalendarClock, CheckCircle2, Settings2, ShieldCheck, Users } from "lucide-react";
 
 import EmptyState from "@/components/common/EmptyState";
+import HrPresensiDailyAttendanceWorkspace from "@/components/hrPresensi/HrPresensiDailyAttendanceWorkspace";
 import PageHeader from "@/components/common/PageHeader";
 import HrPresensiSettingsWorkspace from "@/components/hrPresensi/HrPresensiSettingsWorkspace";
 import HrPresensiStatusStrip from "@/components/hrPresensi/HrPresensiStatusStrip";
@@ -377,7 +378,7 @@ export default function HrPresensiPageShell({ pageKey }) {
       <HrPresensiTabBar tabs={accessibleTabs} activeKey={pageKey} onSelect={navigateTo} />
 
       {pageKey === "hr-presensi-dashboard" ? renderDashboard() : null}
-      {pageKey === "hr-presensi-absensi-harian" ? renderPlaceholderShell("Absensi Harian", "Area ini nanti menjadi workspace operasional untuk memantau status hadir, telat, koreksi, dan anomali presensi harian.", hrPresensiPlaceholderRows["hr-presensi-absensi-harian"]) : null}
+      {pageKey === "hr-presensi-absensi-harian" ? <HrPresensiDailyAttendanceWorkspace /> : null}
       {pageKey === "hr-presensi-dinas-luar" ? renderPlaceholderShell("Dinas Luar", "Area ini menyiapkan shell untuk pengajuan, monitoring, dan validasi aktivitas di luar lokasi kantor.", hrPresensiPlaceholderRows["hr-presensi-dinas-luar"]) : null}
       {pageKey === "hr-presensi-cuti-izin-sakit" ? renderPlaceholderShell("Cuti, Izin & Sakit", "Area ini menjadi fondasi policy global perusahaan untuk cuti, izin, sakit, dan koreksi kehadiran.", hrPresensiPlaceholderRows["hr-presensi-cuti-izin-sakit"]) : null}
       {pageKey === "hr-presensi-persetujuan" ? renderPlaceholderShell("Persetujuan", "Area ini disiapkan untuk approval presensi berbasis peran atasan dan HR, tanpa membangun engine approval penuh di fase ini.", hrPresensiPlaceholderRows["hr-presensi-persetujuan"]) : null}
