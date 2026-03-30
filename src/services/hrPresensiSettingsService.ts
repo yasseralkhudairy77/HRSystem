@@ -23,6 +23,8 @@ export type HrLocationRecord = {
   address: string | null;
   timezone: string;
   attendance_radius_meters: number;
+  latitude: number | null;
+  longitude: number | null;
   is_active: boolean;
   effective_start_date: string;
   effective_end_date: string | null;
@@ -221,6 +223,27 @@ function validateEffectiveDates(startDate: string, endDate?: string | null) {
   }
 }
 
+function validateLocationCoordinates(latitude?: number | null, longitude?: number | null) {
+  const hasLatitude = latitude !== null && latitude !== undefined && Number.isFinite(Number(latitude));
+  const hasLongitude = longitude !== null && longitude !== undefined && Number.isFinite(Number(longitude));
+
+  if (!hasLatitude && !hasLongitude) {
+    throw new Error("Latitude dan longitude lokasi kantor wajib diisi.");
+  }
+
+  if (!hasLatitude || !hasLongitude) {
+    throw new Error("Latitude dan longitude lokasi kantor harus diisi lengkap.");
+  }
+
+  if (Number(latitude) < -90 || Number(latitude) > 90) {
+    throw new Error("Latitude lokasi kantor harus berada di antara -90 sampai 90.");
+  }
+
+  if (Number(longitude) < -180 || Number(longitude) > 180) {
+    throw new Error("Longitude lokasi kantor harus berada di antara -180 sampai 180.");
+  }
+}
+
 function validatePayrollCutoffDays(startDay: number, endDay: number) {
   if (startDay < 1 || startDay > 31 || endDay < 1 || endDay > 31) {
     throw new Error("Tanggal cutoff payroll harus berada di antara 1 sampai 31.");
@@ -270,6 +293,7 @@ export async function getHrLocations() {
 
 export async function createHrLocation(payload: Omit<HrLocationRecord, "id" | "created_at" | "updated_at">) {
   validateEffectiveDates(payload.effective_start_date, payload.effective_end_date);
+  validateLocationCoordinates(payload.latitude, payload.longitude);
   const { data, error } = await supabase.from(TABLES.locations).insert(payload).select("*").single();
   if (error) {
     console.error("Supabase gagal create lokasi kantor HR Presensi:", error);
@@ -292,6 +316,7 @@ export async function updateHrLocation(id: string, payload: Partial<Omit<HrLocat
   const { data: beforeData, error: beforeError } = await supabase.from(TABLES.locations).select("*").eq("id", id).single();
   if (beforeError) throw beforeError;
   validateEffectiveDates(payload.effective_start_date || beforeData.effective_start_date, payload.effective_end_date ?? beforeData.effective_end_date);
+  validateLocationCoordinates(payload.latitude ?? beforeData.latitude, payload.longitude ?? beforeData.longitude);
   const { data, error } = await supabase.from(TABLES.locations).update(payload).eq("id", id).select("*").single();
   if (error) throw error;
   await insertSettingChangeLog({

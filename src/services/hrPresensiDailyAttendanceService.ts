@@ -2,6 +2,21 @@ import { supabase } from "@/lib/supabase";
 import type { HrPresensiResolvedAccess } from "@/services/hrPresensiAccessService";
 
 export type HrPresensiDailyAttendanceStatus = "hadir" | "telat" | "belum_pulang";
+export type HrPresensiLocationStatus = "dalam_area" | "di_luar_area" | "akurasi_lemah";
+
+export type HrPresensiGeoPayload = {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+};
+
+export type HrPresensiLocationValidation = {
+  location_id: string;
+  location_name: string;
+  attendance_radius_meters: number;
+  distance_meters: number;
+  location_status: HrPresensiLocationStatus;
+};
 
 export type HrPresensiDailyAttendanceRow = {
   id: string;
@@ -18,6 +33,16 @@ export type HrPresensiDailyAttendanceRow = {
   attendance_source: string;
   server_checkin_at: string | null;
   server_checkout_at: string | null;
+  checkin_latitude: number | null;
+  checkin_longitude: number | null;
+  checkin_accuracy_meters: number | null;
+  checkin_distance_meters: number | null;
+  checkin_location_status: HrPresensiLocationStatus | null;
+  checkout_latitude: number | null;
+  checkout_longitude: number | null;
+  checkout_accuracy_meters: number | null;
+  checkout_distance_meters: number | null;
+  checkout_location_status: HrPresensiLocationStatus | null;
   note: string | null;
   created_at: string;
   updated_at: string;
@@ -44,6 +69,16 @@ type AttendanceRecordRow = {
   attendance_source: string;
   server_checkin_at: string | null;
   server_checkout_at: string | null;
+  checkin_latitude: number | null;
+  checkin_longitude: number | null;
+  checkin_accuracy_meters: number | null;
+  checkin_distance_meters: number | null;
+  checkin_location_status: HrPresensiLocationStatus | null;
+  checkout_latitude: number | null;
+  checkout_longitude: number | null;
+  checkout_accuracy_meters: number | null;
+  checkout_distance_meters: number | null;
+  checkout_location_status: HrPresensiLocationStatus | null;
   note: string | null;
   created_at: string;
   updated_at: string;
@@ -52,11 +87,20 @@ type AttendanceRecordRow = {
 function isMissingAttendanceInfra(error: unknown) {
   const code = typeof error === "object" && error !== null ? String((error as { code?: string }).code || "") : "";
   const message = typeof error === "object" && error !== null ? String((error as { message?: string }).message || "") : "";
-  return code === "42P01" || code === "42883" || message.includes("hr_attendance_daily_records") || message.includes("hr_presensi_clock_");
+  return (
+    code === "42P01" ||
+    code === "42883" ||
+    code === "42703" ||
+    message.includes("hr_attendance_daily_records") ||
+    message.includes("hr_presensi_clock_") ||
+    message.includes("hr_presensi_validate_location") ||
+    message.includes("checkin_latitude") ||
+    message.includes("latitude")
+  );
 }
 
 function createAttendanceInfraError() {
-  return new Error("Transaksi Absensi Harian belum tersedia di database. Jalankan migration Supabase fase 1.8 terlebih dulu.");
+  return new Error("Transaksi Absensi Harian dengan validasi lokasi belum tersedia di database. Jalankan migration Supabase fase 1.8.1 terlebih dulu.");
 }
 
 function assertAttendanceAccess(access: HrPresensiResolvedAccess) {
@@ -69,6 +113,16 @@ function assertEmployeeActionAccess(access: HrPresensiResolvedAccess) {
   assertAttendanceAccess(access);
   if (access.role !== "karyawan") {
     throw new Error("Check in dan check out live dasar di fase ini hanya dibuka untuk mode Karyawan.");
+  }
+}
+
+function validateGeoPayload(payload: HrPresensiGeoPayload) {
+  if (!Number.isFinite(payload.latitude) || !Number.isFinite(payload.longitude)) {
+    throw new Error("Latitude dan longitude transaksi tidak valid.");
+  }
+
+  if (!Number.isFinite(payload.accuracy) || payload.accuracy <= 0) {
+    throw new Error("Akurasi GPS belum valid untuk transaksi absensi.");
   }
 }
 
@@ -178,12 +232,41 @@ export async function getHrPresensiTodayAttendance(access: HrPresensiResolvedAcc
   return { serverNow, row };
 }
 
-export async function clockInHrPresensi(access: HrPresensiResolvedAccess) {
+export async function validateHrPresensiLocation(access: HrPresensiResolvedAccess, payload: HrPresensiGeoPayload) {
   assertEmployeeActionAccess(access);
+  validateGeoPayload(payload);
+
+  const serverNow = await getHrPresensiServerNow();
+  const workDate = new Date(serverNow).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+
+  const { data, error } = await supabase.rpc("hr_presensi_validate_location", {
+    p_employee_id: access.employee.id,
+    p_work_date: workDate,
+    p_latitude: payload.latitude,
+    p_longitude: payload.longitude,
+    p_accuracy: payload.accuracy,
+  });
+
+  if (error) {
+    console.error("Supabase gagal memvalidasi lokasi absensi HR Presensi:", error);
+    if (isMissingAttendanceInfra(error)) throw createAttendanceInfraError();
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return row as HrPresensiLocationValidation;
+}
+
+export async function clockInHrPresensi(access: HrPresensiResolvedAccess, payload: HrPresensiGeoPayload) {
+  assertEmployeeActionAccess(access);
+  validateGeoPayload(payload);
 
   const { data, error } = await supabase.rpc("hr_presensi_clock_in", {
     p_employee_id: access.employee.id,
     p_source: "manual",
+    p_latitude: payload.latitude,
+    p_longitude: payload.longitude,
+    p_accuracy: payload.accuracy,
   });
 
   if (error) {
@@ -195,12 +278,16 @@ export async function clockInHrPresensi(access: HrPresensiResolvedAccess) {
   return data as AttendanceRecordRow;
 }
 
-export async function clockOutHrPresensi(access: HrPresensiResolvedAccess) {
+export async function clockOutHrPresensi(access: HrPresensiResolvedAccess, payload: HrPresensiGeoPayload) {
   assertEmployeeActionAccess(access);
+  validateGeoPayload(payload);
 
   const { data, error } = await supabase.rpc("hr_presensi_clock_out", {
     p_employee_id: access.employee.id,
     p_source: "manual",
+    p_latitude: payload.latitude,
+    p_longitude: payload.longitude,
+    p_accuracy: payload.accuracy,
   });
 
   if (error) {

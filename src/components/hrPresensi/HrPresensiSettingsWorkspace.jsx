@@ -58,6 +58,8 @@ const defaultLocationForm = {
   address: "",
   timezone: "Asia/Jakarta",
   attendance_radius_meters: 100,
+  latitude: "",
+  longitude: "",
   is_active: true,
   effective_start_date: "",
   effective_end_date: "",
@@ -213,7 +215,7 @@ function mapRecordList(rows, type, directory = {}) {
       title: item.name,
       subtitle: `${item.code} | ${item.timezone}`,
       isActive: item.is_active,
-      meta: formatEffectiveMeta(item.effective_start_date, item.effective_end_date),
+      meta: `Radius ${item.attendance_radius_meters} m | ${item.latitude ?? "-"}, ${item.longitude ?? "-"} | ${formatEffectiveMeta(item.effective_start_date, item.effective_end_date)}`,
     }));
   }
 
@@ -312,6 +314,8 @@ function buildLocationFields() {
     { key: "name", label: "Nama lokasi" },
     { key: "timezone", label: "Zona waktu" },
     { key: "attendance_radius_meters", label: "Radius kantor (meter)", type: "number" },
+    { key: "latitude", label: "Latitude kantor", type: "number", step: "0.0000001" },
+    { key: "longitude", label: "Longitude kantor", type: "number", step: "0.0000001" },
     { key: "description", label: "Deskripsi", type: "textarea", wide: true, rows: 3 },
     { key: "address", label: "Alamat", type: "textarea", wide: true, rows: 3 },
     { key: "effective_start_date", label: "Tanggal efektif mulai", type: "date" },
@@ -658,7 +662,13 @@ export default function HrPresensiSettingsWorkspace() {
     if (!selected) return;
 
     if (activeTab === "locations") {
-      setLocationForm({ ...defaultLocationForm, ...selected, effective_end_date: selected.effective_end_date || "" });
+      setLocationForm({
+        ...defaultLocationForm,
+        ...selected,
+        latitude: selected.latitude ?? "",
+        longitude: selected.longitude ?? "",
+        effective_end_date: selected.effective_end_date || "",
+      });
     } else if (activeTab === "shift-shift") {
       setShiftForm({
         ...defaultShiftForm,
@@ -751,8 +761,22 @@ export default function HrPresensiSettingsWorkspace() {
   }
 
   function validateCurrentForm() {
-    if (activeTab === "locations" && Number(locationForm.attendance_radius_meters) <= 0) {
-      throw new Error("Radius kantor harus lebih besar dari 0.");
+    if (activeTab === "locations") {
+      if (Number(locationForm.attendance_radius_meters) <= 0) {
+        throw new Error("Radius kantor harus lebih besar dari 0.");
+      }
+
+      if (locationForm.latitude === "" || locationForm.longitude === "") {
+        throw new Error("Latitude dan longitude lokasi kantor wajib diisi.");
+      }
+
+      if (Number(locationForm.latitude) < -90 || Number(locationForm.latitude) > 90) {
+        throw new Error("Latitude lokasi kantor harus berada di antara -90 sampai 90.");
+      }
+
+      if (Number(locationForm.longitude) < -180 || Number(locationForm.longitude) > 180) {
+        throw new Error("Longitude lokasi kantor harus berada di antara -180 sampai 180.");
+      }
     }
 
     if (activeTab === "shift-shift") {
@@ -809,6 +833,8 @@ export default function HrPresensiSettingsWorkspace() {
         const payload = {
           ...locationForm,
           attendance_radius_meters: Number(locationForm.attendance_radius_meters),
+          latitude: Number(locationForm.latitude),
+          longitude: Number(locationForm.longitude),
           effective_end_date: locationForm.effective_end_date || null,
         };
         const row = locationForm.id ? await updateHrLocation(locationForm.id, payload) : await createHrLocation(payload);
