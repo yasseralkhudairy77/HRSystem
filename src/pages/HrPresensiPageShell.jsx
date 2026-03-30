@@ -3,7 +3,7 @@ import { ArrowRight, CalendarClock, CheckCircle2, Settings2, ShieldCheck, Users 
 
 import EmptyState from "@/components/common/EmptyState";
 import PageHeader from "@/components/common/PageHeader";
-import HrPresensiMasterDataPanel from "@/components/hrPresensi/HrPresensiMasterDataPanel";
+import HrPresensiSettingsWorkspace from "@/components/hrPresensi/HrPresensiSettingsWorkspace";
 import HrPresensiStatusStrip from "@/components/hrPresensi/HrPresensiStatusStrip";
 import HrPresensiTabBar from "@/components/hrPresensi/HrPresensiTabBar";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   hrPresensiCoreAttendanceRules,
   hrPresensiInternalTabs,
-  hrPresensiMasterSections,
   hrPresensiOperationalList,
   hrPresensiPlaceholderRows,
   hrPresensiRightPanelHighlights,
@@ -73,8 +72,6 @@ export default function HrPresensiPageShell({ pageKey }) {
     if (typeof window === "undefined") return "hr";
     return window.localStorage.getItem(ROLE_STORAGE_KEY) || "hr";
   });
-  const [activeMasterSectionKey, setActiveMasterSectionKey] = useState(hrPresensiMasterSections[0]?.key || "locations");
-  const [selectedRecordId, setSelectedRecordId] = useState(hrPresensiMasterSections[0]?.records[0]?.id || "");
 
   const activeTab = hrPresensiInternalTabs.find((tab) => tab.key === pageKey) || hrPresensiInternalTabs[0];
   const accessibleTabs = useMemo(() => hrPresensiInternalTabs.filter((tab) => tab.roles.includes(role)), [role]);
@@ -93,11 +90,6 @@ export default function HrPresensiPageShell({ pageKey }) {
       }
     }
   }, [accessibleTabs, activeTab.roles, pageKey, role]);
-
-  useEffect(() => {
-    const section = hrPresensiMasterSections.find((item) => item.key === activeMasterSectionKey) || hrPresensiMasterSections[0];
-    setSelectedRecordId(section?.records[0]?.id || "");
-  }, [activeMasterSectionKey]);
 
   if (!activeTab.roles.includes(role)) {
     return null;
@@ -338,14 +330,7 @@ export default function HrPresensiPageShell({ pageKey }) {
               <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Perubahan sensitif wajib punya histori. Karena itu schema tetap menyiapkan log perubahan dan effective date walau transaksi penuh belum aktif.</div>
             </div>
           </div>
-
-          <HrPresensiMasterDataPanel
-            sections={hrPresensiMasterSections}
-            activeSectionKey={activeMasterSectionKey}
-            onSectionSelect={setActiveMasterSectionKey}
-            selectedRecordId={selectedRecordId}
-            onRecordSelect={setSelectedRecordId}
-          />
+          <HrPresensiSettingsWorkspace />
         </div>
       ) : null}
     </div>
