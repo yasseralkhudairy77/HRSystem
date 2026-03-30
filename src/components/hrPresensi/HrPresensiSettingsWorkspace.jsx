@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import HrPresensiChangeLogList from "@/components/hrPresensi/HrPresensiChangeLogList";
 import HrPresensiSettingsForm from "@/components/hrPresensi/HrPresensiSettingsForm";
 import HrPresensiSettingsList from "@/components/hrPresensi/HrPresensiSettingsList";
+import { useHrPresensiAccess } from "@/hooks/useHrPresensiAccess";
 import { getEmployeeList } from "@/services/employeeService";
 import {
+  assertHrPresensiSettingsAccess,
   archiveHrAttendanceMethod,
   archiveHrAttendanceMethodAssignment,
   archiveHrLeaveBalancePolicy,
@@ -485,6 +487,7 @@ function todayDate() {
 }
 
 export default function HrPresensiSettingsWorkspace() {
+  const access = useHrPresensiAccess();
   const [activeTab, setActiveTab] = useState("locations");
   const [rows, setRows] = useState({
     locations: [],
@@ -516,10 +519,15 @@ export default function HrPresensiSettingsWorkspace() {
   const [payrollPeriodForm, setPayrollPeriodForm] = useState(defaultPayrollPeriodForm);
 
   async function loadSettings() {
+    if (access.status === "loading") {
+      return;
+    }
+
     setIsLoading(true);
     setFeedback(null);
 
     try {
+      assertHrPresensiSettingsAccess(access);
       const [
         locations,
         shifts,
@@ -585,8 +593,10 @@ export default function HrPresensiSettingsWorkspace() {
   }
 
   useEffect(() => {
-    void loadSettings();
-  }, []);
+    if (access.status !== "loading") {
+      void loadSettings();
+    }
+  }, [access.status]);
 
   const directory = useMemo(
     () => ({
@@ -792,6 +802,7 @@ export default function HrPresensiSettingsWorkspace() {
     setFeedback(null);
 
     try {
+      assertHrPresensiSettingsAccess(access);
       validateCurrentForm();
 
       if (activeTab === "locations") {
@@ -916,6 +927,7 @@ export default function HrPresensiSettingsWorkspace() {
     setFeedback(null);
 
     try {
+      assertHrPresensiSettingsAccess(access);
       const endDate =
         activeTab === "locations"
           ? locationForm.effective_end_date || todayDate()

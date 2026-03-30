@@ -3,9 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import AppErrorBoundary from "@/components/common/AppErrorBoundary";
 import AppSidebar from "@/components/layout/AppSidebar";
 import TopHero from "@/components/layout/TopHero";
+import { AuthSessionProvider, useAuthSession } from "@/context/AuthSessionContext";
 import { sidebarSections } from "@/data";
 import { hrPresensiInternalRouteItems } from "@/data/hrPresensi";
 import { pageComponents } from "@/pages/pageRegistry";
+import { isHrPresensiMenuKey } from "@/services/hrPresensiAccessService";
 
 function flattenNavigationItems(items) {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavigationItems(item.children) : [])]);
@@ -19,8 +21,9 @@ function normalizeRoute(route) {
   return route.startsWith("/") ? route : `/${route}`;
 }
 
-export default function App() {
+function AppShell() {
   const [search, setSearch] = useState("");
+  const { hrPresensiAccess } = useAuthSession();
 
   const allNavigationItems = useMemo(() => [...flattenNavigationItems(sidebarSections.flatMap((section) => section.items)), ...hrPresensiInternalRouteItems], []);
   const routeToMenu = useMemo(
@@ -70,6 +73,9 @@ export default function App() {
     function handleNavigate(event) {
       const menu = event?.detail?.menu;
       if (typeof menu === "string" && pageComponents[menu]) {
+        if (isHrPresensiMenuKey(menu) && !hrPresensiAccess.canAccessModule) {
+          return;
+        }
         setActiveMenu(menu);
         const route = menuToRoute[menu];
 
@@ -81,7 +87,7 @@ export default function App() {
 
     window.addEventListener("app:navigate", handleNavigate);
     return () => window.removeEventListener("app:navigate", handleNavigate);
-  }, [menuToRoute]);
+  }, [hrPresensiAccess.canAccessModule, menuToRoute]);
 
   useEffect(() => {
     function handlePopState() {
@@ -96,6 +102,10 @@ export default function App() {
     () =>
       sidebarSections
         .map((section) => {
+          if (section.key === "hr-presensi" && !hrPresensiAccess.canAccessModule) {
+            return null;
+          }
+
           const items = section.items
             .map((item) => {
               if (item.enabled === false) {
@@ -153,13 +163,17 @@ export default function App() {
           return { ...section, items };
         })
         .filter(Boolean),
-    [search],
+    [hrPresensiAccess.canAccessModule, search],
   );
 
   const ActivePage = pageComponents[activeMenu] || pageComponents.dashboard;
   const activeItem = allNavigationItems.find((item) => item.key === activeMenu);
 
   const handleMenuSelect = (menuKey) => {
+    if (isHrPresensiMenuKey(menuKey) && !hrPresensiAccess.canAccessModule) {
+      return;
+    }
+
     setActiveMenu(menuKey);
 
     const route = menuToRoute[menuKey];
@@ -187,5 +201,13 @@ export default function App() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthSessionProvider>
+      <AppShell />
+    </AuthSessionProvider>
   );
 }

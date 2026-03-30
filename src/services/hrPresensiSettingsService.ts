@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+export { assertHrPresensiSettingsAccess } from "@/services/hrPresensiAccessService";
 
 const TABLES = {
   locations: "hr_attendance_locations",
