@@ -3,6 +3,7 @@ import { Clock3, Fingerprint, LogIn, LogOut, MapPin } from "lucide-react";
 
 import EmptyState from "@/components/common/EmptyState";
 import HrPresensiCorrectionWorkspace from "@/components/hrPresensi/HrPresensiCorrectionWorkspace";
+import HrPresensiOvertimeWorkspace from "@/components/hrPresensi/HrPresensiOvertimeWorkspace";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useHrPresensiAccess } from "@/hooks/useHrPresensiAccess";
@@ -210,6 +211,7 @@ export default function HrPresensiDailyAttendanceWorkspace() {
           {[
             { key: "attendance", label: "Data Absensi" },
             { key: "correction", label: "Koreksi Absensi" },
+            { key: "overtime", label: "Lembur Dasar" },
           ].map((item) => (
             <button
               key={item.key}
@@ -228,6 +230,7 @@ export default function HrPresensiDailyAttendanceWorkspace() {
       </div>
 
       {activeView === "correction" ? <HrPresensiCorrectionWorkspace access={access} onAttendanceChanged={loadAttendance} /> : null}
+      {activeView === "overtime" ? <HrPresensiOvertimeWorkspace access={access} /> : null}
       {activeView !== "attendance" ? null : (
         <>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
