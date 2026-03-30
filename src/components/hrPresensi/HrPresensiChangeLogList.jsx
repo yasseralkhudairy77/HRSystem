@@ -12,9 +12,7 @@ export default function HrPresensiChangeLogList({ logs }) {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-[var(--text-main)]">{item.change_summary}</div>
-                  <div className="mt-1 text-[12px] leading-5 text-[var(--text-muted)]">
-                    Domain {item.domain_name} • aksi {item.action_type}
-                  </div>
+                  <div className="mt-1 text-[12px] leading-5 text-[var(--text-muted)]">Domain {item.domain_name} | aksi {item.action_type}</div>
                 </div>
                 <div className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-0)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-soft)]">
                   {new Date(item.created_at).toLocaleDateString("id-ID")}

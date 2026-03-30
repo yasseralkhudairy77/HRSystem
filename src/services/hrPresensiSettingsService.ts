@@ -7,6 +7,10 @@ const TABLES = {
   methods: "hr_attendance_methods",
   shiftAssignments: "hr_shift_assignments",
   methodAssignments: "hr_attendance_method_assignments",
+  leavePolicies: "hr_leave_balance_policies",
+  specialLeaveTypes: "hr_special_leave_types",
+  permissionTypes: "hr_permission_types",
+  payrollPeriodPolicies: "hr_payroll_period_policies",
   changeLogs: "hr_setting_change_logs",
 } as const;
 
@@ -119,6 +123,72 @@ export type HrSettingChangeLogRecord = {
   updated_at: string;
 };
 
+export type HrLeaveBalancePolicyRecord = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  annual_quota_days: number;
+  carry_forward_days: number;
+  reset_month: number;
+  reset_day: number;
+  is_prorated: boolean;
+  is_active: boolean;
+  effective_start_date: string;
+  effective_end_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HrSpecialLeaveTypeRecord = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  default_days: number;
+  requires_attachment: boolean;
+  deducts_leave_balance: boolean;
+  approval_flow_code: string | null;
+  is_active: boolean;
+  effective_start_date: string;
+  effective_end_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HrPermissionTypeRecord = {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  description: string | null;
+  requires_attachment: boolean;
+  requires_approval: boolean;
+  affects_payroll: boolean;
+  default_approval_rule_code: string | null;
+  is_active: boolean;
+  effective_start_date: string;
+  effective_end_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HrPayrollPeriodPolicyRecord = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  cutoff_start_day: number;
+  cutoff_end_day: number;
+  lock_days_before_payroll: number;
+  includes_approved_overtime: boolean;
+  is_active: boolean;
+  effective_start_date: string;
+  effective_end_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type MutationAuditInput = {
   domainName: string;
   recordId: string;
@@ -147,6 +217,12 @@ function validateEffectiveDates(startDate: string, endDate?: string | null) {
 
   if (endDate && endDate < startDate) {
     throw new Error("Tanggal efektif selesai tidak boleh lebih kecil dari tanggal efektif mulai.");
+  }
+}
+
+function validatePayrollCutoffDays(startDay: number, endDay: number) {
+  if (startDay < 1 || startDay > 31 || endDay < 1 || endDay > 31) {
+    throw new Error("Tanggal cutoff payroll harus berada di antara 1 sampai 31.");
   }
 }
 
@@ -578,4 +654,258 @@ export async function getHrPresensiChangeLogs(domainNames: string[]) {
     throw error;
   }
   return (data ?? []) as HrSettingChangeLogRecord[];
+}
+
+export async function getHrLeaveBalancePolicies() {
+  const { data, error } = await supabase.from(TABLES.leavePolicies).select("*").order("is_active", { ascending: false }).order("name", { ascending: true });
+  if (error) {
+    if (isMissingTable(error, TABLES.leavePolicies)) throw createMissingTableError(TABLES.leavePolicies, "kebijakan cuti HR Presensi");
+    throw error;
+  }
+  return (data ?? []) as HrLeaveBalancePolicyRecord[];
+}
+
+export async function createHrLeaveBalancePolicy(payload: Omit<HrLeaveBalancePolicyRecord, "id" | "created_at" | "updated_at">) {
+  validateEffectiveDates(payload.effective_start_date, payload.effective_end_date);
+  const { data, error } = await supabase.from(TABLES.leavePolicies).insert(payload).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "leave_balance_policies",
+    recordId: data.id,
+    actionType: "create",
+    summary: `Kebijakan cuti ${data.name} dibuat.`,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrLeaveBalancePolicyRecord;
+}
+
+export async function updateHrLeaveBalancePolicy(id: string, payload: Partial<Omit<HrLeaveBalancePolicyRecord, "id" | "created_at" | "updated_at">>) {
+  const { data: beforeData, error: beforeError } = await supabase.from(TABLES.leavePolicies).select("*").eq("id", id).single();
+  if (beforeError) throw beforeError;
+  validateEffectiveDates(payload.effective_start_date || beforeData.effective_start_date, payload.effective_end_date ?? beforeData.effective_end_date);
+  const { data, error } = await supabase.from(TABLES.leavePolicies).update(payload).eq("id", id).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "leave_balance_policies",
+    recordId: id,
+    actionType: "update",
+    summary: `Kebijakan cuti ${data.name} diperbarui.`,
+    beforePayload: beforeData,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrLeaveBalancePolicyRecord;
+}
+
+export async function archiveHrLeaveBalancePolicy(id: string, effectiveEndDate: string) {
+  const { data: beforeData, error: beforeError } = await supabase.from(TABLES.leavePolicies).select("*").eq("id", id).single();
+  if (beforeError) throw beforeError;
+  validateEffectiveDates(beforeData.effective_start_date, effectiveEndDate);
+  const { data, error } = await supabase.from(TABLES.leavePolicies).update({ is_active: false, effective_end_date: effectiveEndDate }).eq("id", id).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "leave_balance_policies",
+    recordId: id,
+    actionType: "archive",
+    summary: `Kebijakan cuti ${data.name} dinonaktifkan.`,
+    beforePayload: beforeData,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrLeaveBalancePolicyRecord;
+}
+
+export async function getHrSpecialLeaveTypes() {
+  const { data, error } = await supabase.from(TABLES.specialLeaveTypes).select("*").order("is_active", { ascending: false }).order("name", { ascending: true });
+  if (error) {
+    if (isMissingTable(error, TABLES.specialLeaveTypes)) throw createMissingTableError(TABLES.specialLeaveTypes, "jenis cuti khusus HR Presensi");
+    throw error;
+  }
+  return (data ?? []) as HrSpecialLeaveTypeRecord[];
+}
+
+export async function createHrSpecialLeaveType(payload: Omit<HrSpecialLeaveTypeRecord, "id" | "created_at" | "updated_at">) {
+  validateEffectiveDates(payload.effective_start_date, payload.effective_end_date);
+  const { data, error } = await supabase.from(TABLES.specialLeaveTypes).insert(payload).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "special_leave_types",
+    recordId: data.id,
+    actionType: "create",
+    summary: `Jenis cuti khusus ${data.name} dibuat.`,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrSpecialLeaveTypeRecord;
+}
+
+export async function updateHrSpecialLeaveType(id: string, payload: Partial<Omit<HrSpecialLeaveTypeRecord, "id" | "created_at" | "updated_at">>) {
+  const { data: beforeData, error: beforeError } = await supabase.from(TABLES.specialLeaveTypes).select("*").eq("id", id).single();
+  if (beforeError) throw beforeError;
+  validateEffectiveDates(payload.effective_start_date || beforeData.effective_start_date, payload.effective_end_date ?? beforeData.effective_end_date);
+  const { data, error } = await supabase.from(TABLES.specialLeaveTypes).update(payload).eq("id", id).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "special_leave_types",
+    recordId: id,
+    actionType: "update",
+    summary: `Jenis cuti khusus ${data.name} diperbarui.`,
+    beforePayload: beforeData,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrSpecialLeaveTypeRecord;
+}
+
+export async function archiveHrSpecialLeaveType(id: string, effectiveEndDate: string) {
+  const { data: beforeData, error: beforeError } = await supabase.from(TABLES.specialLeaveTypes).select("*").eq("id", id).single();
+  if (beforeError) throw beforeError;
+  validateEffectiveDates(beforeData.effective_start_date, effectiveEndDate);
+  const { data, error } = await supabase.from(TABLES.specialLeaveTypes).update({ is_active: false, effective_end_date: effectiveEndDate }).eq("id", id).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "special_leave_types",
+    recordId: id,
+    actionType: "archive",
+    summary: `Jenis cuti khusus ${data.name} dinonaktifkan.`,
+    beforePayload: beforeData,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrSpecialLeaveTypeRecord;
+}
+
+export async function getHrPermissionTypes() {
+  const { data, error } = await supabase.from(TABLES.permissionTypes).select("*").order("is_active", { ascending: false }).order("name", { ascending: true });
+  if (error) {
+    if (isMissingTable(error, TABLES.permissionTypes)) throw createMissingTableError(TABLES.permissionTypes, "jenis izin HR Presensi");
+    throw error;
+  }
+  return (data ?? []) as HrPermissionTypeRecord[];
+}
+
+export async function createHrPermissionType(payload: Omit<HrPermissionTypeRecord, "id" | "created_at" | "updated_at">) {
+  validateEffectiveDates(payload.effective_start_date, payload.effective_end_date);
+  const { data, error } = await supabase.from(TABLES.permissionTypes).insert(payload).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "permission_types",
+    recordId: data.id,
+    actionType: "create",
+    summary: `Jenis izin ${data.name} dibuat.`,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrPermissionTypeRecord;
+}
+
+export async function updateHrPermissionType(id: string, payload: Partial<Omit<HrPermissionTypeRecord, "id" | "created_at" | "updated_at">>) {
+  const { data: beforeData, error: beforeError } = await supabase.from(TABLES.permissionTypes).select("*").eq("id", id).single();
+  if (beforeError) throw beforeError;
+  validateEffectiveDates(payload.effective_start_date || beforeData.effective_start_date, payload.effective_end_date ?? beforeData.effective_end_date);
+  const { data, error } = await supabase.from(TABLES.permissionTypes).update(payload).eq("id", id).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "permission_types",
+    recordId: id,
+    actionType: "update",
+    summary: `Jenis izin ${data.name} diperbarui.`,
+    beforePayload: beforeData,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrPermissionTypeRecord;
+}
+
+export async function archiveHrPermissionType(id: string, effectiveEndDate: string) {
+  const { data: beforeData, error: beforeError } = await supabase.from(TABLES.permissionTypes).select("*").eq("id", id).single();
+  if (beforeError) throw beforeError;
+  validateEffectiveDates(beforeData.effective_start_date, effectiveEndDate);
+  const { data, error } = await supabase.from(TABLES.permissionTypes).update({ is_active: false, effective_end_date: effectiveEndDate }).eq("id", id).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "permission_types",
+    recordId: id,
+    actionType: "archive",
+    summary: `Jenis izin ${data.name} dinonaktifkan.`,
+    beforePayload: beforeData,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrPermissionTypeRecord;
+}
+
+export async function getHrPayrollPeriodPolicies() {
+  const { data, error } = await supabase.from(TABLES.payrollPeriodPolicies).select("*").order("is_active", { ascending: false }).order("name", { ascending: true });
+  if (error) {
+    if (isMissingTable(error, TABLES.payrollPeriodPolicies)) throw createMissingTableError(TABLES.payrollPeriodPolicies, "periode payroll HR Presensi");
+    throw error;
+  }
+  return (data ?? []) as HrPayrollPeriodPolicyRecord[];
+}
+
+export async function createHrPayrollPeriodPolicy(payload: Omit<HrPayrollPeriodPolicyRecord, "id" | "created_at" | "updated_at">) {
+  validateEffectiveDates(payload.effective_start_date, payload.effective_end_date);
+  validatePayrollCutoffDays(Number(payload.cutoff_start_day), Number(payload.cutoff_end_day));
+  const { data, error } = await supabase.from(TABLES.payrollPeriodPolicies).insert(payload).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "payroll_period_policies",
+    recordId: data.id,
+    actionType: "create",
+    summary: `Periode payroll ${data.name} dibuat.`,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrPayrollPeriodPolicyRecord;
+}
+
+export async function updateHrPayrollPeriodPolicy(id: string, payload: Partial<Omit<HrPayrollPeriodPolicyRecord, "id" | "created_at" | "updated_at">>) {
+  const { data: beforeData, error: beforeError } = await supabase.from(TABLES.payrollPeriodPolicies).select("*").eq("id", id).single();
+  if (beforeError) throw beforeError;
+  validateEffectiveDates(payload.effective_start_date || beforeData.effective_start_date, payload.effective_end_date ?? beforeData.effective_end_date);
+  validatePayrollCutoffDays(Number(payload.cutoff_start_day ?? beforeData.cutoff_start_day), Number(payload.cutoff_end_day ?? beforeData.cutoff_end_day));
+  const { data, error } = await supabase.from(TABLES.payrollPeriodPolicies).update(payload).eq("id", id).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "payroll_period_policies",
+    recordId: id,
+    actionType: "update",
+    summary: `Periode payroll ${data.name} diperbarui.`,
+    beforePayload: beforeData,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrPayrollPeriodPolicyRecord;
+}
+
+export async function archiveHrPayrollPeriodPolicy(id: string, effectiveEndDate: string) {
+  const { data: beforeData, error: beforeError } = await supabase.from(TABLES.payrollPeriodPolicies).select("*").eq("id", id).single();
+  if (beforeError) throw beforeError;
+  validateEffectiveDates(beforeData.effective_start_date, effectiveEndDate);
+  const { data, error } = await supabase.from(TABLES.payrollPeriodPolicies).update({ is_active: false, effective_end_date: effectiveEndDate }).eq("id", id).select("*").single();
+  if (error) throw error;
+  await insertSettingChangeLog({
+    domainName: "payroll_period_policies",
+    recordId: id,
+    actionType: "archive",
+    summary: `Periode payroll ${data.name} dinonaktifkan.`,
+    beforePayload: beforeData,
+    afterPayload: data,
+    effectiveStartDate: data.effective_start_date,
+    effectiveEndDate: data.effective_end_date,
+  });
+  return data as HrPayrollPeriodPolicyRecord;
 }
