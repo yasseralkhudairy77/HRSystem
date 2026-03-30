@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import type { HrPresensiRole, HrPresensiTabKey } from "@/types/hrPresensiModule";
 
 const ACCESS_ISSUE_STORAGE_KEY = "hr-presensi:access-issues";
+export const HR_PRESENSI_DEV_SESSION_EMAIL_STORAGE_KEY = "hr-presensi:dev-session-email";
 const HR_MATCHER_PATTERNS = [/^hr$/i, /human resources/i, /human capital/i, /people/i, /recruit/i];
 const ACTIVE_EMPLOYEE_STATUSES = ["aktif", "active", "probation", "kontrak", "tetap", "freelance", "part time"];
 
@@ -95,6 +96,12 @@ function logAccessIssue(input: { code: HrPresensiAccessIssueCode; email: string 
   window.localStorage.setItem(ACCESS_ISSUE_STORAGE_KEY, JSON.stringify(next));
 }
 
+function getLocalDevSessionEmail() {
+  if (typeof window === "undefined") return null;
+  if (!["localhost", "127.0.0.1"].includes(window.location.hostname)) return null;
+  return normalizeEmail(window.localStorage.getItem(HR_PRESENSI_DEV_SESSION_EMAIL_STORAGE_KEY));
+}
+
 function deriveRole(employee: EmployeeAccessRecord, directReports: EmployeeAccessRecord[]): HrPresensiRole {
   if (matchesHrPattern(employee.departemen) || matchesHrPattern(employee.jabatan)) {
     return "hr";
@@ -158,7 +165,9 @@ function mapSessionToEmployee(email: string, employees: EmployeeAccessRecord[]) 
 }
 
 export async function resolveHrPresensiAccess(session: Session | null): Promise<HrPresensiResolvedAccess> {
-  if (!session?.user) {
+  const devSessionEmail = !session?.user ? getLocalDevSessionEmail() : null;
+
+  if (!session?.user && !devSessionEmail) {
     return {
       ...initialHrPresensiAccessState,
       status: "signed_out",
@@ -169,7 +178,7 @@ export async function resolveHrPresensiAccess(session: Session | null): Promise<
     };
   }
 
-  const sessionEmail = normalizeEmail(session.user.email);
+  const sessionEmail = devSessionEmail || normalizeEmail(session?.user?.email);
   if (!sessionEmail) {
     const issueMessage = "Akun login belum memiliki email yang valid untuk dipetakan ke profil karyawan.";
     logAccessIssue({ code: "missing_email", email: null, message: issueMessage });
